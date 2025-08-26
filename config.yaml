@@ -1,0 +1,35 @@
+name: VServer SSH Stats
+version: "0.1.0"
+slug: vserver_ssh_stats
+description: Holt CPU, RAM, Disk, Net per SSH (ohne Agent) und veröffentlicht sie via MQTT.
+startup: services
+boot: auto
+ingress: false
+arch:
+  - amd64
+  - armv7
+  - aarch64
+options:
+  mqtt_host: homeassistant
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_pass: ""
+  interval_seconds: 30
+  servers:
+    - name: "vps1"
+      host: "203.0.113.10"
+      username: "root"
+      password: "deinpasswort"
+      # optional: port: 22
+schema:
+  mqtt_host: str
+  mqtt_port: int
+  mqtt_user: str
+  mqtt_pass: str
+  interval_seconds: int
+  servers:
+    - name: str
+      host: str
+      username: str
+      password: str
+      port: int?
