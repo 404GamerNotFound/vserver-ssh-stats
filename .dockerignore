@@ -1,0 +1,9 @@
+# (Optional) Allgemeines Ignorieren:
+*
+
+# ...aber diese Dateien/Ordner ausdrücklich einschließen:
+!Dockerfile
+!config.yaml
+!run.sh
+!app/
+!app/collector.py
