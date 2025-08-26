@@ -5,6 +5,6 @@ RUN apk add --no-cache python3 py3-pip jq \
  && pip3 install --no-cache-dir paramiko paho-mqtt
 
 COPY run.sh /run.sh
-COPY app /app
+COPY collector.py /app/collector.py
 RUN chmod a+x /run.sh
 CMD ["/run.sh"]
