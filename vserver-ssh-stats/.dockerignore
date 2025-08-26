@@ -6,4 +6,3 @@
 !config.yaml
 !run.sh
 !app/
-!app/collector.py
