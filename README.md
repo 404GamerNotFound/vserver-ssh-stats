@@ -26,8 +26,8 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 ---
 
 ## Installation
-1. Copy the add-on folder `vserver-ssh-stats` into your local Home Assistant add-on repository  
-   (e.g. `/addons/vserver-ssh-stats`).  
+1. Copy the add-on folder `vserver_ssh_stats` into your local Home Assistant add-on repository  
+   (e.g. `/addons/vserver_ssh_stats`).  
 
 2. In Home Assistant:  
    - Navigate to **Settings → Add-ons → Add-on Store**.  
