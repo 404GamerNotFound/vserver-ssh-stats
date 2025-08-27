@@ -20,7 +20,11 @@ _last_ts: Dict[str, float] = {}
 client = mqtt.Client()
 if MQTT_USER:
     client.username_pw_set(MQTT_USER, MQTT_PASS)
-client.connect(MQTT_HOST, MQTT_PORT, 60)
+rc = client.connect(MQTT_HOST, MQTT_PORT, 60)
+if rc == mqtt.MQTT_ERR_SUCCESS:
+    print(f"Connected to MQTT broker at {MQTT_HOST}:{MQTT_PORT}")
+else:
+    print(f"Failed to connect to MQTT broker: {mqtt.error_string(rc)}")
 client.loop_start()
 
 def publish_discovery(name: str, key: str, unit: str = None, device_class: str = None):
@@ -156,11 +160,16 @@ def main():
         for s in SERVERS:
             try:
                 payload = sample_server(s)
-                client.publish(f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False)
+                info = client.publish(f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False)
+                if info.rc == mqtt.MQTT_ERR_SUCCESS:
+                    print(f"Published stats for {s['name']}: {payload}")
+                else:
+                    print(f"Failed to publish stats for {s['name']}: {mqtt.error_string(info.rc)}")
             except Exception as e:
                 # bei Fehler zumindest Uptime/Temp leer publishen, damit Entity weiterlebt
                 err = {"cpu": 0, "mem": 0, "disk": 0, "uptime": 0, "temp": None, "net_in": 0, "net_out": 0}
                 client.publish(f"vserver_ssh/{s['name']}/state", json.dumps(err), retain=False)
+                print(f"Failed to collect stats for {s['name']}: {e}")
         # Intervall einhalten
         sleep_for = INTERVAL - (time.time() - start)
         if sleep_for > 0:
