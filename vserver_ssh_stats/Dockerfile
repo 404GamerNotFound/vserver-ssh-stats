@@ -7,4 +7,5 @@ RUN apk add --no-cache python3 py3-pip py3-setuptools python3-dev build-base \
 COPY run.sh /run.sh
 COPY app /app
 RUN chmod a+x /run.sh
+ENTRYPOINT ["/init"]
 CMD ["/run.sh"]
