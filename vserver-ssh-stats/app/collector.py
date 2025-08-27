@@ -102,8 +102,9 @@ fi
 rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev)
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
+if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
 printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "${temp:-null}" "$rx" "$tx"
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx"
 '''
 
 def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
