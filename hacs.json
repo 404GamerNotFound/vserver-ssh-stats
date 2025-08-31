@@ -1,0 +1,6 @@
+{
+  "name": "VServer SSH Stats",
+  "content_in_root": false,
+  "render_readme": true,
+  "domains": ["vserver_ssh_stats"]
+}

@@ -1,0 +1,11 @@
+{
+  "domain": "vserver_ssh_stats",
+  "name": "VServer SSH Stats",
+  "version": "0.1.9",
+  "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
+  "requirements": [],
+  "codeowners": [
+    "@404GamerNotFound"
+  ],
+  "integration_type": "service"
+}

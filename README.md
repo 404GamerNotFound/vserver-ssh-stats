@@ -35,21 +35,29 @@ The main collector (`app/collector.py`) also supports a lightweight mode without
 ---
 
 ## Installation
-1. Copy the add-on folder `vserver_ssh_stats` into your local Home Assistant add-on repository  
-   (e.g. `/addons/vserver_ssh_stats`).  
 
-2. In Home Assistant:  
-   - Navigate to **Settings → Add-ons → Add-on Store**.  
-   - Click the three-dot menu → **Repositories**.  
-   - Add your local add-on repository path or Git repository containing this add-on.  
+### Via HACS (Home Assistant Community Store)
+1. Ensure [HACS](https://hacs.xyz) is installed in Home Assistant.
+2. In HACS, add `https://github.com/404GamerNotFound/vserver-ssh-stats` as a custom repository (type: integration).
+3. Search for **VServer SSH Stats** and install the integration.
+4. Restart Home Assistant to load the new integration.
 
-3. The add-on **VServer SSH Stats** should now appear in the list. Click **Install**.  
+### Manual Add-on Installation
+1. Copy the add-on folder `vserver_ssh_stats` into your local Home Assistant add-on repository
+   (e.g. `/addons/vserver_ssh_stats`).
 
-4. Configure the add-on (see below).  
+2. In Home Assistant:
+   - Navigate to **Settings → Add-ons → Add-on Store**.
+   - Click the three-dot menu → **Repositories**.
+   - Add your local add-on repository path or Git repository containing this add-on.
 
-5. Start the add-on.  
+3. The add-on **VServer SSH Stats** should now appear in the list. Click **Install**.
 
-6. After a short while, new entities (sensors) will automatically appear in Home Assistant via MQTT Discovery.  
+4. Configure the add-on (see below).
+
+5. Start the add-on.
+
+6. After a short while, new entities (sensors) will automatically appear in Home Assistant via MQTT Discovery.
 
 ---
 
