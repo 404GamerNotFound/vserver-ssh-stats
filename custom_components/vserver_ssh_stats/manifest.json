@@ -1,6 +1,7 @@
 {
   "domain": "vserver_ssh_stats",
   "name": "VServer SSH Stats",
+  "brand": "raspberry_pi",
   "codeowners": [
     "@404GamerNotFound"
   ],
