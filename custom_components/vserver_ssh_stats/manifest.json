@@ -8,5 +8,6 @@
   "codeowners": [
     "@404GamerNotFound"
   ],
+  "iot_class": "cloud_polling",
   "integration_type": "service"
 }
