@@ -3,6 +3,7 @@
   "name": "VServer SSH Stats",
   "version": "0.1.9",
   "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
+  "issue_tracker": "https://github.com/404GamerNotFound/vserver-ssh-stats/issues",
   "requirements": [],
   "codeowners": [
     "@404GamerNotFound"
