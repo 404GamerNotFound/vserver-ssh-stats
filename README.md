@@ -29,6 +29,8 @@ If you want to gather stats without using MQTT, run `app/simple_collector.py`. T
 
 Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., via the Home Assistant REST API for each server so the values show up in the UI without MQTT.
 
+The main collector (`app/collector.py`) also supports a lightweight mode without MQTT: simply run it without the `MQTT_HOST` environment variable. In that case the collected statistics are logged to the console instead of being published to a broker.
+
 
 ---
 

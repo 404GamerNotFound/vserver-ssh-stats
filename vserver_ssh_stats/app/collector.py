@@ -1,12 +1,13 @@
 import os, json, time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 
 import paramiko
 import paho.mqtt.client as mqtt
 
-MQTT_HOST = os.getenv("MQTT_HOST", "homeassistant")
-MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+# MQTT configuration (optional)
+MQTT_HOST = os.getenv("MQTT_HOST")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883")) if MQTT_HOST else None
 MQTT_USER = os.getenv("MQTT_USER") or None
 MQTT_PASS = os.getenv("MQTT_PASS") or None
 INTERVAL = max(5, int(os.getenv("INTERVAL", "30")))
@@ -27,8 +28,12 @@ def _setup_logging() -> None:
     )
 
 
-def _setup_mqtt() -> mqtt.Client:
+def _setup_mqtt() -> Optional[mqtt.Client]:
     """Create and configure the MQTT client."""
+    if not MQTT_HOST:
+        logging.info("MQTT disabled; stats will be printed to log")
+        return None
+
     client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     if MQTT_USER:
         client.username_pw_set(MQTT_USER, MQTT_PASS)
@@ -36,21 +41,23 @@ def _setup_mqtt() -> mqtt.Client:
         rc = client.connect(MQTT_HOST, MQTT_PORT, 60)
     except Exception as exc:  # pragma: no cover - connection best effort
         logging.error("MQTT connection failed: %s", exc)
-    else:
-        if rc == mqtt.MQTT_ERR_SUCCESS:
-            logging.info("Connected to MQTT broker at %s:%s", MQTT_HOST, MQTT_PORT)
-        else:
-            logging.error(
-                "Failed to connect to MQTT broker: %s", mqtt.error_string(rc)
-            )
-    client.loop_start()
-    return client
+        return None
+
+    if rc == mqtt.MQTT_ERR_SUCCESS:
+        logging.info("Connected to MQTT broker at %s:%s", MQTT_HOST, MQTT_PORT)
+        client.loop_start()
+        return client
+
+    logging.error("Failed to connect to MQTT broker: %s", mqtt.error_string(rc))
+    return None
 
 
 _setup_logging()
-client = _setup_mqtt()
+client: Optional[mqtt.Client] = _setup_mqtt()
 
 def publish_discovery(name: str, key: str, unit: str = None, device_class: str = None):
+    if not client:
+        return
     uid = f"{name}_{key}"
     topic = f"{DISCOVERY_PREFIX}/sensor/{uid}/config"
     payload = {
@@ -60,11 +67,15 @@ def publish_discovery(name: str, key: str, unit: str = None, device_class: str =
         "unique_id": uid,
         "device": {"identifiers": [f"vserver_ssh_{name}"], "name": name},
     }
-    if unit: payload["unit_of_measurement"] = unit
-    if device_class: payload["device_class"] = device_class
+    if unit:
+        payload["unit_of_measurement"] = unit
+    if device_class:
+        payload["device_class"] = device_class
     client.publish(topic, json.dumps(payload), retain=True)
 
 def ensure_discovery(name: str):
+    if not client:
+        return
     for key, unit, dc in [
         ("cpu", "%", None),
         ("mem", "%", None),
@@ -167,13 +178,15 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 def main():
+    global client
     # Discovery einmalig
     if not SERVERS:
         logging.warning("No servers configured; exiting")
         return
     logging.info("Configured servers: %s", [s["name"] for s in SERVERS])
-    for s in SERVERS:
-        ensure_discovery(s["name"])
+    if client:
+        for s in SERVERS:
+            ensure_discovery(s["name"])
 
     # initiale Netzbasis holen (damit ab dem 2. Tick Raten stimmen)
     for s in SERVERS:
@@ -184,22 +197,43 @@ def main():
 
     while True:
         start = time.time()
+        if client and not client.is_connected():
+            logging.warning("MQTT client disconnected; switching to log output")
+            client.loop_stop()
+            client = None
+
         for s in SERVERS:
             try:
                 payload = sample_server(s)
-                info = client.publish(f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False)
-                if info.rc == mqtt.MQTT_ERR_SUCCESS:
-                    logging.info("Published stats for %s: %s", s["name"], payload)
-                else:
-                    logging.error(
-                        "Failed to publish stats for %s: %s",
-                        s["name"],
-                        mqtt.error_string(info.rc),
+                if client:
+                    info = client.publish(
+                        f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False
                     )
+                    if info.rc == mqtt.MQTT_ERR_SUCCESS:
+                        logging.info("Published stats for %s: %s", s["name"], payload)
+                    else:
+                        logging.error(
+                            "Failed to publish stats for %s: %s",
+                            s["name"],
+                            mqtt.error_string(info.rc),
+                        )
+                else:
+                    logging.info("Stats for %s: %s", s["name"], payload)
             except Exception as e:
                 # bei Fehler zumindest Uptime/Temp leer publishen, damit Entity weiterlebt
-                err = {"cpu": 0, "mem": 0, "disk": 0, "uptime": 0, "temp": None, "net_in": 0, "net_out": 0}
-                client.publish(f"vserver_ssh/{s['name']}/state", json.dumps(err), retain=False)
+                err = {
+                    "cpu": 0,
+                    "mem": 0,
+                    "disk": 0,
+                    "uptime": 0,
+                    "temp": None,
+                    "net_in": 0,
+                    "net_out": 0,
+                }
+                if client:
+                    client.publish(
+                        f"vserver_ssh/{s['name']}/state", json.dumps(err), retain=False
+                    )
                 logging.warning("Failed to collect stats for %s: %s", s["name"], e)
         # Intervall einhalten
         sleep_for = INTERVAL - (time.time() - start)
