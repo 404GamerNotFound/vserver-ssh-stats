@@ -25,9 +25,9 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 
 ### Standalone Usage Without MQTT
 
-If you only want to gather stats from a single server without using MQTT, run `app/simple_collector.py`. The script prompts for the server's host, username, password and optional port, then prints a JSON line with CPU, memory, disk, network, uptime and temperature every 30 seconds.
+If you want to gather stats without using MQTT, run `app/simple_collector.py`. The script lets you enter one or more servers (press Enter on the host prompt to finish). For each server it asks for host, username, password and optional port, then prints a JSON line including the server name with CPU, memory, disk, network, uptime and temperature every 30 seconds.
 
-Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., directly via the Home Assistant REST API so the values show up in the UI without MQTT.
+Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., via the Home Assistant REST API for each server so the values show up in the UI without MQTT.
 
 
 ---

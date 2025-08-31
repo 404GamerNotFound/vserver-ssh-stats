@@ -92,13 +92,28 @@ def sample(host: str, username: str, password: str, port: int) -> Dict[str, Any]
     }
 
 def main():
-    host = input("Server host: ").strip()
-    username = input("Username: ").strip()
-    password = getpass.getpass("Password: ")
-    port_input = input("Port [22]: ").strip()
-    port = int(port_input) if port_input else 22
-    name_input = input(f"Server name [{host}]: ").strip()
-    name = name_input or host.replace('.', '_')
+    servers = []
+    while True:
+        host = input("Server host (leave blank to finish): ").strip()
+        if not host:
+            break
+        username = input("Username: ").strip()
+        password = getpass.getpass("Password: ")
+        port_input = input("Port [22]: ").strip()
+        port = int(port_input) if port_input else 22
+        name_input = input(f"Server name [{host}]: ").strip()
+        name = name_input or host.replace('.', '_')
+        servers.append({
+            "name": name,
+            "host": host,
+            "username": username,
+            "password": password,
+            "port": port,
+        })
+
+    if not servers:
+        print("No servers configured, exiting.")
+        return
     ha_url = input("Home Assistant URL (e.g. http://homeassistant.local:8123) [skip]: ").strip()
     ha_token = ""
     if ha_url:
@@ -107,13 +122,15 @@ def main():
     interval = max(5, int(interval_input)) if interval_input else INTERVAL_DEFAULT
 
     while True:
-        try:
-            stats = sample(host, username, password, port)
-            print(json.dumps(stats))
-            if ha_url and ha_token:
-                send_to_home_assistant(ha_url, ha_token, name, stats)
-        except Exception as e:
-            print(f"Error collecting stats: {e}")
+        for srv in servers:
+            try:
+                stats = sample(srv["host"], srv["username"], srv["password"], srv["port"])
+                output = {"name": srv["name"], **stats}
+                print(json.dumps(output))
+                if ha_url and ha_token:
+                    send_to_home_assistant(ha_url, ha_token, srv["name"], stats)
+            except Exception as e:
+                print(f"Error collecting stats for {srv['name']}: {e}")
         time.sleep(interval)
 
 def send_to_home_assistant(base_url: str, token: str, name: str, data: Dict[str, Any]):
