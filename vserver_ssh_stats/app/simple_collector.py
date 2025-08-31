@@ -114,7 +114,6 @@ def main():
     if not servers:
         print("No servers configured, exiting.")
         return
-
     ha_url = input("Home Assistant URL (e.g. http://homeassistant.local:8123) [skip]: ").strip()
     ha_token = ""
     if ha_url:
