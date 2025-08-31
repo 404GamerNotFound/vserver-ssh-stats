@@ -1,5 +1,5 @@
 name: VServer SSH Stats
-version: "0.1.9"
+version: "0.1.10"
 slug: vserver_ssh_stats
 description: Holt CPU, RAM, Disk, Net per SSH (ohne Agent) und veröffentlicht sie via MQTT.
 startup: services
