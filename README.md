@@ -20,8 +20,15 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
   - Network throughput (bytes/s, in and out)
   - Uptime (seconds)
   - Temperature (°C, if available)  
-- Automatic **MQTT Discovery** for easy integration with Home Assistant.  
-- Configurable update interval (default: 30 seconds).  
+- Automatic **MQTT Discovery** for easy integration with Home Assistant.
+- Configurable update interval (default: 30 seconds).
+
+### Standalone Usage Without MQTT
+
+If you want to gather stats without using MQTT, run `app/simple_collector.py`. The script lets you enter one or more servers (press Enter on the host prompt to finish). For each server it asks for host, username, password and optional port, then prints a JSON line including the server name with CPU, memory, disk, network, uptime and temperature every 30 seconds.
+
+Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., via the Home Assistant REST API for each server so the values show up in the UI without MQTT.
+
 
 ---
 
