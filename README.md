@@ -1,5 +1,7 @@
 # VServer SSH Stats – Home Assistant Add-on
 
+[Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
+
 ## Overview
 The **VServer SSH Stats** add-on for Home Assistant allows you to monitor remote Linux servers (vServers, Raspberry Pi, or dedicated machines) without installing any additional agents on the target machines.  
 
