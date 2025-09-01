@@ -27,6 +27,7 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
   - Paquets installés (nombre et liste)
 - **MQTT Discovery** automatique pour une intégration facile avec Home Assistant.
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
+- Interface web légère optionnelle pouvant être affichée dans la barre latérale de Home Assistant.
 
 ### Utilisation autonome sans MQTT
 

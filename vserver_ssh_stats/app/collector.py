@@ -55,15 +55,23 @@ def _setup_mqtt() -> Optional[mqtt.Client]:
 _setup_logging()
 client: Optional[mqtt.Client] = _setup_mqtt()
 
-def publish_discovery(name: str, key: str, unit: str = None, device_class: str = None):
+def publish_discovery(
+    name: str,
+    key: str,
+    unit: str = None,
+    device_class: str = None,
+    str_value: bool = False,
+) -> None:
+    """Publish the MQTT discovery config for a single sensor."""
     if not client:
         return
     uid = f"{name}_{key}"
     topic = f"{DISCOVERY_PREFIX}/sensor/{uid}/config"
+    default = "''" if str_value else 0
     payload = {
         "name": f"{name} {key}",
         "state_topic": f"vserver_ssh/{name}/state",
-        "value_template": f"{{{{ value_json.{key} | default(0) }}}}",
+        "value_template": f"{{{{ value_json.{key} | default({default}) }}}}",
         "unique_id": uid,
         "device": {"identifiers": [f"vserver_ssh_{name}"], "name": name},
     }
@@ -73,24 +81,25 @@ def publish_discovery(name: str, key: str, unit: str = None, device_class: str =
         payload["device_class"] = device_class
     client.publish(topic, json.dumps(payload), retain=True)
 
-def ensure_discovery(name: str):
+def ensure_discovery(name: str) -> None:
+    """Ensure MQTT discovery topics exist for all metrics."""
     if not client:
         return
-    for key, unit, dc in [
-        ("cpu", "%", None),
-        ("mem", "%", None),
-        ("disk", "%", None),
-        ("net_in", "B/s", None),
-        ("net_out", "B/s", None),
-        ("uptime", "s", "duration"),
-        ("temp", "°C", "temperature"),
-        ("ram", "MB", None),
-        ("cores", None, None),
-        ("os", None, None),
-        ("pkg_count", None, None),
-        ("pkg_list", None, None),
+    for key, unit, dc, str_value in [
+        ("cpu", "%", None, False),
+        ("mem", "%", None, False),
+        ("disk", "%", None, False),
+        ("net_in", "B/s", None, False),
+        ("net_out", "B/s", None, False),
+        ("uptime", "s", "duration", False),
+        ("temp", "°C", "temperature", False),
+        ("ram", "MB", None, False),
+        ("cores", None, None, False),
+        ("os", None, None, True),
+        ("pkg_count", None, None, False),
+        ("pkg_list", None, None, True),
     ]:
-        publish_discovery(name, key, unit, dc)
+        publish_discovery(name, key, unit, dc, str_value)
 
 # ---------- SSH ----------
 def run_ssh(

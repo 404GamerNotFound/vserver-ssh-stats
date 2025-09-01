@@ -27,6 +27,7 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
   - Installierte Pakete (Anzahl und Liste)
 - Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
+- Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann.
 
 ### Standalone-Nutzung ohne MQTT
 
