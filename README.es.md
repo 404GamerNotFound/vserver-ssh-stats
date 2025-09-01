@@ -17,10 +17,14 @@ Esto permite obtener información en tiempo real sobre CPU, memoria, disco, tiem
 - Recopila:
   - Uso de CPU (%)
   - Uso de memoria (%)
+  - RAM total (MB)
   - Uso de disco (% para `/`)
   - Rendimiento de red (bytes/s de entrada y salida)
   - Tiempo de actividad (segundos)
   - Temperatura (°C, si está disponible)
+  - Núcleos de CPU
+  - Versión del sistema operativo
+  - Paquetes instalados (cantidad y lista)
 - **MQTT Discovery** automática para una fácil integración con Home Assistant.
 - Intervalo de actualización configurable (por defecto: 30 segundos).
 
@@ -110,6 +114,11 @@ Para cada servidor estarán disponibles las siguientes entidades:
 - `sensor.<name>_net_out` – Tráfico de salida (bytes/s)
 - `sensor.<name>_uptime` – Tiempo de actividad (segundos)
 - `sensor.<name>_temp` – Temperatura (°C, si está disponible)
+- `sensor.<name>_ram` – RAM total (MB)
+- `sensor.<name>_cores` – Núcleos de CPU
+- `sensor.<name>_os` – Versión del sistema operativo
+- `sensor.<name>_pkg_count` – Cantidad de paquetes instalados
+- `sensor.<name>_pkg_list` – Paquetes instalados (primeros 10)
 
 ---
 

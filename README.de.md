@@ -17,10 +17,14 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
 - Sammelt:
   - CPU-Auslastung (%)
   - Speicherauslastung (%)
+  - Gesamter RAM (MB)
   - Festplattenauslastung (% für `/`)
   - Netzwerkdurchsatz (Bytes/s, ein- und ausgehend)
   - Laufzeit (Sekunden)
   - Temperatur (°C, falls verfügbar)
+  - CPU-Kerne
+  - Betriebssystem-Version
+  - Installierte Pakete (Anzahl und Liste)
 - Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 
@@ -110,6 +114,11 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_net_out` – Netzwerkausgang (Bytes/s)
 - `sensor.<name>_uptime` – Laufzeit (Sekunden)
 - `sensor.<name>_temp` – Temperatur (°C, falls verfügbar)
+- `sensor.<name>_ram` – Gesamt-RAM (MB)
+- `sensor.<name>_cores` – CPU-Kerne
+- `sensor.<name>_os` – Betriebssystem-Version
+- `sensor.<name>_pkg_count` – Anzahl installierter Pakete
+- `sensor.<name>_pkg_list` – Installierte Pakete (erste 10)
 
 ---
 

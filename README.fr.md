@@ -17,10 +17,14 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
 - Collecte :
   - Utilisation du CPU (%)
   - Utilisation de la mémoire (%)
+  - RAM totale (MB)
   - Utilisation du disque (% pour `/`)
   - Débit réseau (octets/s, entrant et sortant)
   - Temps de fonctionnement (secondes)
   - Température (°C, si disponible)
+  - Cœurs CPU
+  - Version du système d'exploitation
+  - Paquets installés (nombre et liste)
 - **MQTT Discovery** automatique pour une intégration facile avec Home Assistant.
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
 
@@ -110,6 +114,11 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 - `sensor.<name>_net_out` – Trafic sortant (octets/s)
 - `sensor.<name>_uptime` – Temps de fonctionnement (secondes)
 - `sensor.<name>_temp` – Température (°C, si disponible)
+- `sensor.<name>_ram` – RAM totale (MB)
+- `sensor.<name>_cores` – Cœurs CPU
+- `sensor.<name>_os` – Version du système d'exploitation
+- `sensor.<name>_pkg_count` – Nombre de paquets installés
+- `sensor.<name>_pkg_list` – Paquets installés (10 premiers)
 
 ---
 

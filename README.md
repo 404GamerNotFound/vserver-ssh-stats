@@ -19,10 +19,14 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
+  - Total RAM (MB)
   - Disk usage (% for `/`)
   - Network throughput (bytes/s, in and out)
   - Uptime (seconds)
-  - Temperature (°C, if available)  
+  - Temperature (°C, if available)
+  - CPU cores
+  - Operating system version
+  - Installed packages (count and list)
 - Automatic **MQTT Discovery** for easy integration with Home Assistant.
 - Configurable update interval (default: 30 seconds).
 
@@ -109,11 +113,16 @@ For each server, the following entities will be available:
 
 - `sensor.<name>_cpu` – CPU usage (%)  
 - `sensor.<name>_mem` – Memory usage (%)  
-- `sensor.<name>_disk` – Disk usage (%)  
-- `sensor.<name>_net_in` – Network inbound (bytes/s)  
-- `sensor.<name>_net_out` – Network outbound (bytes/s)  
-- `sensor.<name>_uptime` – Uptime (seconds)  
-- `sensor.<name>_temp` – Temperature (°C, if available)  
+- `sensor.<name>_disk` – Disk usage (%)
+- `sensor.<name>_net_in` – Network inbound (bytes/s)
+- `sensor.<name>_net_out` – Network outbound (bytes/s)
+- `sensor.<name>_uptime` – Uptime (seconds)
+- `sensor.<name>_temp` – Temperature (°C, if available)
+- `sensor.<name>_ram` – Total RAM (MB)
+- `sensor.<name>_cores` – CPU cores
+- `sensor.<name>_os` – Operating system version
+- `sensor.<name>_pkg_count` – Installed package count
+- `sensor.<name>_pkg_list` – Installed packages (first 10)
 
 ---
 
