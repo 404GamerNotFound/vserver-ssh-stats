@@ -1,10 +1,11 @@
 """VServer SSH Stats integration for Home Assistant."""
 from __future__ import annotations
 
+import asyncio
 import logging
-
+import socket
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
@@ -14,9 +15,85 @@ DOMAIN = "vserver_ssh_stats"
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
+def _get_local_ip() -> str:
+    """Return the local IP address of the host."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("10.255.255.255", 1))
+        ip = sock.getsockname()[0]
+    except Exception:  # pragma: no cover - best effort
+        ip = "127.0.0.1"
+    finally:
+        sock.close()
+    return ip
+
+
+async def _async_get_local_ip() -> str:
+    """Async wrapper to get the local IP."""
+    return await asyncio.to_thread(_get_local_ip)
+
+
+async def _async_get_uptime() -> float:
+    """Return system uptime in seconds."""
+    def _read_uptime() -> float:
+        with open("/proc/uptime", "r", encoding="utf-8") as f:
+            return float(f.readline().split()[0])
+
+    return await asyncio.to_thread(_read_uptime)
+
+
+async def _async_list_ssh_connections() -> list[str]:
+    """Return a list of IPs with active SSH sessions."""
+    proc = await asyncio.create_subprocess_exec(
+        "who",
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(stderr.decode().strip())
+    connections: list[str] = []
+    for line in stdout.decode().splitlines():
+        if "(" in line and ")" in line:
+            ip = line.split("(")[-1].split(")")[0]
+            connections.append(ip)
+    return connections
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the VServer SSH Stats integration."""
     _LOGGER.debug("Setting up VServer SSH Stats")
+
+    async def handle_get_local_ip(call: ServiceCall) -> None:
+        """Handle service call to fetch the local IP."""
+        try:
+            ip = await _async_get_local_ip()
+        except Exception as err:  # pragma: no cover - best effort
+            _LOGGER.error("Failed to fetch local IP: %s", err)
+            ip = ""
+        hass.bus.async_fire(f"{DOMAIN}_local_ip", {"ip": ip})
+
+    async def handle_get_uptime(call: ServiceCall) -> None:
+        """Handle service call to fetch system uptime."""
+        try:
+            uptime = await _async_get_uptime()
+        except Exception as err:  # pragma: no cover - best effort
+            _LOGGER.error("Failed to fetch uptime: %s", err)
+            uptime = 0.0
+        hass.bus.async_fire(f"{DOMAIN}_uptime", {"uptime": uptime})
+
+    async def handle_list_connections(call: ServiceCall) -> None:
+        """Handle service call to list active SSH connections."""
+        try:
+            connections = await _async_list_ssh_connections()
+        except Exception as err:  # pragma: no cover - command best effort
+            _LOGGER.error("Listing SSH connections failed: %s", err)
+            connections = []
+        hass.bus.async_fire(f"{DOMAIN}_connections", {"connections": connections})
+
+    hass.services.async_register(DOMAIN, "get_local_ip", handle_get_local_ip)
+    hass.services.async_register(DOMAIN, "get_uptime", handle_get_uptime)
+    hass.services.async_register(DOMAIN, "list_connections", handle_list_connections)
     return True
 
 

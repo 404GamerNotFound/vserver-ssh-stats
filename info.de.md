@@ -1,5 +1,6 @@
 # VServer SSH Stats
 
 Überwache entfernte Linux-Server über SSH und veröffentliche Metriken per MQTT an Home Assistant.
+Zusätzliche Dienste geben die lokale IP-Adresse des Servers, die Systemlaufzeit sowie aktuell aktive SSH-Verbindungen aus.
 
 Ausführliche Installations- und Konfigurationsanweisungen findest du in der [README](README.md).
