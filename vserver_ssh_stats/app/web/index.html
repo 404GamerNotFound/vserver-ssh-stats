@@ -3,9 +3,45 @@
 <head>
   <meta charset="UTF-8" />
   <title>VServer SSH Stats</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#1e1e1e; color:#e0e0e0; margin:0; padding:1em; }
+    h1 { text-align:center; }
+    .server-card { background:#2b2b2b; border:1px solid #444; border-radius:8px; padding:1em; margin:1em auto; max-width:600px; }
+    .server-header { font-size:1.2em; margin-bottom:0.5em; }
+    .metric { display:flex; align-items:center; margin:0.3em 0; }
+    .metric progress { flex:1; margin:0 0.5em; }
+  </style>
 </head>
 <body>
   <h1>VServer SSH Stats</h1>
-  <p>The add-on is running. Metrics are collected and published via MQTT.</p>
+  <div id="servers"></div>
+  <script>
+    function formatBytes(b){const u=['B','K','M','G','T'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(1)+' '+u[i];}
+    function formatUptime(sec){const d=Math.floor(sec/86400);sec%=86400;const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);return `${d}d ${h}h ${m}m`;}
+    async function load(){
+      try {
+        const resp = await fetch('stats.json?_=' + Date.now());
+        const data = await resp.json();
+        const container = document.getElementById('servers');
+        container.innerHTML='';
+        data.forEach(s => {
+          const card = document.createElement('div');
+          card.className = 'server-card';
+          card.innerHTML = `<div class="server-header">${s.name}</div>
+            <div class="metric">CPU <progress value="${s.cpu}" max="100"></progress> ${s.cpu}%</div>
+            <div class="metric">Mem <progress value="${s.mem}" max="100"></progress> ${s.mem}%</div>
+            <div class="metric">Disk <progress value="${s.disk}" max="100"></progress> ${s.disk}%</div>
+            <div class="metric">Net ↓ ${formatBytes(s.net_in)}/s ↑ ${formatBytes(s.net_out)}/s</div>
+            <div class="metric">Uptime ${formatUptime(s.uptime)}</div>
+            <div class="metric">Temp ${s.temp === null ? '—' : s.temp + '°C'}</div>`;
+          container.appendChild(card);
+        });
+      } catch (e) {
+        console.error('Failed to load stats', e);
+      }
+    }
+    load();
+    setInterval(load, 5000);
+  </script>
 </body>
 </html>

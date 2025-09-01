@@ -15,6 +15,9 @@ SERVERS = json.loads(os.getenv("SERVERS_JSON", "[]"))
 
 DISCOVERY_PREFIX = "homeassistant"
 
+# Datei, in die die letzten Messwerte für das Web-Frontend geschrieben werden
+WEB_STATS_PATH = "/app/web/stats.json"
+
 # State für Netzraten (Delta-Berechnung)
 _last_net: Dict[str, Dict[str, int]] = {}
 _last_ts: Dict[str, float] = {}
@@ -259,9 +262,11 @@ def main():
             client.loop_stop()
             client = None
 
+        web_stats = []
         for s in SERVERS:
             try:
                 payload = sample_server(s)
+                web_stats.append({"name": s["name"], **payload})
                 if client:
                     info = client.publish(
                         f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False
@@ -292,11 +297,19 @@ def main():
                     "pkg_count": 0,
                     "pkg_list": "",
                 }
+                web_stats.append({"name": s["name"], **err})
                 if client:
                     client.publish(
                         f"vserver_ssh/{s['name']}/state", json.dumps(err), retain=False
                     )
                 logging.warning("Failed to collect stats for %s: %s", s["name"], e)
+
+        try:
+            with open(WEB_STATS_PATH, "w", encoding="utf-8") as f:
+                json.dump(web_stats, f)
+        except Exception as exc:
+            logging.error("Failed to write %s: %s", WEB_STATS_PATH, exc)
+
         # Intervall einhalten
         sleep_for = INTERVAL - (time.time() - start)
         if sleep_for > 0:
