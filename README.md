@@ -29,6 +29,7 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
   - Installed packages (count and list)
 - Automatic **MQTT Discovery** for easy integration with Home Assistant.
 - Configurable update interval (default: 30 seconds).
+- Optional lightweight web interface that can be shown in the Home Assistant sidebar.
 
 ### Standalone Usage Without MQTT
 
