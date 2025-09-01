@@ -30,6 +30,7 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 - Automatic **MQTT Discovery** for easy integration with Home Assistant.
 - Configurable update interval (default: 30 seconds).
 - Optional lightweight web interface that can be shown in the Home Assistant sidebar.
+- Services to fetch the server's local IP, uptime, and list active SSH connections.
 
 ### Standalone Usage Without MQTT
 
