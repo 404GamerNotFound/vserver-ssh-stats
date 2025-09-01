@@ -1,5 +1,5 @@
 name: VServer SSH Stats
-version: "0.1.11"
+version: "0.1.12"
 slug: vserver_ssh_stats
 description: Holt CPU, RAM, Disk, Net per SSH (ohne Agent) und veröffentlicht sie via MQTT.
 startup: services
@@ -21,6 +21,7 @@ options:
       host: "203.0.113.10"
       username: "root"
       password: "deinpasswort"
+      # alternatively: key: "/path/to/id_rsa"
       # optional: port: 22
 schema:
   mqtt_host: str
@@ -32,5 +33,6 @@ schema:
     - name: str
       host: str
       username: str
-      password: str
+      password: str?
+      key: str?
       port: int?

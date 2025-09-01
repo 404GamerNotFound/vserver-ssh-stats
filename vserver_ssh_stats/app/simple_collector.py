@@ -1,7 +1,7 @@
 import json
 import time
 import getpass
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import paramiko
 from urllib import request, error
 
@@ -12,10 +12,26 @@ _last_net: Dict[str, Dict[str, int]] = {}
 _last_ts: Dict[str, float] = {}
 
 # ---------- SSH ----------
-def run_ssh(host: str, username: str, password: str, port: int = 22, cmd: str = "echo ok") -> str:
+def run_ssh(
+    host: str,
+    username: str,
+    password: Optional[str] = None,
+    key: Optional[str] = None,
+    port: int = 22,
+    cmd: str = "echo ok",
+) -> str:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname=host, port=port, username=username, password=password, timeout=10, banner_timeout=10, auth_timeout=10)
+    ssh.connect(
+        hostname=host,
+        port=port,
+        username=username,
+        password=password,
+        key_filename=key,
+        timeout=10,
+        banner_timeout=10,
+        auth_timeout=10,
+    )
     try:
         stdin, stdout, stderr = ssh.exec_command(cmd, timeout=15)
         out = stdout.read().decode("utf-8", "ignore")
@@ -68,8 +84,8 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s}\n' \
   "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx"
 '''
 
-def sample(host: str, username: str, password: str, port: int) -> Dict[str, Any]:
-    out = run_ssh(host=host, username=username, password=password, port=port, cmd=REMOTE_SCRIPT).strip()
+def sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
+    out = run_ssh(host=host, username=username, password=password, key=key, port=port, cmd=REMOTE_SCRIPT).strip()
     data = json.loads(out)
     now = time.time()
     last = _last_net.get(host)
@@ -98,7 +114,10 @@ def main():
         if not host:
             break
         username = input("Username: ").strip()
-        password = getpass.getpass("Password: ")
+        password = getpass.getpass("Password (leave blank for key): ")
+        key = ""
+        if not password:
+            key = input("Path to private key file: ").strip()
         port_input = input("Port [22]: ").strip()
         port = int(port_input) if port_input else 22
         name_input = input(f"Server name [{host}]: ").strip()
@@ -107,7 +126,8 @@ def main():
             "name": name,
             "host": host,
             "username": username,
-            "password": password,
+            "password": password or None,
+            "key": key or None,
             "port": port,
         })
 
@@ -124,7 +144,9 @@ def main():
     while True:
         for srv in servers:
             try:
-                stats = sample(srv["host"], srv["username"], srv["password"], srv["port"])
+                stats = sample(
+                    srv["host"], srv["username"], srv.get("password"), srv.get("key"), srv["port"]
+                )
                 output = {"name": srv["name"], **stats}
                 print(json.dumps(output))
                 if ha_url and ha_token:
