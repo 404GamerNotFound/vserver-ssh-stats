@@ -88,10 +88,26 @@ def ensure_discovery(name: str):
         publish_discovery(name, key, unit, dc)
 
 # ---------- SSH ----------
-def run_ssh(host: str, username: str, password: str, port: int = 22, cmd: str = "echo ok") -> str:
+def run_ssh(
+    host: str,
+    username: str,
+    password: Optional[str] = None,
+    key: Optional[str] = None,
+    port: int = 22,
+    cmd: str = "echo ok",
+) -> str:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(hostname=host, port=port, username=username, password=password, timeout=10, banner_timeout=10, auth_timeout=10)
+    ssh.connect(
+        hostname=host,
+        port=port,
+        username=username,
+        password=password,
+        key_filename=key,
+        timeout=10,
+        banner_timeout=10,
+        auth_timeout=10,
+    )
     try:
         stdin, stdout, stderr = ssh.exec_command(cmd, timeout=15)
         out = stdout.read().decode("utf-8", "ignore")
@@ -149,7 +165,8 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
     out = run_ssh(
         host=srv["host"],
         username=srv["username"],
-        password=srv["password"],
+        password=srv.get("password"),
+        key=srv.get("key"),
         port=int(srv.get("port", 22)),
         cmd=REMOTE_SCRIPT
     ).strip()

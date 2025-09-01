@@ -11,8 +11,9 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 ---
 
 ## Features
-- No software installation required on the target server (only SSH access).  
-- Supports multiple servers with individual configuration.  
+- No software installation required on the target server (only SSH access).
+- Supports multiple servers with individual configuration.
+- Supports password and SSH key authentication.
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
@@ -25,7 +26,7 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 
 ### Standalone Usage Without MQTT
 
-If you want to gather stats without using MQTT, run `app/simple_collector.py`. The script lets you enter one or more servers (press Enter on the host prompt to finish). For each server it asks for host, username, password and optional port, then prints a JSON line including the server name with CPU, memory, disk, network, uptime and temperature every 30 seconds.
+If you want to gather stats without using MQTT, run `app/simple_collector.py`. The script lets you enter one or more servers (press Enter on the host prompt to finish). For each server it asks for host, username, and either a password or the path to an SSH key plus optional port, then prints a JSON line including the server name with CPU, memory, disk, network, uptime and temperature every 30 seconds.
 
 Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., via the Home Assistant REST API for each server so the values show up in the UI without MQTT.
 
@@ -81,7 +82,7 @@ servers:
   - name: "vps1"
     host: "203.0.113.42"
     username: "root"
-    password: "anothersecret"
+    key: "/config/ssh/id_rsa"
     port: 22
 ```
 
@@ -92,10 +93,11 @@ servers:
 - **interval_seconds** – Polling interval in seconds (minimum 5).  
 - **servers** – List of servers to monitor:  
   - `name` – Friendly name (used as entity prefix).  
-  - `host` – IP address or hostname of the server.  
-  - `username` – SSH username.  
-  - `password` – SSH password.  
-  - `port` – (Optional) SSH port (default `22`).  
+  - `host` – IP address or hostname of the server.
+  - `username` – SSH username.
+  - `password` – SSH password (optional if `key` is used).
+  - `key` – Path to an SSH private key file (optional).
+  - `port` – (Optional) SSH port (default `22`).
 
 ---
 
