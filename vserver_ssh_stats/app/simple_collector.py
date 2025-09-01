@@ -61,12 +61,33 @@ mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 mem_avail=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 if [ -z "$mem_avail" ]; then mem_avail=$(awk '/MemFree/ {print $2}' /proc/meminfo); fi
 mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
+# RAM total MB
+ram=$(( (mem_total + 512) / 1024 ))
 
 # DISK % (Root)
 disk=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
 
 # UPTIME (Sekunden)
 uptime=$(awk '{print int($1)}' /proc/uptime)
+
+# CPU cores
+cores=$(nproc)
+
+# OS (best-effort)
+os=$( (grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"') || uname -sr )
+os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
+
+# Installed packages (count + list up to 10)
+pkg_count=0
+pkg_list=""
+if command -v dpkg >/dev/null 2>&1; then
+  pkg_count=$(dpkg-query -f '.\n' -W | wc -l)
+  pkg_list=$(dpkg-query -f '${binary:Package}\n' -W | head -n 10 | tr '\n' ',' | sed 's/,$//')
+elif command -v rpm >/dev/null 2>&1; then
+  pkg_count=$(rpm -qa | wc -l)
+  pkg_list=$(rpm -qa | head -n 10 | tr '\n' ',' | sed 's/,$//')
+fi
+pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 
 # TEMP (°C, best-effort)
 temp=""
@@ -80,8 +101,8 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s"}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json"
 '''
 
 def sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
@@ -105,6 +126,11 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         "temp": (None if data["temp"] is None else float(data["temp"])),
         "net_in": round(net_in, 2),
         "net_out": round(net_out, 2),
+        "ram": int(data.get("ram", 0)),
+        "cores": int(data.get("cores", 0)),
+        "os": data.get("os", ""),
+        "pkg_count": int(data.get("pkg_count", 0)),
+        "pkg_list": data.get("pkg_list", ""),
     }
 
 def main():
@@ -166,6 +192,7 @@ def send_to_home_assistant(base_url: str, token: str, name: str, data: Dict[str,
         "net_out": "B/s",
         "uptime": "s",
         "temp": "°C",
+        "ram": "MB",
     }
     for key, value in data.items():
         entity = f"sensor.{name}_{key}"
