@@ -1,0 +1,11 @@
+get_local_ip:
+  name: Get local IP
+  description: Retrieve the host's local IP address.
+
+get_uptime:
+  name: Get uptime
+  description: Retrieve system uptime in seconds.
+
+list_connections:
+  name: List SSH connections
+  description: List IP addresses of active SSH sessions.
