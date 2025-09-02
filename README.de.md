@@ -23,6 +23,8 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
   - Laufzeit (Sekunden)
   - Temperatur (°C, falls verfügbar)
   - CPU-Kerne
+  - Last (1/5/15 Minuten)
+  - CPU-Frequenz (MHz)
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
   - Docker-Installation und laufende Container
@@ -133,6 +135,10 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_temp` – Temperatur (°C, falls verfügbar)
 - `sensor.<name>_ram` – Gesamt-RAM (MB)
 - `sensor.<name>_cores` – CPU-Kerne
+- `sensor.<name>_load_1` – 1‑Minuten‑Last
+- `sensor.<name>_load_5` – 5‑Minuten‑Last
+- `sensor.<name>_load_15` – 15‑Minuten‑Last
+- `sensor.<name>_cpu_freq` – CPU‑Frequenz (MHz)
 - `sensor.<name>_os` – Betriebssystem-Version
 - `sensor.<name>_pkg_count` – Anzahl installierter Pakete
 - `sensor.<name>_pkg_list` – Installierte Pakete (erste 10)
