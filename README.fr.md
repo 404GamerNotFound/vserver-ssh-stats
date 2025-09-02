@@ -52,7 +52,7 @@ Le collecteur principal (`app/collector.py`) prend également en charge un mode 
 4. Redémarrez Home Assistant pour charger la nouvelle intégration.
 
 ### Installation manuelle du module complémentaire
-1. Copiez le dossier du module `vserver_ssh_stats` dans votre dépôt local de modules complémentaires Home Assistant (par exemple `/addons/vserver_ssh_stats`).
+1. Copiez le dossier du module `addon/vserver_ssh_stats` dans votre dépôt local de modules complémentaires Home Assistant (par exemple `/addons/vserver_ssh_stats`).
 
 2. Dans Home Assistant :
    - Accédez à **Paramètres → Add-ons → Add-on Store**.

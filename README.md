@@ -56,7 +56,7 @@ The main collector (`app/collector.py`) also supports a lightweight mode without
 4. Restart Home Assistant to load the new integration.
 
 ### Manual Add-on Installation
-1. Copy the add-on folder `vserver_ssh_stats` into your local Home Assistant add-on repository
+1. Copy the add-on folder `addon/vserver_ssh_stats` into your local Home Assistant add-on repository
    (e.g. `/addons/vserver_ssh_stats`).
 
 2. In Home Assistant:
