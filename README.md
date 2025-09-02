@@ -27,9 +27,10 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
   - CPU cores
   - Operating system version
   - Installed packages (count and list)
+  - Docker installation and running containers
 - Automatic **MQTT Discovery** for easy integration with Home Assistant.
 - Configurable update interval (default: 30 seconds).
-- Optional lightweight web interface that can be shown in the Home Assistant sidebar.
+- Optional lightweight web interface that can be shown in the Home Assistant sidebar, now with a Docker container tab.
 - Services to fetch the server's local IP, uptime, and list active SSH connections.
 
 ### Standalone Usage Without MQTT
@@ -140,6 +141,8 @@ For each server, the following entities will be available:
 - `sensor.<name>_os` – Operating system version
 - `sensor.<name>_pkg_count` – Installed package count
 - `sensor.<name>_pkg_list` – Installed packages (first 10)
+- `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
+- `sensor.<name>_containers` – Running Docker containers (comma-separated list)
 
 ---
 

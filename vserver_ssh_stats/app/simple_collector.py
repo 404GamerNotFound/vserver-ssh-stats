@@ -89,6 +89,16 @@ elif command -v rpm >/dev/null 2>&1; then
 fi
 pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 
+# Docker (installed and running containers)
+if command -v docker >/dev/null 2>&1; then
+  docker=1
+  containers=$(docker ps --format '{{.Names}}' | tr '\n' ',' | sed 's/,$//')
+else
+  docker=0
+  containers=""
+fi
+containers_json=$(printf '%s' "$containers" | sed 's/"/\\"/g')
+
 # TEMP (°C, best-effort)
 temp=""
 if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
@@ -101,8 +111,8 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s"}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json"
 '''
 
 def sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
@@ -131,6 +141,8 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         "os": data.get("os", ""),
         "pkg_count": int(data.get("pkg_count", 0)),
         "pkg_list": data.get("pkg_list", ""),
+        "docker": int(data.get("docker", 0)),
+        "containers": data.get("containers", ""),
     }
 
 def main():
