@@ -52,7 +52,7 @@ El colector principal (`app/collector.py`) también admite un modo ligero sin MQ
 4. Reinicia Home Assistant para cargar la nueva integración.
 
 ### Instalación manual del complemento
-1. Copia la carpeta del complemento `addon/vserver_ssh_stats` en tu repositorio local de complementos de Home Assistant (por ejemplo, `/addons/vserver_ssh_stats`).
+1. Copia la carpeta del complemento `vserver_ssh_stats` en tu repositorio local de complementos de Home Assistant (por ejemplo, `/addons/vserver_ssh_stats`).
 
 2. En Home Assistant:
    - Ve a **Ajustes → Add-ons → Add-on Store**.
