@@ -1,6 +1,7 @@
 import json
 import time
 import getpass
+import re
 from typing import Dict, Any, Optional
 import paramiko
 from urllib import request, error
@@ -10,6 +11,11 @@ INTERVAL_DEFAULT = 30
 # State for network rate calculations
 _last_net: Dict[str, Dict[str, int]] = {}
 _last_ts: Dict[str, float] = {}
+
+
+def _sanitize(name: str) -> str:
+    """Return a lowercase, safe name for keys."""
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
 
 # ---------- SSH ----------
 def run_ssh(
@@ -93,11 +99,19 @@ pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 if command -v docker >/dev/null 2>&1; then
   docker=1
   containers=$(docker ps --format '{{.Names}}' | tr '\n' ',' | sed 's/,$//')
+  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' | sed 's/%//g' | awk -F: '{printf "{\\"name\\":\\"%s\\",\\"cpu\\":%s,\\"mem\\":%s},", $1, $2, $3}')
+  if [ -n "$stats" ]; then
+    container_stats="[${stats%,}]"
+  else
+    container_stats="[]"
+  fi
 else
   docker=0
   containers=""
+  container_stats="[]"
 fi
 containers_json=$(printf '%s' "$containers" | sed 's/"/\\"/g')
+container_stats_json=$container_stats
 
 # TEMP (°C, best-effort)
 temp=""
@@ -111,8 +125,8 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
 '''
 
 def sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
@@ -128,7 +142,8 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         net_out = max(0.0, (data["tx"] - last["tx"]) / dt)
     _last_net[host] = {"rx": data["rx"], "tx": data["tx"]}
     _last_ts[host] = now
-    return {
+    cont_stats = data.get("container_stats", [])
+    result = {
         "cpu": int(data["cpu"]),
         "mem": int(data["mem"]),
         "disk": int(data["disk"]),
@@ -143,7 +158,13 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         "pkg_list": data.get("pkg_list", ""),
         "docker": int(data.get("docker", 0)),
         "containers": data.get("containers", ""),
+        "container_stats": cont_stats,
     }
+    for c in cont_stats:
+        cname = _sanitize(c.get("name", ""))
+        result[f"container_{cname}_cpu"] = c.get("cpu", 0)
+        result[f"container_{cname}_mem"] = c.get("mem", 0)
+    return result
 
 def main():
     servers = []
@@ -209,10 +230,13 @@ def send_to_home_assistant(base_url: str, token: str, name: str, data: Dict[str,
     for key, value in data.items():
         entity = f"sensor.{name}_{key}"
         state = value if value is not None else "unknown"
+        unit = units.get(key)
+        if unit is None and key.startswith("container_"):
+            unit = "%"
         body = json.dumps({
             "state": state,
             "attributes": {
-                "unit_of_measurement": units.get(key),
+                "unit_of_measurement": unit,
                 "friendly_name": f"{name} {key}"
             }
         }).encode()
