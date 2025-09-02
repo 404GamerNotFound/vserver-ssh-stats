@@ -218,15 +218,21 @@ if [ -n "$cpu_freq" ]; then cpu_freq_json=$cpu_freq; else cpu_freq_json=null; fi
 os=$( (grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"') || uname -sr )
 os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
 
-# Installed packages (count + list up to 10)
+# Pending package updates (count + list up to 10)
 pkg_count=0
 pkg_list=""
-if command -v dpkg >/dev/null 2>&1; then
-  pkg_count=$(dpkg-query -f '.\n' -W | wc -l)
-  pkg_list=$(dpkg-query -f '${binary:Package}\n' -W | head -n 10 | tr '\n' ',' | sed 's/,$//')
-elif command -v rpm >/dev/null 2>&1; then
-  pkg_count=$(rpm -qa | wc -l)
-  pkg_list=$(rpm -qa | head -n 10 | tr '\n' ',' | sed 's/,$//')
+if command -v apt-get >/dev/null 2>&1; then
+  updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
+elif command -v dnf >/dev/null 2>&1; then
+  updates=$(dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
+elif command -v yum >/dev/null 2>&1; then
+  updates=$(yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 fi
 pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 

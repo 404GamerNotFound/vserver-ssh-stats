@@ -126,8 +126,8 @@ Para cada servidor estarán disponibles las siguientes entidades:
 - `sensor.<name>_load_15` – Carga promedio 15 min
 - `sensor.<name>_cpu_freq` – Frecuencia de CPU (MHz)
 - `sensor.<name>_os` – Versión del sistema operativo
-- `sensor.<name>_pkg_count` – Cantidad de paquetes instalados
-- `sensor.<name>_pkg_list` – Paquetes instalados (primeros 10)
+- `sensor.<name>_pkg_count` – Cantidad de actualizaciones pendientes
+- `sensor.<name>_pkg_list` – Actualizaciones pendientes (primeras 10)
 - `sensor.<name>_docker` – 1 si Docker está instalado, 0 en caso contrario
 - `sensor.<name>_containers` – Contenedores Docker en ejecución (lista separada por comas)
 
