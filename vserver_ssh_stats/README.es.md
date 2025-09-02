@@ -5,4 +5,4 @@ Servicios adicionales exponen la dirección IP local del servidor, el tiempo de 
 Admite configuración a través de la interfaz de Home Assistant.
 También detecta si Docker está instalado y muestra los contenedores en ejecución.
 
-Para obtener instrucciones completas de instalación y configuración, consulta el [README](README.md).
+Para obtener instrucciones completas de instalación y configuración, consulta el [README](../README.md).

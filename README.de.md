@@ -52,7 +52,7 @@ Der Haupt-Collector (`app/collector.py`) unterstützt ebenfalls einen leichtgewi
 4. Starte Home Assistant neu, um die neue Integration zu laden.
 
 ### Manuelle Add-on-Installation
-1. Kopiere den Add-on-Ordner `addon/vserver_ssh_stats` in dein lokales Home Assistant Add-on-Repository (z. B. `/addons/vserver_ssh_stats`).
+1. Kopiere den Add-on-Ordner `vserver_ssh_stats` in dein lokales Home Assistant Add-on-Repository (z. B. `/addons/vserver_ssh_stats`).
 
 2. In Home Assistant:
    - Navigiere zu **Einstellungen → Add-ons → Add-on Store**.

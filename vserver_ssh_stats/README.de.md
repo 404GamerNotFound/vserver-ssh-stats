@@ -5,4 +5,4 @@ Zusätzliche Dienste geben die lokale IP-Adresse des Servers, die Systemlaufzeit
 Unterstützt die Konfiguration über die Home Assistant Oberfläche.
 Erkennt außerdem, ob Docker installiert ist, und listet laufende Container auf.
 
-Ausführliche Installations- und Konfigurationsanweisungen findest du in der [README](README.md).
+Ausführliche Installations- und Konfigurationsanweisungen findest du in der [README](../README.md).
