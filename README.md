@@ -82,6 +82,9 @@ mqtt_port: 1883
 mqtt_user: mqttuser
 mqtt_pass: mqttpassword
 interval_seconds: 30
+disabled_entities:
+  - pkg_list
+  - temp
 servers:
   - name: "pi5"
     host: "192.168.1.10"
@@ -98,14 +101,26 @@ servers:
 - **mqtt_host** – Hostname/IP of your MQTT broker (usually `homeassistant`).  
 - **mqtt_port** – Port of the MQTT broker (default: `1883`).  
 - **mqtt_user / mqtt_pass** – MQTT credentials.  
-- **interval_seconds** – Polling interval in seconds (minimum 5).  
-- **servers** – List of servers to monitor:  
-  - `name` – Friendly name (used as entity prefix).  
+- **interval_seconds** – Polling interval in seconds (minimum 5).
+- **disabled_entities** – List of sensor keys to disable (e.g. `cpu`, `mem`). All entities enabled by default.
+- **servers** – List of servers to monitor:
+  - `name` – Friendly name (used as entity prefix).
   - `host` – IP address or hostname of the server.
   - `username` – SSH username.
   - `password` – SSH password (optional if `key` is used).
   - `key` – Path to an SSH private key file (optional).
   - `port` – (Optional) SSH port (default `22`).
+
+### Disabling entities
+
+Add unwanted sensor keys to `disabled_entities` to skip creating and publishing them. For example, to disable the temperature and
+package list sensors:
+
+```yaml
+disabled_entities:
+  - temp
+  - pkg_list
+```
 
 ---
 
