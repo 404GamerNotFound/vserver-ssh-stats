@@ -273,7 +273,18 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         port=int(srv.get("port", 22)),
         cmd=REMOTE_SCRIPT
     ).strip()
-    data = json.loads(out)
+    # Manche Hosts senden Warnungen oder Login-Banner zusätzlich zur JSON-Antwort.
+    # Versuche daher, den ersten JSON-Block aus dem Output herauszuschneiden,
+    # bevor wir ihn parsen.
+    if not out.startswith("{"):
+        start = out.find("{")
+        end = out.rfind("}")
+        if start != -1 and end != -1:
+            out = out[start : end + 1]
+    try:
+        data = json.loads(out)
+    except json.JSONDecodeError as exc:  # pragma: no cover - schwer zu simulieren
+        raise RuntimeError(f"Invalid JSON response: {out}") from exc
     # Netzraten berechnen (Bytes/s)
     now = time.time()
     last = _last_net.get(srv["name"])
