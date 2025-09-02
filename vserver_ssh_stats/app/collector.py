@@ -240,7 +240,7 @@ pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   docker=1
   containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' | awk -F: '{printf "{"name":"%s","cpu":%s,"mem":%s},", $1, $2, $3}')
+  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' | awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f},", $1, cpu, mem}')
   if [ -n "$stats" ]; then
     container_stats="[${stats%,}]"
   else
