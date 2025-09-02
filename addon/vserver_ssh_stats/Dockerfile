@@ -3,7 +3,7 @@ FROM ${BUILD_FROM}
 
 RUN apk add --no-cache \
     python3 py3-pip py3-setuptools python3-dev build-base \
-    rust cargo libffi-dev openssl-dev \
+    rust cargo libffi-dev openssl-dev libsodium-dev \
     && pip3 install --no-cache-dir wheel paramiko paho-mqtt
 
 COPY run.sh /run.sh
