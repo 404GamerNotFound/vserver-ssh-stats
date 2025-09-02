@@ -1,6 +1,7 @@
 {
   "domain": "vserver_ssh_stats",
   "name": "VServer SSH Stats",
+  "config_flow": true,
   "codeowners": [
     "@404GamerNotFound"
   ],
@@ -9,5 +10,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/404GamerNotFound/vserver-ssh-stats/issues",
   "requirements": [],
-  "version": "0.1.20"
+  "version": "0.1.21"
 }

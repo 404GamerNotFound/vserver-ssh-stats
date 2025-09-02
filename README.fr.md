@@ -13,6 +13,7 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
 ## Fonctionnalités
 - Aucun logiciel à installer sur le serveur cible (simple accès SSH).
 - Prise en charge de plusieurs serveurs avec configuration individuelle.
+- Configurable via l'interface Home Assistant (config flow).
 - Prise en charge de l'authentification par mot de passe et par clé SSH.
 - Collecte :
   - Utilisation du CPU (%)

@@ -13,6 +13,7 @@ Esto permite obtener información en tiempo real sobre CPU, memoria, disco, tiem
 ## Características
 - No se requiere instalación de software en el servidor de destino (solo acceso SSH).
 - Soporta múltiples servidores con configuración individual.
+- Configurable a través de la interfaz de Home Assistant (config flow).
 - Soporta autenticación por contraseña y por clave SSH.
 - Recopila:
   - Uso de CPU (%)
