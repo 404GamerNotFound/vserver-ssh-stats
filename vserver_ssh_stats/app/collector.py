@@ -173,6 +173,8 @@ def run_ssh(
 # Remote-Script: CPU (über /proc/stat doppelt), Mem (/proc/meminfo), Disk (df /), Uptime, Temp (thermal_zone0), Net (bytes um Interface-summen)
 REMOTE_SCRIPT = r'''
 set -e
+export LC_ALL=C
+export LANG=C
 # CPU %
 read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
 prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
