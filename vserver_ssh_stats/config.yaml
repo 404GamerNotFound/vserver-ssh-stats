@@ -35,7 +35,7 @@ schema:
   mqtt_pass: str
   interval_seconds: int
   disabled_entities:
-    - match(cpu|mem|disk|net_in|net_out|uptime|temp|ram|cores|os|pkg_count|pkg_list)
+    - match(cpu|mem|disk|net_in|net_out|uptime|temp|ram|cores|load_1|load_5|load_15|cpu_freq|os|pkg_count|pkg_list)
   servers:
     - name: str
       host: str

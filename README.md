@@ -25,6 +25,8 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
   - Uptime (seconds)
   - Temperature (°C, if available)
   - CPU cores
+  - Load average (1/5/15 min)
+  - CPU frequency (MHz)
   - Operating system version
   - Installed packages (count and list)
   - Docker installation and running containers
@@ -138,6 +140,10 @@ For each server, the following entities will be available:
 - `sensor.<name>_temp` – Temperature (°C, if available)
 - `sensor.<name>_ram` – Total RAM (MB)
 - `sensor.<name>_cores` – CPU cores
+- `sensor.<name>_load_1` – 1‑minute load average
+- `sensor.<name>_load_5` – 5‑minute load average
+- `sensor.<name>_load_15` – 15‑minute load average
+- `sensor.<name>_cpu_freq` – CPU frequency (MHz)
 - `sensor.<name>_os` – Operating system version
 - `sensor.<name>_pkg_count` – Installed package count
 - `sensor.<name>_pkg_list` – Installed packages (first 10)

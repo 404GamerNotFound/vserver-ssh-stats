@@ -108,6 +108,10 @@ def ensure_discovery(name: str) -> None:
         ("temp", "°C", "temperature", False),
         ("ram", "MB", None, False),
         ("cores", None, None, False),
+        ("load_1", None, None, False),
+        ("load_5", None, None, False),
+        ("load_15", None, None, False),
+        ("cpu_freq", "MHz", "frequency", False),
         ("os", None, None, True),
         ("pkg_count", None, None, False),
         ("pkg_list", None, None, True),
@@ -198,6 +202,16 @@ uptime=$(awk '{print int($1)}' /proc/uptime)
 # CPU cores
 cores=$(nproc)
 
+# Load average (1/5/15 Minuten)
+read load_1 load_5 load_15 _ < /proc/loadavg
+
+# Aktuelle CPU-Frequenz in MHz (best-effort)
+cpu_freq=""
+if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]; then
+  cpu_freq=$(awk '{printf "%.0f", $1/1000}' /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
+fi
+if [ -n "$cpu_freq" ]; then cpu_freq_json=$cpu_freq; else cpu_freq_json=null; fi
+
 # OS (best-effort)
 os=$( (grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"') || uname -sr )
 os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
@@ -244,8 +258,8 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
 '''
 
 def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
@@ -281,6 +295,10 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         "net_out": round(net_out, 2),
         "ram": int(data.get("ram", 0)),
         "cores": int(data.get("cores", 0)),
+        "load_1": float(data.get("load_1", 0.0)),
+        "load_5": float(data.get("load_5", 0.0)),
+        "load_15": float(data.get("load_15", 0.0)),
+        "cpu_freq": (None if data.get("cpu_freq") is None else int(data.get("cpu_freq", 0))),
         "os": data.get("os", ""),
         "pkg_count": int(data.get("pkg_count", 0)),
         "pkg_list": data.get("pkg_list", ""),

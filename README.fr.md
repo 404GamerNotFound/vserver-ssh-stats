@@ -23,6 +23,8 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
   - Temps de fonctionnement (secondes)
   - Température (°C, si disponible)
   - Cœurs CPU
+  - Charge moyenne (1/5/15 min)
+  - Fréquence CPU (MHz)
   - Version du système d'exploitation
   - Paquets installés (nombre et liste)
   - Détection de Docker et conteneurs en cours d'exécution
@@ -118,6 +120,10 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 - `sensor.<name>_temp` – Température (°C, si disponible)
 - `sensor.<name>_ram` – RAM totale (MB)
 - `sensor.<name>_cores` – Cœurs CPU
+- `sensor.<name>_load_1` – Charge moyenne 1 min
+- `sensor.<name>_load_5` – Charge moyenne 5 min
+- `sensor.<name>_load_15` – Charge moyenne 15 min
+- `sensor.<name>_cpu_freq` – Fréquence CPU (MHz)
 - `sensor.<name>_os` – Version du système d'exploitation
 - `sensor.<name>_pkg_count` – Nombre de paquets installés
 - `sensor.<name>_pkg_list` – Paquets installés (10 premiers)
