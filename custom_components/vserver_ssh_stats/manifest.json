@@ -1,10 +1,10 @@
 {
   "domain": "vserver_ssh_stats",
   "name": "VServer SSH Stats",
-  "config_flow": true,
   "codeowners": [
     "@404GamerNotFound"
   ],
+  "config_flow": true,
   "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
   "integration_type": "service",
   "iot_class": "cloud_polling",
