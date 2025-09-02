@@ -25,9 +25,10 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
   - Cœurs CPU
   - Version du système d'exploitation
   - Paquets installés (nombre et liste)
+  - Détection de Docker et conteneurs en cours d'exécution
 - **MQTT Discovery** automatique pour une intégration facile avec Home Assistant.
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
-- Interface web légère optionnelle pouvant être affichée dans la barre latérale de Home Assistant.
+- Interface web légère optionnelle pouvant être affichée dans la barre latérale de Home Assistant, maintenant avec un onglet pour les conteneurs Docker.
 
 ### Utilisation autonome sans MQTT
 
@@ -120,6 +121,8 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 - `sensor.<name>_os` – Version du système d'exploitation
 - `sensor.<name>_pkg_count` – Nombre de paquets installés
 - `sensor.<name>_pkg_list` – Paquets installés (10 premiers)
+- `sensor.<name>_docker` – 1 si Docker est installé, 0 sinon
+- `sensor.<name>_containers` – Conteneurs Docker en cours d'exécution (liste séparée par des virgules)
 
 ---
 

@@ -25,9 +25,10 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
   - CPU-Kerne
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
+  - Docker-Installation und laufende Container
 - Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
-- Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann.
+- Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann, jetzt mit einem Reiter für Docker-Container.
 
 ### Standalone-Nutzung ohne MQTT
 
@@ -135,6 +136,8 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_os` – Betriebssystem-Version
 - `sensor.<name>_pkg_count` – Anzahl installierter Pakete
 - `sensor.<name>_pkg_list` – Installierte Pakete (erste 10)
+- `sensor.<name>_docker` – 1, wenn Docker installiert ist, sonst 0
+- `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste)
 
 ---
 

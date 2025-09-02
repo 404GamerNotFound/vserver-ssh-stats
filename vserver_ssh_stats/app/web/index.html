@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <title>VServer SSH Stats</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#1e1e1e; color:#e0e0e0; margin:0; padding:1em; }
+    body { font-family: Arial, sans-serif; background:#1e1e1e; color:#e0e0e0; margin:0; }
+    #sidenav { position:fixed; top:0; left:0; width:200px; height:100%; background:#111; padding-top:20px; }
+    #sidenav a { padding:8px 16px; text-decoration:none; display:block; color:#818181; }
+    #sidenav a:hover { color:#f1f1f1; }
+    #main { margin-left:200px; padding:1em; }
     h1 { text-align:center; }
     .server-card { background:#2b2b2b; border:1px solid #444; border-radius:8px; padding:1em; margin:1em auto; max-width:600px; }
     .server-header { font-size:1.2em; margin-bottom:0.5em; }
@@ -13,17 +17,30 @@
   </style>
 </head>
 <body>
-  <h1>VServer SSH Stats</h1>
-  <div id="servers"></div>
+  <div id="sidenav">
+    <a href="#" onclick="showTab('stats')">Server Stats</a>
+    <a href="#" onclick="showTab('docker')">Docker Container</a>
+  </div>
+  <div id="main">
+    <h1>VServer SSH Stats</h1>
+    <div id="stats" class="tab"></div>
+    <div id="docker" class="tab" style="display:none;"></div>
+  </div>
   <script>
+    function showTab(name){
+      document.getElementById('stats').style.display = name === 'stats' ? 'block' : 'none';
+      document.getElementById('docker').style.display = name === 'docker' ? 'block' : 'none';
+    }
     function formatBytes(b){const u=['B','K','M','G','T'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(1)+' '+u[i];}
     function formatUptime(sec){const d=Math.floor(sec/86400);sec%=86400;const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);return `${d}d ${h}h ${m}m`;}
     async function load(){
       try {
         const resp = await fetch('stats.json?_=' + Date.now());
         const data = await resp.json();
-        const container = document.getElementById('servers');
-        container.innerHTML='';
+        const statsDiv = document.getElementById('stats');
+        const dockerDiv = document.getElementById('docker');
+        statsDiv.innerHTML='';
+        dockerDiv.innerHTML='';
         data.forEach(s => {
           const card = document.createElement('div');
           card.className = 'server-card';
@@ -34,7 +51,19 @@
             <div class="metric">Net ↓ ${formatBytes(s.net_in)}/s ↑ ${formatBytes(s.net_out)}/s</div>
             <div class="metric">Uptime ${formatUptime(s.uptime)}</div>
             <div class="metric">Temp ${s.temp === null ? '—' : s.temp + '°C'}</div>`;
-          container.appendChild(card);
+          statsDiv.appendChild(card);
+          const dcard = document.createElement('div');
+          dcard.className = 'server-card';
+          let list = 'Docker not installed';
+          if (s.docker) {
+            if (s.containers) {
+              list = s.containers.split(',').join(', ');
+            } else {
+              list = 'No containers running';
+            }
+          }
+          dcard.innerHTML = `<div class="server-header">${s.name}</div><div>${list}</div>`;
+          dockerDiv.appendChild(dcard);
         });
       } catch (e) {
         console.error('Failed to load stats', e);
