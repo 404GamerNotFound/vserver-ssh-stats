@@ -141,8 +141,8 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_load_15` – 15‑Minuten‑Last
 - `sensor.<name>_cpu_freq` – CPU‑Frequenz (MHz)
 - `sensor.<name>_os` – Betriebssystem-Version
-- `sensor.<name>_pkg_count` – Anzahl installierter Pakete
-- `sensor.<name>_pkg_list` – Installierte Pakete (erste 10)
+- `sensor.<name>_pkg_count` – Anzahl verfügbarer Updates
+- `sensor.<name>_pkg_list` – Verfügbare Updates (erste 10)
 - `sensor.<name>_docker` – 1, wenn Docker installiert ist, sonst 0
 - `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste)
 

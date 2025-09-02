@@ -146,8 +146,8 @@ For each server, the following entities will be available:
 - `sensor.<name>_load_15` – 15‑minute load average
 - `sensor.<name>_cpu_freq` – CPU frequency (MHz)
 - `sensor.<name>_os` – Operating system version
-- `sensor.<name>_pkg_count` – Installed package count
-- `sensor.<name>_pkg_list` – Installed packages (first 10)
+- `sensor.<name>_pkg_count` – Pending update count
+- `sensor.<name>_pkg_list` – Pending update packages (first 10)
 - `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
 - `sensor.<name>_containers` – Running Docker containers (comma-separated list)
 
