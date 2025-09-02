@@ -5,10 +5,10 @@
   <title>VServer SSH Stats</title>
   <style>
     body { font-family: Arial, sans-serif; background:#1e1e1e; color:#e0e0e0; margin:0; }
-    #sidenav { position:fixed; top:0; left:0; width:200px; height:100%; background:#111; padding-top:20px; }
-    #sidenav a { padding:8px 16px; text-decoration:none; display:block; color:#818181; }
-    #sidenav a:hover { color:#f1f1f1; }
-    #main { margin-left:200px; padding:1em; }
+    #navbar { background:#111; padding:10px; display:flex; gap:10px; justify-content:center; }
+    #navbar a { padding:8px 16px; text-decoration:none; color:#818181; }
+    #navbar a.active, #navbar a:hover { color:#f1f1f1; }
+    #main { padding:1em; }
     h1 { text-align:center; }
     .server-card { background:#2b2b2b; border:1px solid #444; border-radius:8px; padding:1em; margin:1em auto; max-width:600px; }
     .server-header { font-size:1.2em; margin-bottom:0.5em; }
@@ -17,9 +17,9 @@
   </style>
 </head>
 <body>
-  <div id="sidenav">
-    <a href="#" onclick="showTab('stats')">Server Stats</a>
-    <a href="#" onclick="showTab('docker')">Docker Container</a>
+  <div id="navbar">
+    <a id="nav-stats" href="#" onclick="showTab('stats')">Server Stats</a>
+    <a id="nav-docker" href="#" onclick="showTab('docker')">Docker Container</a>
   </div>
   <div id="main">
     <h1>VServer SSH Stats</h1>
@@ -30,6 +30,8 @@
     function showTab(name){
       document.getElementById('stats').style.display = name === 'stats' ? 'block' : 'none';
       document.getElementById('docker').style.display = name === 'docker' ? 'block' : 'none';
+      document.getElementById('nav-stats').classList.toggle('active', name === 'stats');
+      document.getElementById('nav-docker').classList.toggle('active', name === 'docker');
     }
     function formatBytes(b){const u=['B','K','M','G','T'];let i=0;while(b>=1024&&i<u.length-1){b/=1024;i++;}return b.toFixed(1)+' '+u[i];}
     function formatUptime(sec){const d=Math.floor(sec/86400);sec%=86400;const h=Math.floor(sec/3600);const m=Math.floor((sec%3600)/60);return `${d}d ${h}h ${m}m`;}
@@ -54,21 +56,25 @@
           statsDiv.appendChild(card);
           const dcard = document.createElement('div');
           dcard.className = 'server-card';
-          let list = 'Docker not installed';
+          let content = 'Docker not installed';
           if (s.docker) {
-            if (s.containers) {
-              list = s.containers.split(',').join(', ');
+            if (s.container_stats && s.container_stats.length) {
+              content = '';
+              s.container_stats.forEach(c => {
+                content += `<div class="metric">${c.name} CPU <progress value="${c.cpu}" max="100"></progress> ${c.cpu}% MEM <progress value="${c.mem}" max="100"></progress> ${c.mem}%</div>`;
+              });
             } else {
-              list = 'No containers running';
+              content = 'No containers running';
             }
           }
-          dcard.innerHTML = `<div class="server-header">${s.name}</div><div>${list}</div>`;
+          dcard.innerHTML = `<div class="server-header">${s.name}</div><div>${content}</div>`;
           dockerDiv.appendChild(dcard);
         });
       } catch (e) {
         console.error('Failed to load stats', e);
       }
     }
+    showTab('stats');
     load();
     setInterval(load, 5000);
   </script>

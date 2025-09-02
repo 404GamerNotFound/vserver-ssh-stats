@@ -1,5 +1,6 @@
-import os, json, time
-from typing import Dict, Any, Optional
+import os, json, time, re
+from typing import Dict, Any, Optional, List, Set
+from collections import defaultdict
 import logging
 
 import paramiko
@@ -22,6 +23,14 @@ WEB_STATS_PATH = "/app/web/stats.json"
 # State für Netzraten (Delta-Berechnung)
 _last_net: Dict[str, Dict[str, int]] = {}
 _last_ts: Dict[str, float] = {}
+
+# Verfolgte Container pro Server für MQTT Discovery
+_container_discovered: Dict[str, Set[str]] = defaultdict(set)
+
+
+def _sanitize(name: str) -> str:
+    """Return a lowercase, MQTT/HA friendly name."""
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
 
 
 def _setup_logging() -> None:
@@ -109,6 +118,23 @@ def ensure_discovery(name: str) -> None:
             continue
         publish_discovery(name, key, unit, dc, str_value)
 
+
+def ensure_container_discovery(name: str, containers: List[Dict[str, Any]]) -> None:
+    """Publish MQTT discovery topics for all containers."""
+    if not client:
+        return
+    known = _container_discovered[name]
+    for c in containers:
+        cname = _sanitize(c.get("name", ""))
+        if not cname or cname in known:
+            continue
+        known.add(cname)
+        for metric, unit in [("cpu", "%"), ("mem", "%")]:
+            key = f"container_{cname}_{metric}"
+            if key in DISABLED_ENTITIES:
+                continue
+            publish_discovery(name, key, unit)
+
 # ---------- SSH ----------
 def run_ssh(
     host: str,
@@ -192,11 +218,19 @@ pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 if command -v docker >/dev/null 2>&1; then
   docker=1
   containers=$(docker ps --format '{{.Names}}' | tr '\n' ',' | sed 's/,$//')
+  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' | sed 's/%//g' | awk -F: '{printf "{\\"name\\":\\"%s\\",\\"cpu\\":%s,\\"mem\\":%s},", $1, $2, $3}')
+  if [ -n "$stats" ]; then
+    container_stats="[${stats%,}]"
+  else
+    container_stats="[]"
+  fi
 else
   docker=0
   containers=""
+  container_stats="[]"
 fi
 containers_json=$(printf '%s' "$containers" | sed 's/"/\\"/g')
+container_stats_json=$container_stats
 
 # TEMP (°C, best-effort)
 temp=""
@@ -210,8 +244,8 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
 '''
 
 def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
@@ -252,6 +286,7 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         "pkg_list": data.get("pkg_list", ""),
         "docker": int(data.get("docker", 0)),
         "containers": data.get("containers", ""),
+        "container_stats": data.get("container_stats", []),
     }
 
 def main():
@@ -283,9 +318,19 @@ def main():
         for s in SERVERS:
             try:
                 payload = sample_server(s)
+                cont_stats = payload.get("container_stats", [])
                 mqtt_payload = payload.copy()
                 for k in DISABLED_ENTITIES:
                     mqtt_payload.pop(k, None)
+                if client:
+                    ensure_container_discovery(s["name"], cont_stats)
+                    for c in cont_stats:
+                        cname = _sanitize(c.get("name", ""))
+                        for metric in ("cpu", "mem"):
+                            key = f"container_{cname}_{metric}"
+                            if key in DISABLED_ENTITIES:
+                                continue
+                            mqtt_payload[key] = c.get(metric, 0)
                 web_stats.append({"name": s["name"], **payload})
                 if client:
                     info = client.publish(
@@ -318,6 +363,7 @@ def main():
                     "pkg_list": "",
                     "docker": 0,
                     "containers": "",
+                    "container_stats": [],
                 }
                 err_payload = err.copy()
                 for k in DISABLED_ENTITIES:
