@@ -50,6 +50,8 @@ def run_ssh(
 
 REMOTE_SCRIPT = r'''
 set -e
+export LC_ALL=C
+export LANG=C
 # CPU %
 read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
 prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
