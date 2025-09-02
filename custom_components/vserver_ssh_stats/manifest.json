@@ -4,10 +4,11 @@
   "codeowners": [
     "@404GamerNotFound"
   ],
+  "config_flow": true,
   "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/404GamerNotFound/vserver-ssh-stats/issues",
   "requirements": [],
-  "version": "0.1.20"
+  "version": "0.1.21"
 }

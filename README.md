@@ -15,6 +15,7 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 ## Features
 - No software installation required on the target server (only SSH access).
 - Supports multiple servers with individual configuration.
+- Configurable via Home Assistant UI (config flow).
 - Supports password and SSH key authentication.
 - Collects:
   - CPU usage (%)

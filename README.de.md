@@ -13,6 +13,7 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
 ## Funktionen
 - Keine Softwareinstallation auf dem Zielserver erforderlich (nur SSH-Zugriff).
 - Unterstützt mehrere Server mit individueller Konfiguration.
+- Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Sammelt:
   - CPU-Auslastung (%)

@@ -1,3 +1,16 @@
 {
-  "title": "VServer SSH Statistiken"
+  "title": "VServer SSH Stats",
+  "config": {
+    "step": {
+      "user": {
+        "title": "VServer SSH Stats",
+        "data": {
+          "host": "Host",
+          "username": "Benutzername",
+          "authentication": "Authentifizierung",
+          "interval": "Intervall"
+        }
+      }
+    }
+  }
 }
