@@ -229,10 +229,10 @@ fi
 pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 
 # Docker (installed and running containers)
-if command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   docker=1
-  containers=$(docker ps --format '{{.Names}}' | tr '\n' ',' | sed 's/,$//')
-  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' | sed 's/%//g' | awk -F: '{printf "{\\"name\\":\\"%s\\",\\"cpu\\":%s,\\"mem\\":%s},", $1, $2, $3}')
+  containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' | sed 's/,$//')
+  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' | awk -F: '{printf "{"name":"%s","cpu":%s,"mem":%s},", $1, $2, $3}')
   if [ -n "$stats" ]; then
     container_stats="[${stats%,}]"
   else
