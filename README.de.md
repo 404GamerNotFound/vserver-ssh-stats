@@ -77,6 +77,9 @@ mqtt_port: 1883
 mqtt_user: mqttuser
 mqtt_pass: mqttpassword
 interval_seconds: 30
+disabled_entities:
+  - pkg_list
+  - temp
 servers:
   - name: "pi5"
     host: "192.168.1.10"
@@ -94,6 +97,7 @@ servers:
 - **mqtt_port** – Port des MQTT-Brokers (Standard: `1883`).
 - **mqtt_user / mqtt_pass** – MQTT-Anmeldedaten.
 - **interval_seconds** – Abfrageintervall in Sekunden (mindestens 5).
+- **disabled_entities** – Liste von Sensor-Schlüsseln, die deaktiviert werden sollen (z. B. `cpu`, `mem`). Standard: alle aktiv.
 - **servers** – Liste der zu überwachenden Server:
   - `name` – Anzeigename (wird als Präfix für Entitäten verwendet).
   - `host` – IP-Adresse oder Hostname des Servers.
@@ -101,6 +105,17 @@ servers:
   - `password` – SSH-Passwort (optional, wenn `key` verwendet wird).
   - `key` – Pfad zu einer SSH-Schlüsseldatei (optional).
   - `port` – (Optional) SSH-Port (Standard `22`).
+
+### Entitäten deaktivieren
+
+Um bestimmte Sensoren nicht zu erstellen und zu veröffentlichen, füge deren Schlüssel zu `disabled_entities` hinzu. Beispiel: Um
+Temperatur- und Paketlisten-Sensoren zu deaktivieren:
+
+```yaml
+disabled_entities:
+  - temp
+  - pkg_list
+```
 
 ---
 

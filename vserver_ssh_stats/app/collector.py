@@ -12,6 +12,7 @@ MQTT_USER = os.getenv("MQTT_USER") or None
 MQTT_PASS = os.getenv("MQTT_PASS") or None
 INTERVAL = max(5, int(os.getenv("INTERVAL", "30")))
 SERVERS = json.loads(os.getenv("SERVERS_JSON", "[]"))
+DISABLED_ENTITIES = set(json.loads(os.getenv("DISABLED_JSON", "[]")))
 
 DISCOVERY_PREFIX = "homeassistant"
 
@@ -102,6 +103,8 @@ def ensure_discovery(name: str) -> None:
         ("pkg_count", None, None, False),
         ("pkg_list", None, None, True),
     ]:
+        if key in DISABLED_ENTITIES:
+            continue
         publish_discovery(name, key, unit, dc, str_value)
 
 # ---------- SSH ----------
@@ -266,13 +269,16 @@ def main():
         for s in SERVERS:
             try:
                 payload = sample_server(s)
+                mqtt_payload = payload.copy()
+                for k in DISABLED_ENTITIES:
+                    mqtt_payload.pop(k, None)
                 web_stats.append({"name": s["name"], **payload})
                 if client:
                     info = client.publish(
-                        f"vserver_ssh/{s['name']}/state", json.dumps(payload), retain=False
+                        f"vserver_ssh/{s['name']}/state", json.dumps(mqtt_payload), retain=False
                     )
                     if info.rc == mqtt.MQTT_ERR_SUCCESS:
-                        logging.info("Published stats for %s: %s", s["name"], payload)
+                        logging.info("Published stats for %s: %s", s["name"], mqtt_payload)
                     else:
                         logging.error(
                             "Failed to publish stats for %s: %s",
@@ -280,7 +286,7 @@ def main():
                             mqtt.error_string(info.rc),
                         )
                 else:
-                    logging.info("Stats for %s: %s", s["name"], payload)
+                    logging.info("Stats for %s: %s", s["name"], mqtt_payload)
             except Exception as e:
                 # bei Fehler zumindest Uptime/Temp leer publishen, damit Entity weiterlebt
                 err = {
@@ -297,10 +303,13 @@ def main():
                     "pkg_count": 0,
                     "pkg_list": "",
                 }
+                err_payload = err.copy()
+                for k in DISABLED_ENTITIES:
+                    err_payload.pop(k, None)
                 web_stats.append({"name": s["name"], **err})
                 if client:
                     client.publish(
-                        f"vserver_ssh/{s['name']}/state", json.dumps(err), retain=False
+                        f"vserver_ssh/{s['name']}/state", json.dumps(err_payload), retain=False
                     )
                 logging.warning("Failed to collect stats for %s: %s", s["name"], e)
 
