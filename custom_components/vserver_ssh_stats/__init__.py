@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+import json
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
@@ -100,6 +102,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up VServer SSH Stats from a config entry."""
     _LOGGER.debug("Setting up VServer SSH Stats entry")
+    data = entry.data
+    hass.data.setdefault(DOMAIN, {})
+    try:
+        servers = json.loads(data.get("servers_json", "[]"))
+    except ValueError:  # pragma: no cover - validation handled in flow
+        servers = []
+    hass.data[DOMAIN][entry.entry_id] = {
+        "mqtt_host": data.get("mqtt_host"),
+        "mqtt_port": data.get("mqtt_port"),
+        "mqtt_user": data.get("mqtt_user"),
+        "mqtt_pass": data.get("mqtt_pass"),
+        "interval": data.get("interval"),
+        "servers": servers,
+    }
     return True
 
 
