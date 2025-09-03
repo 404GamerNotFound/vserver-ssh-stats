@@ -14,4 +14,7 @@ export DISABLED_JSON=$(jq -c '.disabled_entities // []' ${CONFIG_PATH})
 # Start lightweight web server for optional sidebar access
 python3 -m http.server 8099 --directory /app/web &
 
+# Start websocket SSH terminal bridge
+python3 /app/terminal.py &
+
 exec python3 /app/collector.py
