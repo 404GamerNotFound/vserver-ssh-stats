@@ -46,7 +46,7 @@ Der Haupt-Collector (`app/collector.py`) unterstützt ebenfalls einen leichtgewi
 
 ### Web-Terminal und Befehlsservice
 
-Das Add-on stellt unter `http://<addon-ip>:8099/terminal.html` ein einfaches SSH-Terminal im Browser bereit. Gib Host, Benutzername und Passwort ein, um eine interaktive Shell-Sitzung zu starten. Die Zugangsdaten werden direkt an das Add-on übermittelt und nicht an externe Dienste weitergeleitet.
+Das Add-on stellt unter `http://<addon-ip>:8099/terminal.html` ein einfaches SSH-Terminal im Browser bereit. Konfigurierte Server werden als Schaltflächen für den Sofortzugriff angezeigt; alternativ kannst du Host, Benutzername und Passwort manuell eingeben, um eine interaktive Shell-Sitzung zu starten. Die Zugangsdaten werden direkt an das Add-on übermittelt und nicht an externe Dienste weitergeleitet.
 
 Für Automatisierungsszenarien registriert die Home-Assistant-Integration den Service `vserver_ssh_stats.run_command`. Damit lässt sich ein beliebiger Befehl auf einem Server ausführen; die Ausgabe wird als Ereignis `vserver_ssh_stats_command` im Event-Bus veröffentlicht.
 

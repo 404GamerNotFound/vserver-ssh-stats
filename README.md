@@ -50,7 +50,7 @@ The main collector (`app/collector.py`) also supports a lightweight mode without
 
 ### Web Terminal and Command Service
 
-The add-on exposes a simple web-based SSH terminal at `http://<addon-ip>:8099/terminal.html`. Enter the host, username and password to start an interactive shell session in your browser. The credentials are sent directly to the add-on and never routed through external services.
+The add-on exposes a simple web-based SSH terminal at `http://<addon-ip>:8099/terminal.html`. Configured servers appear as buttons for one-click access, or you can enter the host, username and password manually to start an interactive shell session in your browser. The credentials are sent directly to the add-on and never routed through external services.
 
 For automation use cases, the Home Assistant integration registers a `vserver_ssh_stats.run_command` service. Provide the host, username, command and optional credentials to execute a single command on a server. The command output is fired as an event named `vserver_ssh_stats_command`.
 
