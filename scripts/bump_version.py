@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 
 MANIFEST_PATH = Path("custom_components/vserver_ssh_stats/manifest.json")
-CONFIG_PATH = Path("vserver_ssh_stats/config.yaml")
+CONFIG_PATH = Path("addon/vserver_ssh_stats/config.yaml")
 
 def bump_version(version: str) -> str:
     major, minor, patch = map(int, version.split("."))
