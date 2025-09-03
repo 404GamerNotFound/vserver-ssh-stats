@@ -5,12 +5,17 @@
       "user": {
         "title": "VServer SSH Stats",
         "data": {
-          "host": "Host",
-          "username": "Username",
-          "authentication": "Authentication",
-          "interval": "Interval"
+          "mqtt_host": "MQTT host",
+          "mqtt_port": "MQTT port",
+          "mqtt_user": "MQTT user",
+          "mqtt_pass": "MQTT password",
+          "interval": "Interval",
+          "servers_json": "Servers (JSON)"
         }
       }
+    },
+    "error": {
+      "invalid_json": "Invalid JSON"
     }
   }
 }
