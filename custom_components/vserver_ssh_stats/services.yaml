@@ -9,3 +9,26 @@ get_uptime:
 list_connections:
   name: List SSH connections
   description: List IP addresses of active SSH sessions.
+
+run_command:
+  name: Run SSH command
+  description: Execute an arbitrary command on a remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    command:
+      description: Command to execute.
+      example: uptime
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22

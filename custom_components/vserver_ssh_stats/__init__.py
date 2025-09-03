@@ -10,6 +10,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
+import voluptuous as vol
+import paramiko
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
@@ -93,9 +95,53 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             connections = []
         hass.bus.async_fire(f"{DOMAIN}_connections", {"connections": connections})
 
+    async def handle_run_command(call: ServiceCall) -> None:
+        """Execute an arbitrary command on a server via SSH."""
+        data = call.data
+
+        def _exec_cmd() -> str:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_args = {
+                "hostname": data["host"],
+                "username": data["username"],
+                "port": data.get("port", 22),
+                "password": data.get("password"),
+            }
+            key = data.get("key")
+            if key:
+                connect_args["key_filename"] = key
+            client.connect(**{k: v for k, v in connect_args.items() if v})
+            _, stdout, stderr = client.exec_command(data["command"])
+            output = stdout.read().decode() + stderr.read().decode()
+            client.close()
+            return output
+
+        try:
+            output = await asyncio.to_thread(_exec_cmd)
+        except Exception as err:  # pragma: no cover - best effort
+            _LOGGER.error("Command execution failed: %s", err)
+            output = ""
+        hass.bus.async_fire(f"{DOMAIN}_command", {"output": output})
+
     hass.services.async_register(DOMAIN, "get_local_ip", handle_get_local_ip)
     hass.services.async_register(DOMAIN, "get_uptime", handle_get_uptime)
     hass.services.async_register(DOMAIN, "list_connections", handle_list_connections)
+    hass.services.async_register(
+        DOMAIN,
+        "run_command",
+        handle_run_command,
+        schema=vol.Schema(
+            {
+                vol.Required("host"): cv.string,
+                vol.Required("username"): cv.string,
+                vol.Required("command"): cv.string,
+                vol.Optional("password"): cv.string,
+                vol.Optional("key"): cv.string,
+                vol.Optional("port", default=22): cv.port,
+            }
+        ),
+    )
     return True
 
 

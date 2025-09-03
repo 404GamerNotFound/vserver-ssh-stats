@@ -7,6 +7,7 @@ Das Add-on verbindet sich per **SSH** (über IP-Adresse, Benutzername und Passwo
 Die Metriken werden anschließend über **MQTT Discovery** an Home Assistant veröffentlicht, sodass sie als native Sensoren erscheinen.
 
 Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurchsatz- und Temperaturinformationen in Echtzeit von all Ihren Servern in Home Assistant Dashboards anzuzeigen.
+Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur Verfügung, und es gibt einen Home-Assistant-Service zum Ausführen beliebiger Befehle auf den Servern.
 
 ---
 
@@ -15,6 +16,8 @@ Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurch
 - Unterstützt mehrere Server mit individueller Konfiguration.
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
+- Interaktives Terminal über die Add-on-Weboberfläche.
+- Home-Assistant-Service zum Ausführen von Befehlen.
 - Sammelt:
   - CPU-Auslastung (%)
   - Speicherauslastung (%)
@@ -40,6 +43,12 @@ Wenn du Statistiken ohne MQTT sammeln möchtest, führe `app/simple_collector.py
 Optional kannst du deine Home Assistant Basis-URL und ein Long-Lived Access Token angeben. Wenn vorhanden, erstellt das Skript über die Home Assistant REST API Sensoren wie `sensor.<name>_cpu`, `sensor.<name>_mem` usw., damit die Werte ohne MQTT in der Oberfläche erscheinen.
 
 Der Haupt-Collector (`app/collector.py`) unterstützt ebenfalls einen leichtgewichtigen Modus ohne MQTT: Führe ihn einfach ohne die Umgebungsvariable `MQTT_HOST` aus. In diesem Fall werden die gesammelten Statistiken in der Konsole protokolliert, anstatt an einen Broker gesendet zu werden.
+
+### Web-Terminal und Befehlsservice
+
+Das Add-on stellt unter `http://<addon-ip>:8099/terminal.html` ein einfaches SSH-Terminal im Browser bereit. Gib Host, Benutzername und Passwort ein, um eine interaktive Shell-Sitzung zu starten. Die Zugangsdaten werden direkt an das Add-on übermittelt und nicht an externe Dienste weitergeleitet.
+
+Für Automatisierungsszenarien registriert die Home-Assistant-Integration den Service `vserver_ssh_stats.run_command`. Damit lässt sich ein beliebiger Befehl auf einem Server ausführen; die Ausgabe wird als Ereignis `vserver_ssh_stats_command` im Event-Bus veröffentlicht.
 
 ---
 

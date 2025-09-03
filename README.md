@@ -3,12 +3,14 @@
 [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 ## Overview
-The **VServer SSH Stats** add-on for Home Assistant allows you to monitor remote Linux servers (vServers, Raspberry Pi, or dedicated machines) without installing any additional agents on the target machines.  
+The **VServer SSH Stats** add-on for Home Assistant allows you to monitor remote Linux servers (vServers, Raspberry Pi, or dedicated machines) without installing any additional agents on the target machines.
 
 The add-on connects via **SSH** (using IP address, username, and password or SSH key) and collects system metrics directly from `/proc`, `df`, and other standard Linux interfaces.  
 The metrics are then published to Home Assistant via **MQTT Discovery**, so they appear as native sensors.
 
 This makes it possible to get real-time CPU, memory, disk, uptime, network throughput, and temperature information from all your servers inside Home Assistant dashboards.
+
+In addition to statistics collection, the add-on now includes an **interactive web-based terminal** and a Home Assistant service to run ad-hoc commands on your servers.
 
 ---
 
@@ -17,6 +19,8 @@ This makes it possible to get real-time CPU, memory, disk, uptime, network throu
 - Supports multiple servers with individual configuration.
 - Configurable via Home Assistant UI (config flow).
 - Supports password and SSH key authentication.
+- Interactive terminal accessible via the add-on web UI.
+- Home Assistant service to execute arbitrary commands remotely.
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
@@ -43,6 +47,12 @@ If you want to gather stats without using MQTT, run `app/simple_collector.py`. T
 Optionally you can enter your Home Assistant base URL and a long-lived access token. When provided, the script will create sensors like `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., via the Home Assistant REST API for each server so the values show up in the UI without MQTT.
 
 The main collector (`app/collector.py`) also supports a lightweight mode without MQTT: simply run it without the `MQTT_HOST` environment variable. In that case the collected statistics are logged to the console instead of being published to a broker.
+
+### Web Terminal and Command Service
+
+The add-on exposes a simple web-based SSH terminal at `http://<addon-ip>:8099/terminal.html`. Enter the host, username and password to start an interactive shell session in your browser. The credentials are sent directly to the add-on and never routed through external services.
+
+For automation use cases, the Home Assistant integration registers a `vserver_ssh_stats.run_command` service. Provide the host, username, command and optional credentials to execute a single command on a server. The command output is fired as an event named `vserver_ssh_stats_command`.
 
 
 ---
