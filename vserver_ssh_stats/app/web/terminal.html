@@ -24,7 +24,11 @@ term.open(document.getElementById('terminal'));
 let ws;
 
 function connect({ host, user, password, port }) {
-  ws = new WebSocket(`ws://${window.location.hostname}:8098/`);
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const hostname = window.location.hostname.includes(':')
+    ? `[${window.location.hostname}]`
+    : window.location.hostname;
+  ws = new WebSocket(`${protocol}://${hostname}:8098/`);
   ws.onopen = () => {
     ws.send(JSON.stringify({ host, user, password, port }));
   };
