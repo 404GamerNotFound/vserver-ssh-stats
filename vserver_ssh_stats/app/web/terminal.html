@@ -25,7 +25,10 @@ let ws;
 
 function connect({ host, user, password, port }) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${protocol}://${window.location.hostname}:8098/`);
+  const hostname = window.location.hostname.includes(':')
+    ? `[${window.location.hostname}]`
+    : window.location.hostname;
+  ws = new WebSocket(`${protocol}://${hostname}:8098/`);
   ws.onopen = () => {
     ws.send(JSON.stringify({ host, user, password, port }));
   };
