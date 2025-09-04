@@ -19,7 +19,7 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Interaktives Terminal über die Add-on-Weboberfläche.
-- Home-Assistant-Service zum Ausführen von Befehlen.
+- Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
 - Sammelt:
   - CPU-Auslastung (%)
   - Speicherauslastung (%)
@@ -50,7 +50,7 @@ Der Haupt-Collector (`app/collector.py`) unterstützt ebenfalls einen leichtgewi
 
 Das Add-on stellt unter `http://<addon-ip>:8099/terminal.html` ein einfaches SSH-Terminal im Browser bereit. Konfigurierte Server werden als Schaltflächen für den Sofortzugriff angezeigt; alternativ kannst du Host, Benutzername und Passwort manuell eingeben, um eine interaktive Shell-Sitzung zu starten. Die Zugangsdaten werden direkt an das Add-on übermittelt und nicht an externe Dienste weitergeleitet.
 
-Für Automatisierungsszenarien registriert die Home-Assistant-Integration den Service `vserver_ssh_stats.run_command`. Damit lässt sich ein beliebiger Befehl auf einem Server ausführen; die Ausgabe wird als Ereignis `vserver_ssh_stats_command` im Event-Bus veröffentlicht.
+Für Automatisierungsszenarien registriert die Home-Assistant-Integration mehrere Dienste: `vserver_ssh_stats.run_command`, `vserver_ssh_stats.update_packages` und `vserver_ssh_stats.reboot_host`. Jeder Dienst veröffentlicht seine Ausgabe als Ereignis im Event-Bus. Zusätzlich stellt jeder konfigurierte Server Schaltflächen bereit, um Updates oder Neustarts direkt aus der Oberfläche auszulösen.
 
 ---
 
