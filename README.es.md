@@ -6,6 +6,8 @@ El complemento **VServer SSH Stats** para Home Assistant te permite supervisar s
 El complemento se conecta mediante **SSH** (usando dirección IP, nombre de usuario y contraseña o clave SSH) y recopila métricas del sistema directamente de `/proc`, `df` y otras interfaces estándar de Linux.
 Las métricas se publican en Home Assistant mediante **MQTT Discovery**, por lo que aparecen como sensores nativos.
 
+Alternativamente, la integración de HACS puede consultar tus servidores directamente por SSH y crear los sensores sin necesidad de MQTT ni del add-on.
+
 Esto permite obtener información en tiempo real sobre CPU, memoria, disco, tiempo de actividad, rendimiento de red y temperatura de todos tus servidores en los paneles de Home Assistant.
 
 ---

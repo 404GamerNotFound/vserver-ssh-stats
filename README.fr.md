@@ -6,6 +6,8 @@ Le module complémentaire **VServer SSH Stats** pour Home Assistant permet de su
 Le module se connecte via **SSH** (en utilisant l'adresse IP, le nom d'utilisateur et le mot de passe ou une clé SSH) et collecte les métriques système directement depuis `/proc`, `df` et d'autres interfaces Linux standard.
 Les métriques sont ensuite publiées vers Home Assistant via **MQTT Discovery**, de sorte qu'elles apparaissent comme des capteurs natifs.
 
+Alternativement, l'intégration HACS peut interroger vos serveurs directement via SSH et créer les capteurs sans nécessiter MQTT ni l'add-on.
+
 Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque, temps de fonctionnement, débit réseau et température de tous vos serveurs dans les tableaux de bord Home Assistant.
 
 ---

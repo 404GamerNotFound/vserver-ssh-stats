@@ -1,12 +1,11 @@
 """Sensor platform for VServer SSH Stats."""
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from datetime import timedelta
+from typing import Any, Dict
 
-from homeassistant.components import mqtt
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
@@ -23,6 +22,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
 from . import DOMAIN
+from .ssh_collector import async_sample
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,34 +70,27 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
 
 
 class VServerCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
-    """Coordinator that subscribes to MQTT for a single server."""
+    """Coordinator that polls a server via SSH."""
 
-    def __init__(self, hass: HomeAssistant, server_name: str) -> None:
+    def __init__(self, hass: HomeAssistant, server: Dict[str, Any], interval: int) -> None:
         """Initialize the coordinator."""
-        super().__init__(hass, _LOGGER, name=server_name)
-        self.server_name = server_name
-        self._unsub: Optional[callable] = None
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=server["name"],
+            update_interval=timedelta(seconds=interval),
+        )
+        self.server = server
 
-    async def async_setup(self) -> None:
-        """Subscribe to the MQTT topic for this server."""
-
-        async def message_received(msg: mqtt.MqttMessage) -> None:
-            try:
-                payload = json.loads(msg.payload)
-            except ValueError:  # pragma: no cover - depends on MQTT input
-                _LOGGER.warning("Invalid payload for %s: %s", self.server_name, msg.payload)
-                return
-            self.async_set_updated_data(payload)
-
-        topic = f"vserver_ssh/{self.server_name}/state"
-        _LOGGER.debug("Subscribing to %s", topic)
-        self._unsub = await mqtt.async_subscribe(self.hass, topic, message_received)
-
-    async def async_unsubscribe(self) -> None:
-        """Unsubscribe from the MQTT topic."""
-        if self._unsub is not None:
-            self._unsub()
-            self._unsub = None
+    async def _async_update_data(self) -> Dict[str, Any]:
+        """Fetch data from the server."""
+        return await async_sample(
+            self.server["host"],
+            self.server["username"],
+            self.server.get("password"),
+            self.server.get("key"),
+            self.server.get("port", 22),
+        )
 
 
 class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
@@ -128,25 +121,20 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return None
         return self.coordinator.data.get(self.entity_description.key)
 
-    async def async_will_remove_from_hass(self) -> None:
-        """Handle removal by unsubscribing the coordinator."""
-        await super().async_will_remove_from_hass()
-        await self.coordinator.async_unsubscribe()
-
-
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up VServer SSH Stats sensors based on a config entry."""
     data = hass.data[DOMAIN][entry.entry_id]
     servers = data.get("servers", [])
+    interval = data.get("interval", 30)
     entities: list[VServerSensor] = []
     for srv in servers:
         name = srv.get("name")
         if not name:
             continue
-        coordinator = VServerCoordinator(hass, name)
-        await coordinator.async_setup()
+        coordinator = VServerCoordinator(hass, srv, interval)
+        await coordinator.async_config_entry_first_refresh()
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
     async_add_entities(entities)

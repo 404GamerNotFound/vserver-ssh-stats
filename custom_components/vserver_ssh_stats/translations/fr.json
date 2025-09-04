@@ -5,10 +5,6 @@
       "user": {
         "title": "VServer SSH Stats",
         "data": {
-          "mqtt_host": "Hôte MQTT",
-          "mqtt_port": "Port MQTT",
-          "mqtt_user": "Utilisateur MQTT",
-          "mqtt_pass": "Mot de passe MQTT",
           "interval": "Intervalle",
           "servers_json": "Serveurs (JSON)"
         }

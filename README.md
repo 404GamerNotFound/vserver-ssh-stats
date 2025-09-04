@@ -8,6 +8,8 @@ The **VServer SSH Stats** add-on for Home Assistant allows you to monitor remote
 The add-on connects via **SSH** (using IP address, username, and password or SSH key) and collects system metrics directly from `/proc`, `df`, and other standard Linux interfaces.  
 The metrics are then published to Home Assistant via **MQTT Discovery**, so they appear as native sensors.
 
+Alternatively, the HACS integration can poll your servers directly over SSH and create the sensors without requiring MQTT or the add-on.
+
 This makes it possible to get real-time CPU, memory, disk, uptime, network throughput, and temperature information from all your servers inside Home Assistant dashboards.
 
 In addition to statistics collection, the add-on now includes an **interactive web-based terminal** and a Home Assistant service to run ad-hoc commands on your servers.
