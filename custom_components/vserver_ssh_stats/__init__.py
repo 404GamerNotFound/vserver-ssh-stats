@@ -168,4 +168,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a VServer SSH Stats config entry."""
     _LOGGER.debug("Unloading VServer SSH Stats entry")
+    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     return True

@@ -1,10 +1,16 @@
-import os, json, time, re
-from typing import Dict, Any, Optional, List, Set
-from collections import defaultdict
+import json
 import logging
+import os
+import re
+import time
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Set
 
-import paramiko
 import paho.mqtt.client as mqtt
+import paramiko
+
+from net_cache import NetStatsCache
+from remote_script import REMOTE_SCRIPT
 
 # MQTT configuration (optional)
 MQTT_HOST = os.getenv("MQTT_HOST")
@@ -20,12 +26,9 @@ DISCOVERY_PREFIX = "homeassistant"
 # Datei, in die die letzten Messwerte für das Web-Frontend geschrieben werden
 WEB_STATS_PATH = "/app/web/stats.json"
 
-# State für Netzraten (Delta-Berechnung)
-_last_net: Dict[str, Dict[str, int]] = {}
-_last_ts: Dict[str, float] = {}
-
 # Verfolgte Container pro Server für MQTT Discovery
 _container_discovered: Dict[str, Set[str]] = defaultdict(set)
+net_cache = NetStatsCache()
 
 
 def _sanitize(name: str) -> str:
@@ -171,105 +174,6 @@ def run_ssh(
         ssh.close()
 
 # Remote-Script: CPU (über /proc/stat doppelt), Mem (/proc/meminfo), Disk (df /), Uptime, Temp (thermal_zone0), Net (bytes um Interface-summen)
-REMOTE_SCRIPT = r'''
-set -e
-export LC_ALL=C
-export LANG=C
-# CPU %
-read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
-prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
-prev_idle=$((idle+iowait))
-sleep 1
-read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
-total=$((user+nice+system+idle+iowait+irq+softirq+steal))
-idle_all=$((idle+iowait))
-d_total=$((total-prev_total))
-d_idle=$((idle_all-prev_idle))
-cpu=$(( (100*(d_total - d_idle) + d_total/2) / d_total ))
-
-# MEM %
-mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
-mem_avail=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
-if [ -z "$mem_avail" ]; then mem_avail=$(awk '/MemFree/ {print $2}' /proc/meminfo); fi
-mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
-# RAM total MB
-ram=$(( (mem_total + 512) / 1024 ))
-
-# DISK % (Root)
-disk=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
-
-# UPTIME (Sekunden)
-uptime=$(awk '{print int($1)}' /proc/uptime)
-
-# CPU cores
-cores=$(nproc)
-
-# Load average (1/5/15 Minuten)
-read load_1 load_5 load_15 _ < /proc/loadavg
-
-# Aktuelle CPU-Frequenz in MHz (best-effort)
-cpu_freq=""
-if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]; then
-  cpu_freq=$(awk '{printf "%.0f", $1/1000}' /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
-fi
-if [ -n "$cpu_freq" ]; then cpu_freq_json=$cpu_freq; else cpu_freq_json=null; fi
-
-# OS (best-effort)
-os=$( (grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"') || uname -sr )
-os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
-
-# Pending package updates (count + list up to 10)
-pkg_count=0
-pkg_list=""
-if command -v apt-get >/dev/null 2>&1; then
-  updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
-  pkg_count=$(echo "$updates" | wc -l)
-  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
-elif command -v dnf >/dev/null 2>&1; then
-  updates=$(dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
-  pkg_count=$(echo "$updates" | wc -l)
-  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
-elif command -v yum >/dev/null 2>&1; then
-  updates=$(yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
-  pkg_count=$(echo "$updates" | wc -l)
-  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
-fi
-pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
-
-# Docker (installed and running containers)
-if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  docker=1
-  containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' | sed 's/,$//')
-  stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' | awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f},", $1, cpu, mem}')
-  if [ -n "$stats" ]; then
-    container_stats="[${stats%,}]"
-  else
-    container_stats="[]"
-  fi
-else
-  docker=0
-  containers=""
-  container_stats="[]"
-fi
-containers_json=$(printf '%s' "$containers" | sed 's/"/\\"/g')
-container_stats_json=$container_stats
-
-# TEMP (°C, best-effort)
-temp=""
-if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
-  t=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo "")
-  if [ -n "$t" ]; then temp=$(awk -v v="$t" 'BEGIN{printf "%.1f", (v>=1000?v/1000:v)}'); fi
-fi
-
-# NET (Summen Bytes RX/TX über alle nicht-lo Interfaces)
-rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev)
-tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
-
-if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
-'''
-
 def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
     out = run_ssh(
         host=srv["host"],
@@ -293,15 +197,7 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         raise RuntimeError(f"Invalid JSON response: {out}") from exc
     # Netzraten berechnen (Bytes/s)
     now = time.time()
-    last = _last_net.get(srv["name"])
-    last_ts = _last_ts.get(srv["name"])
-    net_in = net_out = 0.0
-    if last and last_ts:
-        dt = max(1e-6, now - last_ts)
-        net_in = max(0.0, (data["rx"] - last["rx"]) / dt)
-        net_out = max(0.0, (data["tx"] - last["tx"]) / dt)
-    _last_net[srv["name"]] = {"rx": data["rx"], "tx": data["tx"]}
-    _last_ts[srv["name"]] = now
+    net_in, net_out = net_cache.compute(srv["name"], data["rx"], data["tx"], now)
 
     # Antwort reduzieren
     return {
