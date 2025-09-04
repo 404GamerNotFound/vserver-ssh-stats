@@ -156,10 +156,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:  # pragma: no cover - validation handled in flow
         servers = []
     hass.data[DOMAIN][entry.entry_id] = {
-        "mqtt_host": data.get("mqtt_host"),
-        "mqtt_port": data.get("mqtt_port"),
-        "mqtt_user": data.get("mqtt_user"),
-        "mqtt_pass": data.get("mqtt_pass"),
         "interval": data.get("interval"),
         "servers": servers,
     }

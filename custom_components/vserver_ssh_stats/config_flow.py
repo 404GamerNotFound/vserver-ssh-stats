@@ -18,12 +18,8 @@ DEFAULT_SERVERS_JSON = (
 
 DATA_SCHEMA = vol.Schema(
     {
-        vol.Required("mqtt_host", default="homeassistant"): str,
-        vol.Required("mqtt_port", default=1883): int,
-        vol.Optional("mqtt_user", default=""): str,
-        vol.Optional("mqtt_pass", default=""): str,
         vol.Required("interval", default=DEFAULT_INTERVAL): int,
-        vol.Optional("servers_json", default=DEFAULT_SERVERS_JSON): str,
+        vol.Required("servers_json", default=DEFAULT_SERVERS_JSON): str,
     }
 )
 
