@@ -24,7 +24,7 @@ In addition to statistics collection, the add-on now includes an **interactive w
 - Configurable via Home Assistant UI (config flow).
 - Supports password and SSH key authentication.
 - Interactive terminal accessible via the add-on web UI.
-- Home Assistant service to execute arbitrary commands remotely.
+- Home Assistant services and button entities for remote commands, package updates, and reboots.
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
@@ -56,7 +56,7 @@ The main collector (`app/collector.py`) also supports a lightweight mode without
 
 The add-on exposes a simple web-based SSH terminal at `http://<addon-ip>:8099/terminal.html`. Configured servers appear as buttons for one-click access, or you can enter the host, username and password manually to start an interactive shell session in your browser. The credentials are sent directly to the add-on and never routed through external services.
 
-For automation use cases, the Home Assistant integration registers several services: `vserver_ssh_stats.run_command`, `vserver_ssh_stats.update_packages`, and `vserver_ssh_stats.reboot_host`. Each service publishes its output as an event on the Home Assistant bus.
+For automation use cases, the Home Assistant integration registers several services: `vserver_ssh_stats.run_command`, `vserver_ssh_stats.update_packages`, and `vserver_ssh_stats.reboot_host`. Each service publishes its output as an event on the Home Assistant bus. Additionally, each configured server exposes button entities to trigger package updates or reboots from the UI.
 
 
 ---
