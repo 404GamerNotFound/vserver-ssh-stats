@@ -6,12 +6,16 @@
         "title": "VServer SSH Stats",
         "data": {
           "interval": "Interval",
-          "servers_json": "Servers (JSON)"
+          "name": "Name",
+          "host": "Host",
+          "username": "Username",
+          "password": "Password",
+          "key": "Key file"
         }
       }
     },
     "error": {
-      "invalid_json": "Invalid JSON"
+      "auth": "Provide password or key file"
     }
   }
 }
