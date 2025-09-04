@@ -32,3 +32,43 @@ run_command:
     port:
       description: SSH port.
       example: 22
+
+update_packages:
+  name: Update packages
+  description: Update system packages using apt, dnf, or yum.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+
+reboot_host:
+  name: Reboot host
+  description: Reboot the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22

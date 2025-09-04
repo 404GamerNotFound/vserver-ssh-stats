@@ -125,6 +125,74 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             output = ""
         hass.bus.async_fire(f"{DOMAIN}_command", {"output": output})
 
+    async def handle_update_packages(call: ServiceCall) -> None:
+        """Update packages on a server via SSH."""
+        data = call.data
+
+        def _exec_update() -> str:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_args = {
+                "hostname": data["host"],
+                "username": data["username"],
+                "port": data.get("port", 22),
+                "password": data.get("password"),
+            }
+            key = data.get("key")
+            if key:
+                connect_args["key_filename"] = key
+            client.connect(**{k: v for k, v in connect_args.items() if v})
+            cmd = (
+                "if command -v apt-get >/dev/null 2>&1; then "
+                "sudo apt-get update && sudo apt-get -y upgrade; "
+                "elif command -v dnf >/dev/null 2>&1; then "
+                "sudo dnf -y upgrade; "
+                "elif command -v yum >/dev/null 2>&1; then "
+                "sudo yum -y update; "
+                "else echo 'No supported package manager found'; fi"
+            )
+            _, stdout, stderr = client.exec_command(cmd)
+            output = stdout.read().decode() + stderr.read().decode()
+            client.close()
+            return output
+
+        try:
+            output = await asyncio.to_thread(_exec_update)
+        except Exception as err:  # pragma: no cover - best effort
+            _LOGGER.error("Package update failed: %s", err)
+            output = ""
+        hass.bus.async_fire(f"{DOMAIN}_update_packages", {"output": output})
+
+    async def handle_reboot_host(call: ServiceCall) -> None:
+        """Reboot a server via SSH."""
+        data = call.data
+
+        def _exec_reboot() -> str:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_args = {
+                "hostname": data["host"],
+                "username": data["username"],
+                "port": data.get("port", 22),
+                "password": data.get("password"),
+            }
+            key = data.get("key")
+            if key:
+                connect_args["key_filename"] = key
+            client.connect(**{k: v for k, v in connect_args.items() if v})
+            try:
+                client.exec_command("sudo reboot &")
+            finally:
+                client.close()
+            return "reboot triggered"
+
+        try:
+            output = await asyncio.to_thread(_exec_reboot)
+        except Exception as err:  # pragma: no cover - best effort
+            _LOGGER.error("Reboot failed: %s", err)
+            output = ""
+        hass.bus.async_fire(f"{DOMAIN}_reboot", {"output": output})
+
     hass.services.async_register(DOMAIN, "get_local_ip", handle_get_local_ip)
     hass.services.async_register(DOMAIN, "get_uptime", handle_get_uptime)
     hass.services.async_register(DOMAIN, "list_connections", handle_list_connections)
@@ -137,6 +205,34 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Required("host"): cv.string,
                 vol.Required("username"): cv.string,
                 vol.Required("command"): cv.string,
+                vol.Optional("password"): cv.string,
+                vol.Optional("key"): cv.string,
+                vol.Optional("port", default=22): cv.port,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "update_packages",
+        handle_update_packages,
+        schema=vol.Schema(
+            {
+                vol.Required("host"): cv.string,
+                vol.Required("username"): cv.string,
+                vol.Optional("password"): cv.string,
+                vol.Optional("key"): cv.string,
+                vol.Optional("port", default=22): cv.port,
+            }
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "reboot_host",
+        handle_reboot_host,
+        schema=vol.Schema(
+            {
+                vol.Required("host"): cv.string,
+                vol.Required("username"): cv.string,
                 vol.Optional("password"): cv.string,
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
