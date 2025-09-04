@@ -1,5 +1,7 @@
 # VServer SSH Stats – Module complémentaire pour Home Assistant
 
+![Logo VServer SSH Stats](images/logo/logo.png)
+
 ## Vue d'ensemble
 Le module complémentaire **VServer SSH Stats** pour Home Assistant permet de surveiller des serveurs Linux distants (vServers, Raspberry Pi ou machines dédiées) sans installer de logiciels supplémentaires sur les machines cibles.
 
@@ -52,6 +54,10 @@ Le collecteur principal (`app/collector.py`) prend également en charge un mode 
 2. Dans HACS, ajoutez `https://github.com/404GamerNotFound/vserver-ssh-stats` comme dépôt personnalisé (type : integration).
 3. Recherchez **VServer SSH Stats** et installez l'intégration.
 4. Redémarrez Home Assistant pour charger la nouvelle intégration.
+
+Exemple depuis HACS :
+
+![Exemple HACS](images/screeshots/Screenshot5.png)
 
 ### Installation manuelle du module complémentaire
 1. Copiez le dossier du module `addon/vserver_ssh_stats` dans votre dépôt local de modules complémentaires Home Assistant (par exemple `/addons/vserver_ssh_stats`).
