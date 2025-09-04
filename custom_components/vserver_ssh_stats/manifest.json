@@ -5,6 +5,7 @@
     "@404GamerNotFound"
   ],
   "config_flow": true,
+  "dependencies": ["mqtt"],
   "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
   "integration_type": "service",
   "iot_class": "cloud_polling",

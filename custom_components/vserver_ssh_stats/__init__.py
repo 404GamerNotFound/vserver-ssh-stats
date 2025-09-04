@@ -15,6 +15,7 @@ import paramiko
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
+PLATFORMS: list[str] = ["sensor"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
@@ -162,11 +163,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "interval": data.get("interval"),
         "servers": servers,
     }
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a VServer SSH Stats config entry."""
     _LOGGER.debug("Unloading VServer SSH Stats entry")
-    hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
-    return True
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+    return unload_ok
