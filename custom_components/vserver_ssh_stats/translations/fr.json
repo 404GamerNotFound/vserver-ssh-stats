@@ -9,9 +9,13 @@
           "name": "Nom",
           "host": "Hôte",
           "username": "Nom d'utilisateur",
-          "password": "Mot de passe"
+          "password": "Mot de passe",
+          "key": "Fichier de clé"
         }
       }
     }
+  },
+  "error": {
+    "auth": "Fournissez un mot de passe ou un fichier de clé"
   }
 }

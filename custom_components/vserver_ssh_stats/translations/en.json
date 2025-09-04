@@ -9,9 +9,13 @@
           "name": "Name",
           "host": "Host",
           "username": "Username",
-          "password": "Password"
+          "password": "Password",
+          "key": "Key file"
         }
       }
     }
+  },
+  "error": {
+    "auth": "Provide password or key file"
   }
 }

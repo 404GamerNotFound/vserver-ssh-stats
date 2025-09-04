@@ -17,7 +17,8 @@ DATA_SCHEMA = vol.Schema(
         vol.Required("name"): str,
         vol.Required("host"): str,
         vol.Required("username"): str,
-        vol.Required("password"): str,
+        vol.Optional("password"): str,
+        vol.Optional("key"): str,
     }
 )
 
@@ -30,12 +31,21 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial step."""
         if user_input is not None:
-            server = {
+            if not user_input.get("password") and not user_input.get("key"):
+                return self.async_show_form(
+                    step_id="user",
+                    data_schema=DATA_SCHEMA,
+                    errors={"base": "auth"},
+                )
+            server: dict[str, Any] = {
                 "name": user_input["name"],
                 "host": user_input["host"],
                 "username": user_input["username"],
-                "password": user_input["password"],
             }
+            if user_input.get("password"):
+                server["password"] = user_input["password"]
+            if user_input.get("key"):
+                server["key"] = user_input["key"]
             data = {
                 "interval": user_input["interval"],
                 "servers_json": json.dumps([server]),
