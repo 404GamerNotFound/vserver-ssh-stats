@@ -13,9 +13,9 @@
           "key": "Key file"
         }
       }
+    },
+    "error": {
+      "auth": "Provide password or key file"
     }
-  },
-  "error": {
-    "auth": "Provide password or key file"
   }
 }

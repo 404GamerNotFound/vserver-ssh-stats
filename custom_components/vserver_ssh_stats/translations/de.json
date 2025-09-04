@@ -13,9 +13,9 @@
           "key": "Schlüsseldatei"
         }
       }
+    },
+    "error": {
+      "auth": "Passwort oder Schlüsseldatei angeben"
     }
-  },
-  "error": {
-    "auth": "Passwort oder Schlüsseldatei angeben"
   }
 }

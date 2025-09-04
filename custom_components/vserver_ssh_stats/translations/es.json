@@ -13,9 +13,9 @@
           "key": "Archivo de clave"
         }
       }
+    },
+    "error": {
+      "auth": "Proporcione contraseña o archivo de clave"
     }
-  },
-  "error": {
-    "auth": "Proporcione contraseña o archivo de clave"
   }
 }
