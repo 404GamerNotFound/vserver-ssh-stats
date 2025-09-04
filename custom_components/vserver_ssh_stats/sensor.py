@@ -107,10 +107,11 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{server_name}_{description.key}"
+        host = coordinator.server["host"]
+        self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, server_name)},
+            identifiers={(DOMAIN, host)},
             name=server_name,
         )
 

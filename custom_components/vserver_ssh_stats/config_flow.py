@@ -50,8 +50,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "interval": user_input["interval"],
                 "servers_json": json.dumps([server]),
             }
-            await self.async_set_unique_id("config")
+            await self.async_set_unique_id(server["host"])  # Prevent duplicate hosts
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="VServer SSH Stats", data=data)
+            return self.async_create_entry(title=server["name"], data=data)
 
         return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
