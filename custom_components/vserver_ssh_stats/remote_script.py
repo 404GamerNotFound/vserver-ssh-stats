@@ -1,5 +1,6 @@
 REMOTE_SCRIPT = r'''
 set -e
+set -o pipefail
 export LC_ALL=C
 export LANG=C
 # CPU %
