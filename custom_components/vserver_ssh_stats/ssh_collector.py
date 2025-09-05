@@ -9,9 +9,11 @@ from typing import Any, Dict, Optional
 import paramiko
 
 from .net_cache import NetStatsCache
+from .disk_cache import DiskStatsCache
 from .remote_script import REMOTE_SCRIPT
 
 net_cache = NetStatsCache()
+disk_cache = DiskStatsCache()
 
 
 def _run_ssh(host: str, username: str, password: Optional[str], key: Optional[str], port: int, cmd: str) -> str:
@@ -49,6 +51,7 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
     data = json.loads(out.strip())
     now = time.time()
     net_in, net_out = net_cache.compute(host, data["rx"], data["tx"], now)
+    d_read, d_write = disk_cache.compute(host, data["dread"], data["dwrite"], now)
     cont_stats = data.get("container_stats", [])
     result: Dict[str, Any] = {
         "cpu": int(data["cpu"]),
@@ -58,6 +61,8 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         "temp": (None if data["temp"] is None else float(data["temp"])),
         "net_in": round(net_in, 2),
         "net_out": round(net_out, 2),
+        "disk_read": round(d_read, 2),
+        "disk_write": round(d_write, 2),
         "ram": int(data.get("ram", 0)),
         "cores": int(data.get("cores", 0)),
         "os": data.get("os", ""),

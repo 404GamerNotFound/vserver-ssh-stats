@@ -120,7 +120,11 @@ fi
 rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev)
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
+# DISK I/O (Summen Bytes gelesen/geschrieben über alle Blockgeräte)
+dread=$(awk '$3 ~ /^(sd|hd|vd|nvme|mmc|xvd)/{r+=$6*512} END{print r+0}' /proc/diskstats)
+dwrite=$(awk '$3 ~ /^(sd|hd|vd|nvme|mmc|xvd)/{w+=$10*512} END{print w+0}' /proc/diskstats)
+
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"dread":%s,"dwrite":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s"}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$dread" "$dwrite" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled"
 '''

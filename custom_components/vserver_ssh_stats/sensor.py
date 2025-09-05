@@ -45,6 +45,8 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="disk", name="Disk", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="net_in", name="Network In", native_unit_of_measurement="B/s"),
     VServerSensorDescription(key="net_out", name="Network Out", native_unit_of_measurement="B/s"),
+    VServerSensorDescription(key="disk_read", name="Disk Read", native_unit_of_measurement="B/s"),
+    VServerSensorDescription(key="disk_write", name="Disk Write", native_unit_of_measurement="B/s"),
     VServerSensorDescription(
         key="uptime",
         name="Uptime",
