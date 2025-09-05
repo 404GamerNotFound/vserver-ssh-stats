@@ -28,13 +28,11 @@ In addition to statistics collection, the add-on now includes an **interactive w
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
-  - Swap usage (%)
   - Total RAM (MB)
   - Disk usage (% for `/`)
   - Network throughput (bytes/s, in and out)
   - Uptime (seconds)
   - Temperature (°C, if available)
-  - Hardware sensor values (fan speeds, voltages, GPU/SoC temperatures, power usage, if available via lm-sensors)
   - CPU cores
   - Load average (1/5/15 min)
   - CPU frequency (MHz)
@@ -155,9 +153,8 @@ disabled_entities:
 
 For each server, the following entities will be available:
 
-- `sensor.<name>_cpu` – CPU usage (%)
-- `sensor.<name>_mem` – Memory usage (%)
-- `sensor.<name>_swap` – Swap usage (%)
+- `sensor.<name>_cpu` – CPU usage (%)  
+- `sensor.<name>_mem` – Memory usage (%)  
 - `sensor.<name>_disk` – Disk usage (%)
 - `sensor.<name>_net_in` – Network inbound (bytes/s)
 - `sensor.<name>_net_out` – Network outbound (bytes/s)
@@ -177,7 +174,6 @@ For each server, the following entities will be available:
 - `sensor.<name>_vnc` – "yes" if a VNC server is detected
 - `sensor.<name>_web` – "yes" if an HTTP or HTTPS service is listening
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening
-- `sensor.<name>_local_ip` – Local IP address
 - For each running container: `sensor.<name>_container_<container>_cpu` (CPU usage %) and `sensor.<name>_container_<container>_mem` (memory usage %)
 
 ---

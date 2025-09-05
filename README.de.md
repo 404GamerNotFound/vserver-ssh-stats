@@ -25,13 +25,11 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
 - Sammelt:
   - CPU-Auslastung (%)
   - Speicherauslastung (%)
-  - Swap-Nutzung (%)
   - Gesamter RAM (MB)
   - Festplattenauslastung (% für `/`)
   - Netzwerkdurchsatz (Bytes/s, ein- und ausgehend)
   - Laufzeit (Sekunden)
   - Temperatur (°C, falls verfügbar)
-  - Hardware- und Sensorwerte (z. B. Lüfterdrehzahlen, Spannungen, GPU-/SoC-Temperaturen, Stromverbrauch, sofern `lm-sensors` verfügbar)
   - CPU-Kerne
   - Last (1/5/15 Minuten)
   - CPU-Frequenz (MHz)
@@ -152,7 +150,6 @@ Für jeden Server sind folgende Entitäten verfügbar:
 
 - `sensor.<name>_cpu` – CPU-Auslastung (%)
 - `sensor.<name>_mem` – Speicherauslastung (%)
-- `sensor.<name>_swap` – Swap-Nutzung (%)
 - `sensor.<name>_disk` – Festplattenauslastung (%)
 - `sensor.<name>_net_in` – Netzwerkeingang (Bytes/s)
 - `sensor.<name>_net_out` – Netzwerkausgang (Bytes/s)
@@ -172,7 +169,6 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_vnc` – "ja", wenn ein VNC-Server erkannt wurde
 - `sensor.<name>_web` – "ja", wenn ein HTTP- oder HTTPS-Dienst lauscht
 - `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht
-- `sensor.<name>_local_ip` – Lokale IP-Adresse
 - Für jeden laufenden Container: `sensor.<name>_container_<container>_cpu` (CPU-Auslastung %) und `sensor.<name>_container_<container>_mem` (Speicherauslastung %)
 
 ---

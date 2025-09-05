@@ -28,33 +28,12 @@ WEB_STATS_PATH = "/app/web/stats.json"
 
 # Verfolgte Container pro Server für MQTT Discovery
 _container_discovered: Dict[str, Set[str]] = defaultdict(set)
-_sensor_discovered: Dict[str, Set[str]] = defaultdict(set)
 net_cache = NetStatsCache()
 
 
 def _sanitize(name: str) -> str:
     """Return a lowercase, MQTT/HA friendly name."""
     return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
-
-
-def _flatten_sensors(data: Any) -> Dict[str, float]:
-    """Flatten lm-sensors JSON output."""
-    result: Dict[str, float] = {}
-
-    def _recurse(prefix: str, obj: Any) -> None:
-        if isinstance(obj, dict):
-            for k, v in obj.items():
-                ksan = _sanitize(str(k))
-                new_prefix = f"{prefix}_{ksan}" if prefix else ksan
-                _recurse(new_prefix, v)
-        else:
-            try:
-                result[f"sensor_{prefix}"] = float(obj)
-            except (TypeError, ValueError):
-                pass
-
-    _recurse("", data)
-    return result
 
 
 def _setup_logging() -> None:
@@ -125,7 +104,6 @@ def ensure_discovery(name: str) -> None:
     for key, unit, dc, str_value in [
         ("cpu", "%", None, False),
         ("mem", "%", None, False),
-        ("swap", "%", None, False),
         ("disk", "%", None, False),
         ("net_in", "B/s", None, False),
         ("net_out", "B/s", None, False),
@@ -145,7 +123,6 @@ def ensure_discovery(name: str) -> None:
         ("vnc", None, None, True),
         ("web", None, None, True),
         ("ssh", None, None, True),
-        ("local_ip", None, None, True),
     ]:
         if key in DISABLED_ENTITIES:
             continue
@@ -167,30 +144,6 @@ def ensure_container_discovery(name: str, containers: List[Dict[str, Any]]) -> N
             if key in DISABLED_ENTITIES:
                 continue
             publish_discovery(name, key, unit)
-
-
-def ensure_sensor_discovery(name: str, sample: Dict[str, Any]) -> None:
-    """Publish discovery topics for hardware sensors."""
-    if not client:
-        return
-    known = _sensor_discovered[name]
-    for key in sample.keys():
-        if not key.startswith("sensor_") or key in known or key in DISABLED_ENTITIES:
-            continue
-        known.add(key)
-        lower = key.lower()
-        unit = None
-        device_class = None
-        if "temp" in lower:
-            unit = "°C"
-            device_class = "temperature"
-        elif "fan" in lower:
-            unit = "RPM"
-        elif "power" in lower:
-            unit = "W"
-        elif lower.startswith("sensor_in") or "volt" in lower:
-            unit = "V"
-        publish_discovery(name, key, unit, device_class)
 
 # ---------- SSH ----------
 def run_ssh(
@@ -248,13 +201,11 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
     # Netzraten berechnen (Bytes/s)
     now = time.time()
     net_in, net_out = net_cache.compute(srv["name"], data["rx"], data["tx"], now)
-    sensors = _flatten_sensors(data.get("sensors", {}))
 
     # Antwort reduzieren
-    result = {
+    return {
         "cpu": int(data["cpu"]),
         "mem": int(data["mem"]),
-        "swap": int(data.get("swap", 0)),
         "disk": int(data["disk"]),
         "uptime": int(data["uptime"]),
         "temp": (None if data["temp"] is None else float(data["temp"])),
@@ -274,11 +225,8 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         "vnc": data.get("vnc", ""),
         "web": data.get("web", ""),
         "ssh": data.get("ssh", ""),
-        "local_ip": data.get("local_ip", ""),
         "container_stats": data.get("container_stats", []),
     }
-    result.update(sensors)
-    return result
 
 def main():
     global client
@@ -294,9 +242,7 @@ def main():
     # initiale Netzbasis holen (damit ab dem 2. Tick Raten stimmen)
     for s in SERVERS:
         try:
-            initial = sample_server(s)
-            if client:
-                ensure_sensor_discovery(s["name"], initial)
+            _ = sample_server(s)
         except Exception:
             pass
 
@@ -317,7 +263,6 @@ def main():
                     mqtt_payload.pop(k, None)
                 if client:
                     ensure_container_discovery(s["name"], cont_stats)
-                    ensure_sensor_discovery(s["name"], payload)
                     for c in cont_stats:
                         cname = _sanitize(c.get("name", ""))
                         for metric in ("cpu", "mem"):
@@ -345,7 +290,6 @@ def main():
                 err = {
                     "cpu": 0,
                     "mem": 0,
-                    "swap": 0,
                     "disk": 0,
                     "uptime": 0,
                     "temp": None,
@@ -361,7 +305,6 @@ def main():
                     "vnc": "",
                     "web": "",
                     "ssh": "",
-                    "local_ip": "",
                     "container_stats": [],
                 }
                 err_payload = err.copy()
