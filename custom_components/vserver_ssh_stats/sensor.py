@@ -27,6 +27,13 @@ from .ssh_collector import async_sample
 _LOGGER = logging.getLogger(__name__)
 
 
+def _sanitize(name: str) -> str:
+    """Sanitize a container name for use in entity keys."""
+    import re
+
+    return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
+
+
 @dataclass
 class VServerSensorDescription(SensorEntityDescription):
     """Class describing VServer SSH Stats sensor."""
@@ -138,5 +145,32 @@ async def async_setup_entry(
         await coordinator.async_config_entry_first_refresh()
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
+        for cont in coordinator.data.get("container_stats", []):
+            cname = cont.get("name")
+            if not cname:
+                continue
+            sanitized = _sanitize(cname)
+            entities.append(
+                VServerSensor(
+                    coordinator,
+                    name,
+                    VServerSensorDescription(
+                        key=f"container_{sanitized}_cpu",
+                        name=f"{cname} CPU",
+                        native_unit_of_measurement=PERCENTAGE,
+                    ),
+                )
+            )
+            entities.append(
+                VServerSensor(
+                    coordinator,
+                    name,
+                    VServerSensorDescription(
+                        key=f"container_{sanitized}_mem",
+                        name=f"{cname} Memory",
+                        native_unit_of_measurement=PERCENTAGE,
+                    ),
+                )
+            )
     async_add_entities(entities)
 

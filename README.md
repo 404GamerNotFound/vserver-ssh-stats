@@ -38,7 +38,7 @@ In addition to statistics collection, the add-on now includes an **interactive w
   - CPU frequency (MHz)
   - Operating system version
   - Installed packages (count and list)
-  - Docker installation and running containers
+  - Docker installation, running containers, and per-container CPU/memory usage
 - Automatic **MQTT Discovery** for easy integration with Home Assistant.
 - Configurable update interval (default: 30 seconds).
 - Optional lightweight web interface that can be shown in the Home Assistant sidebar, now with a Docker container tab.
@@ -168,6 +168,7 @@ For each server, the following entities will be available:
 - `sensor.<name>_pkg_list` – Pending update packages (first 10)
 - `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
 - `sensor.<name>_containers` – Running Docker containers (comma-separated list)
+- For each running container: `sensor.<name>_container_<container>_cpu` (CPU usage %) and `sensor.<name>_container_<container>_mem` (memory usage %)
 
 ---
 
