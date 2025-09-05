@@ -71,6 +71,9 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         "pkg_list": data.get("pkg_list", ""),
         "docker": int(data.get("docker", 0)),
         "containers": data.get("containers", ""),
+        "vnc": data.get("vnc", ""),
+        "web": data.get("web", ""),
+        "ssh": data.get("ssh", ""),
         "container_stats": cont_stats,
     }
     for c in cont_stats:

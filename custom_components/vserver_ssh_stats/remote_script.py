@@ -81,6 +81,34 @@ fi
 containers_json=$(printf '%s' "$containers" | sed 's/"/\\"/g')
 container_stats_json=$container_stats
 
+# Service checks (SSH, web, VNC)
+sock_cmd=""
+if command -v ss >/dev/null 2>&1; then
+  sock_cmd="ss -tuln"
+elif command -v netstat >/dev/null 2>&1; then
+  sock_cmd="netstat -tuln"
+fi
+
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':22\\s' >/dev/null; then
+  ssh_enabled="yes"
+else
+  ssh_enabled="no"
+fi
+
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':(80|443)\\s' >/dev/null; then
+  web="yes"
+else
+  web="no"
+fi
+
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':5900\\s' >/dev/null; then
+  vnc="yes"
+elif command -v vncserver >/dev/null 2>&1 || command -v x11vnc >/dev/null 2>&1; then
+  vnc="yes"
+else
+  vnc="no"
+fi
+
 # TEMP (°C, best-effort)
 temp=""
 if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
@@ -93,6 +121,6 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json"
+printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s"}\n' \
+  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled"
 '''

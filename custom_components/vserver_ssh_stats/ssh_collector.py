@@ -69,6 +69,9 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         "load_5": data.get("load_5"),
         "load_15": data.get("load_15"),
         "cpu_freq": data.get("cpu_freq"),
+        "vnc": data.get("vnc", ""),
+        "web": data.get("web", ""),
+        "ssh": data.get("ssh", ""),
         "container_stats": cont_stats,
     }
     for c in cont_stats:

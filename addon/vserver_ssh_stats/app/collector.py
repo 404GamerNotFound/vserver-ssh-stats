@@ -120,6 +120,9 @@ def ensure_discovery(name: str) -> None:
         ("pkg_list", None, None, True),
         ("docker", None, None, False),
         ("containers", None, None, True),
+        ("vnc", None, None, True),
+        ("web", None, None, True),
+        ("ssh", None, None, True),
     ]:
         if key in DISABLED_ENTITIES:
             continue
@@ -219,6 +222,9 @@ def sample_server(srv: Dict[str, Any]) -> Dict[str, Any]:
         "pkg_list": data.get("pkg_list", ""),
         "docker": int(data.get("docker", 0)),
         "containers": data.get("containers", ""),
+        "vnc": data.get("vnc", ""),
+        "web": data.get("web", ""),
+        "ssh": data.get("ssh", ""),
         "container_stats": data.get("container_stats", []),
     }
 
@@ -296,6 +302,9 @@ def main():
                     "pkg_list": "",
                     "docker": 0,
                     "containers": "",
+                    "vnc": "",
+                    "web": "",
+                    "ssh": "",
                     "container_stats": [],
                 }
                 err_payload = err.copy()
