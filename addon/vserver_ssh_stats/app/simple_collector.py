@@ -61,7 +61,9 @@ def run_ssh(
         auth_timeout=10,
     )
     try:
-        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=15)
+        # Allow a longer execution time for the remote script so slow package
+        # manager checks don't cause a timeout before any data is returned.
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=60)
         out = stdout.read().decode("utf-8", "ignore")
         err = stderr.read().decode("utf-8", "ignore")
         if err and not out:
