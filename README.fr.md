@@ -26,11 +26,13 @@ En plus de la collecte de statistiques, le module inclut désormais un terminal 
 - Collecte :
   - Utilisation du CPU (%)
   - Utilisation de la mémoire (%)
+  - Utilisation du swap (%)
   - RAM totale (MB)
   - Utilisation du disque (% pour `/`)
   - Débit réseau (octets/s, entrant et sortant)
   - Temps de fonctionnement (secondes)
   - Température (°C, si disponible)
+  - Valeurs matérielles et capteurs (vitesses des ventilateurs, tensions, températures GPU/SoC, consommation électrique, si `lm-sensors` est disponible)
   - Cœurs CPU
   - Charge moyenne (1/5/15 min)
   - Fréquence CPU (MHz)
@@ -144,6 +146,7 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 
 - `sensor.<name>_cpu` – Utilisation du CPU (%)
 - `sensor.<name>_mem` – Utilisation de la mémoire (%)
+- `sensor.<name>_swap` – Utilisation du swap (%)
 - `sensor.<name>_disk` – Utilisation du disque (%)
 - `sensor.<name>_net_in` – Trafic entrant (octets/s)
 - `sensor.<name>_net_out` – Trafic sortant (octets/s)
@@ -163,6 +166,7 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 - `sensor.<name>_vnc` – "oui" si un serveur VNC est détecté
 - `sensor.<name>_web` – "oui" si un service HTTP ou HTTPS est à l'écoute
 - `sensor.<name>_ssh` – "oui" si le service SSH est actif
+- `sensor.<name>_local_ip` – Adresse IP locale
 - Pour chaque conteneur en cours d'exécution : `sensor.<name>_container_<container>_cpu` (utilisation CPU %) et `sensor.<name>_container_<container>_mem` (utilisation mémoire %)
 
 ---

@@ -42,6 +42,7 @@ class VServerSensorDescription(SensorEntityDescription):
 SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="cpu", name="CPU", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="mem", name="Memory", native_unit_of_measurement=PERCENTAGE),
+    VServerSensorDescription(key="swap", name="Swap", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="disk", name="Disk", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="net_in", name="Network In", native_unit_of_measurement="B/s"),
     VServerSensorDescription(key="net_out", name="Network Out", native_unit_of_measurement="B/s"),
@@ -78,6 +79,7 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="vnc", name="VNC Supported", entity_category=EntityCategory.CONFIG),
     VServerSensorDescription(key="web", name="Web Server", entity_category=EntityCategory.CONFIG),
     VServerSensorDescription(key="ssh", name="SSH Enabled", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="local_ip", name="Local IP", entity_category=EntityCategory.CONFIG),
 )
 
 
@@ -175,6 +177,35 @@ async def async_setup_entry(
                         key=f"container_{sanitized}_mem",
                         name=f"{cname} Memory",
                         native_unit_of_measurement=PERCENTAGE,
+                        entity_category=EntityCategory.DIAGNOSTIC,
+                    ),
+                )
+            )
+        for key in coordinator.data.keys():
+            if not key.startswith("sensor_"):
+                continue
+            pretty = key[7:].replace("_", " ").title()
+            unit = None
+            device_class = None
+            lower = key.lower()
+            if "temp" in lower:
+                unit = UnitOfTemperature.CELSIUS
+                device_class = SensorDeviceClass.TEMPERATURE
+            elif "fan" in lower:
+                unit = "RPM"
+            elif "power" in lower:
+                unit = "W"
+            elif lower.startswith("sensor_in") or "volt" in lower:
+                unit = "V"
+            entities.append(
+                VServerSensor(
+                    coordinator,
+                    name,
+                    VServerSensorDescription(
+                        key=key,
+                        name=pretty,
+                        native_unit_of_measurement=unit,
+                        device_class=device_class,
                         entity_category=EntityCategory.DIAGNOSTIC,
                     ),
                 )
