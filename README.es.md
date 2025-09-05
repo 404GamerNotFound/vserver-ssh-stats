@@ -26,11 +26,13 @@ Además de la recopilación de estadísticas, el complemento incluye ahora un te
 - Recopila:
   - Uso de CPU (%)
   - Uso de memoria (%)
+  - Uso de swap (%)
   - RAM total (MB)
   - Uso de disco (% para `/`)
   - Rendimiento de red (bytes/s de entrada y salida)
   - Tiempo de actividad (segundos)
   - Temperatura (°C, si está disponible)
+  - Valores de hardware y sensores (velocidades de ventilador, voltajes, temperaturas de GPU/SoC, consumo eléctrico, si `lm-sensors` está disponible)
   - Núcleos de CPU
   - Carga promedio (1/5/15 min)
   - Frecuencia de CPU (MHz)
@@ -144,6 +146,7 @@ Para cada servidor estarán disponibles las siguientes entidades:
 
 - `sensor.<name>_cpu` – Uso de CPU (%)
 - `sensor.<name>_mem` – Uso de memoria (%)
+- `sensor.<name>_swap` – Uso de swap (%)
 - `sensor.<name>_disk` – Uso de disco (%)
 - `sensor.<name>_net_in` – Tráfico de entrada (bytes/s)
 - `sensor.<name>_net_out` – Tráfico de salida (bytes/s)
@@ -163,6 +166,7 @@ Para cada servidor estarán disponibles las siguientes entidades:
 - `sensor.<name>_vnc` – "sí" si se detecta un servidor VNC
 - `sensor.<name>_web` – "sí" si escucha un servicio HTTP o HTTPS
 - `sensor.<name>_ssh` – "sí" si el servicio SSH está activo
+- `sensor.<name>_local_ip` – Dirección IP local
 - Para cada contenedor en ejecución: `sensor.<name>_container_<container>_cpu` (uso de CPU %) y `sensor.<name>_container_<container>_mem` (uso de memoria %)
 
 ---

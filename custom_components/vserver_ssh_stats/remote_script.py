@@ -19,6 +19,14 @@ mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo)
 mem_avail=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
 if [ -z "$mem_avail" ]; then mem_avail=$(awk '/MemFree/ {print $2}' /proc/meminfo); fi
 mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
+# Swap %
+swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo)
+swap_free=$(awk '/SwapFree/ {print $2}' /proc/meminfo)
+if [ -n "$swap_total" ] && [ "$swap_total" -gt 0 ]; then
+  swap=$(( (100*(swap_total - swap_free) + swap_total/2) / swap_total ))
+else
+  swap=0
+fi
 # RAM total MB
 ram=$(( (mem_total + 512) / 1024 ))
 
@@ -113,7 +121,14 @@ fi
 temp=""
 if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
   t=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo "")
-  if [ -n "$t" ]; then temp=$(awk -v v="$t" 'BEGIN{printf "%.1f", (v>=1000?v/1000:v)}'); fi
+if [ -n "$t" ]; then temp=$(awk -v v="$t" 'BEGIN{printf "%.1f", (v>=1000?v/1000:v)}'); fi
+fi
+
+# Hardware sensors (best-effort via lm-sensors)
+sensors_json="{}"
+if command -v sensors >/dev/null 2>&1; then
+  sj=$(sensors -j 2>/dev/null | tr -d '\n')
+  if [ -n "$sj" ]; then sensors_json=$sj; fi
 fi
 
 # NET (Summen Bytes RX/TX über alle nicht-lo Interfaces)
@@ -124,7 +139,14 @@ tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/ne
 dread=$(awk '$3 ~ /^(sd|hd|vd|nvme|mmc|xvd)/{r+=$6*512} END{print r+0}' /proc/diskstats)
 dwrite=$(awk '$3 ~ /^(sd|hd|vd|nvme|mmc|xvd)/{w+=$10*512} END{print w+0}' /proc/diskstats)
 
+# Lokale IP-Adresse (erste nicht-lo IPv4)
+local_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+if [ -z "$local_ip" ]; then
+  local_ip=$(ip -4 addr show scope global | awk '/inet /{print $2}' | cut -d/ -f1 | head -n1)
+fi
+local_ip_json=$(printf '%s' "$local_ip" | sed 's/"/\\"/g')
+
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"dread":%s,"dwrite":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$dread" "$dwrite" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled"
+printf '{"cpu":%s,"mem":%s,"swap":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"dread":%s,"dwrite":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","local_ip":"%s","sensors":%s}\n' \
+  "$cpu" "$mem" "$swap" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$dread" "$dwrite" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled" "$local_ip_json" "$sensors_json"
 '''
