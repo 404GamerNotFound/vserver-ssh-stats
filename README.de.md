@@ -36,6 +36,9 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
   - Docker-Installation, laufende Container und Auslastung einzelner Container (CPU und Speicher)
+  - VNC-Unterstützung
+  - HTTP/HTTPS-Webserver-Status
+  - SSH aktiviert
 - Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann, jetzt mit einem Reiter für Docker-Container.
@@ -162,6 +165,9 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_pkg_list` – Verfügbare Updates (erste 10)
 - `sensor.<name>_docker` – 1, wenn Docker installiert ist, sonst 0
 - `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste)
+- `sensor.<name>_vnc` – "ja", wenn ein VNC-Server erkannt wurde
+- `sensor.<name>_web` – "ja", wenn ein HTTP- oder HTTPS-Dienst lauscht
+- `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht
 - Für jeden laufenden Container: `sensor.<name>_container_<container>_cpu` (CPU-Auslastung %) und `sensor.<name>_container_<container>_mem` (Speicherauslastung %)
 
 ---

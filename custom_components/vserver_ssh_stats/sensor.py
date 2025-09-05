@@ -73,6 +73,9 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="pkg_list", name="Package List"),
     VServerSensorDescription(key="docker", name="Docker Containers"),
     VServerSensorDescription(key="containers", name="Containers"),
+    VServerSensorDescription(key="vnc", name="VNC Supported"),
+    VServerSensorDescription(key="web", name="Web Server"),
+    VServerSensorDescription(key="ssh", name="SSH Enabled"),
 )
 
 
