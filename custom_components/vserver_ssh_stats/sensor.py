@@ -71,15 +71,50 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement="MHz",
         device_class=SensorDeviceClass.FREQUENCY,
     ),
-    VServerSensorDescription(key="os", name="OS", entity_category=EntityCategory.CONFIG),
-    VServerSensorDescription(key="pkg_count", name="Package Count", entity_category=EntityCategory.CONFIG),
-    VServerSensorDescription(key="pkg_list", name="Package List", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(
+        key="os",
+        name="OS",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
+    VServerSensorDescription(
+        key="pkg_count",
+        name="Package Count",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
+    VServerSensorDescription(
+        key="pkg_list",
+        name="Package List",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
     VServerSensorDescription(key="docker", name="Docker Containers", entity_category=EntityCategory.DIAGNOSTIC),
     VServerSensorDescription(key="containers", name="Containers", entity_category=EntityCategory.DIAGNOSTIC),
-    VServerSensorDescription(key="vnc", name="VNC Supported", entity_category=EntityCategory.CONFIG),
-    VServerSensorDescription(key="web", name="Web Server", entity_category=EntityCategory.CONFIG),
-    VServerSensorDescription(key="ssh", name="SSH Enabled", entity_category=EntityCategory.CONFIG),
-    VServerSensorDescription(key="local_ip", name="Local IP", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(
+        key="vnc",
+        name="VNC Supported",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
+    VServerSensorDescription(
+        key="web",
+        name="Web Server",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
+    VServerSensorDescription(
+        key="ssh",
+        name="SSH Enabled",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
+    VServerSensorDescription(
+        key="local_ip",
+        name="Local IP",
+        entity_category=EntityCategory.CONFIG,
+        entity_registry_enabled_default=True,
+    ),
 )
 
 
