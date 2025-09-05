@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict
+import re
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
@@ -22,12 +23,13 @@ class VServerActionButton(ButtonEntity):
         self.hass = hass
         self._server = server
         self._action = action
-        host = server["host"]
-        self._attr_unique_id = f"{host}_{action}"
-        self._attr_name = f"{server['name']} {name}"
+        server_name = server["name"]
+        sanitized = re.sub(r"[^a-zA-Z0-9_]+", "_", server_name).lower()
+        self._attr_unique_id = f"{sanitized}_{action}"
+        self._attr_name = f"{server_name} {name}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, host)},
-            name=server["name"],
+            identifiers={(DOMAIN, sanitized)},
+            name=server_name,
         )
 
     async def async_press(self) -> None:
