@@ -1,4 +1,5 @@
 REMOTE_SCRIPT = r'''
+set -e
 export LC_ALL=C
 export LANG=C
 # CPU %
@@ -36,7 +37,7 @@ disk=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
 uptime=$(awk '{print int($1)}' /proc/uptime)
 
 # CPU cores
-cores=$(nproc 2>/dev/null || echo 1)
+cores=$(nproc)
 
 # Load average (1/5/15 Minuten)
 read load_1 load_5 load_15 _ < /proc/loadavg
@@ -55,24 +56,18 @@ os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
 # Pending package updates (count + list up to 10)
 pkg_count=0
 pkg_list=""
-pkg_timeout=""
-if command -v timeout >/dev/null 2>&1; then
-  pkg_timeout="timeout 15"
-fi
 if command -v apt-get >/dev/null 2>&1; then
-  # Ignore non-zero exit codes so the script keeps running even if the
-  # package manager encounters an error or missing permissions.
-  updates=$( ($pkg_timeout apt-get -s upgrade 2>/dev/null || true) | awk '/^Inst /{print $2}')
-  pkg_count=$(printf '%s' "$updates" | grep -c '^')
-  pkg_list=$(printf '%s' "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
+  updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 elif command -v dnf >/dev/null 2>&1; then
-  updates=$( ($pkg_timeout dnf -q check-update --refresh 2>/dev/null || true) | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
-  pkg_count=$(printf '%s' "$updates" | grep -c '^')
-  pkg_list=$(printf '%s' "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
+  updates=$(dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 elif command -v yum >/dev/null 2>&1; then
-  updates=$( ($pkg_timeout yum -q check-update 2>/dev/null || true) | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
-  pkg_count=$(printf '%s' "$updates" | grep -c '^')
-  pkg_list=$(printf '%s' "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
+  updates=$(yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  pkg_count=$(echo "$updates" | wc -l)
+  pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 fi
 pkg_list_json=$(printf '%s' "$pkg_list" | sed 's/"/\\"/g')
 
@@ -102,22 +97,24 @@ elif command -v netstat >/dev/null 2>&1; then
   sock_cmd="netstat -tuln"
 fi
 
-ssh_enabled="no"
-web="no"
-vnc="no"
-if [ -n "$sock_cmd" ]; then
-  if $sock_cmd 2>/dev/null | grep -E ':22\\s' >/dev/null; then
-    ssh_enabled="yes"
-  fi
-  if $sock_cmd 2>/dev/null | grep -E ':(80|443)\\s' >/dev/null; then
-    web="yes"
-  fi
-  if $sock_cmd 2>/dev/null | grep -E ':5900\\s' >/dev/null; then
-    vnc="yes"
-  fi
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':22\\s' >/dev/null; then
+  ssh_enabled="yes"
+else
+  ssh_enabled="no"
 fi
-if [ "$vnc" = "no" ] && (command -v vncserver >/dev/null 2>&1 || command -v x11vnc >/dev/null 2>&1); then
+
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':(80|443)\\s' >/dev/null; then
+  web="yes"
+else
+  web="no"
+fi
+
+if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':5900\\s' >/dev/null; then
   vnc="yes"
+elif command -v vncserver >/dev/null 2>&1 || command -v x11vnc >/dev/null 2>&1; then
+  vnc="yes"
+else
+  vnc="no"
 fi
 
 # TEMP (°C, best-effort)

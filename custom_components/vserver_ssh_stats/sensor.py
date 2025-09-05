@@ -156,15 +156,11 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        # Use the configured server name for the unique ID and device identifier
-        # instead of the host/IP. This prevents Home Assistant from creating
-        # "orphaned" entities whenever the host address changes (for example
-        # due to DHCP), since the unique ID now remains stable.
-        sanitized_name = _sanitize(server_name)
-        self._attr_unique_id = f"{sanitized_name}_{description.key}"
+        host = coordinator.server["host"]
+        self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, sanitized_name)},
+            identifiers={(DOMAIN, host)},
             name=server_name,
         )
 

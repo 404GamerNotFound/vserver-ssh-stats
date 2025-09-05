@@ -30,10 +30,7 @@ def _run_ssh(host: str, username: str, password: Optional[str], key: Optional[st
         auth_timeout=10,
     )
     try:
-        # Some commands like package manager checks can take a bit longer on
-        # slower systems. Give the remote script more time to finish so the
-        # integration still receives data instead of timing out early.
-        _, stdout, stderr = ssh.exec_command(cmd, timeout=60)
+        _, stdout, stderr = ssh.exec_command(cmd, timeout=15)
         out = stdout.read().decode("utf-8", "ignore")
         err = stderr.read().decode("utf-8", "ignore")
         if err and not out:
