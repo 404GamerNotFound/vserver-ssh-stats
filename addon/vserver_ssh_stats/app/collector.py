@@ -214,7 +214,10 @@ def run_ssh(
         auth_timeout=10,
     )
     try:
-        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=15)
+        # Some package manager operations may need more time on slower hosts.
+        # Give the remote script a generous timeout so we still get metrics
+        # instead of failing the entire update cycle.
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=60)
         out = stdout.read().decode("utf-8", "ignore")
         err = stderr.read().decode("utf-8", "ignore")
         if err and not out:
