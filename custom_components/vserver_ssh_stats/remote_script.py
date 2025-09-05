@@ -57,15 +57,17 @@ os_json=$(printf '%s' "$os" | sed 's/"/\\"/g')
 pkg_count=0
 pkg_list=""
 if command -v apt-get >/dev/null 2>&1; then
-  updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
+  # Ignore non-zero exit codes so the script keeps running even if the
+  # package manager encounters an error or missing permissions.
+  updates=$( (apt-get -s upgrade 2>/dev/null || true) | awk '/^Inst /{print $2}')
   pkg_count=$(echo "$updates" | wc -l)
   pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 elif command -v dnf >/dev/null 2>&1; then
-  updates=$(dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  updates=$( (dnf -q check-update --refresh 2>/dev/null || true) | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
   pkg_count=$(echo "$updates" | wc -l)
   pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 elif command -v yum >/dev/null 2>&1; then
-  updates=$(yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+  updates=$( (yum -q check-update 2>/dev/null || true) | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
   pkg_count=$(echo "$updates" | wc -l)
   pkg_list=$(echo "$updates" | head -n 10 | tr '\n' ',' | sed 's/,$//')
 fi
