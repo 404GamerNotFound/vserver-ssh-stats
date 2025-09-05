@@ -11,7 +11,7 @@ Die Metriken werden anschließend über **MQTT Discovery** an Home Assistant ver
 Alternativ kann die HACS-Integration die Server direkt per SSH abfragen und die Sensoren ohne MQTT oder Add-on erstellen.
 
 Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurchsatz- und Temperaturinformationen in Echtzeit von all Ihren Servern in Home Assistant Dashboards anzuzeigen.
-Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur Verfügung, und es gibt einen Home-Assistant-Service zum Ausführen beliebiger Befehle auf den Servern.
+Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur Verfügung, und es gibt einen Home-Assistant-Service zum Ausführen beliebiger Befehle auf den Servern sowie Dienste zum Abrufen der lokalen IP, der Uptime und aktiver SSH-Verbindungen.
 
 ---
 
@@ -42,6 +42,7 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
 - Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann, jetzt mit einem Reiter für Docker-Container.
+- Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
 
 ### Standalone-Nutzung ohne MQTT
 

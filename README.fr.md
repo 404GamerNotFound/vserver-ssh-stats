@@ -12,6 +12,8 @@ Alternativement, l'intégration HACS peut interroger vos serveurs directement vi
 
 Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque, temps de fonctionnement, débit réseau et température de tous vos serveurs dans les tableaux de bord Home Assistant.
 
+En plus de la collecte de statistiques, le module inclut désormais un terminal web interactif et un service Home Assistant pour exécuter des commandes ad hoc sur vos serveurs.
+
 ---
 
 ## Fonctionnalités
@@ -19,6 +21,8 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
 - Prise en charge de plusieurs serveurs avec configuration individuelle.
 - Configurable via l'interface Home Assistant (config flow).
 - Prise en charge de l'authentification par mot de passe et par clé SSH.
+- Terminal interactif accessible via l'interface web du module.
+- Services Home Assistant et entités bouton pour exécuter des commandes à distance, mettre à jour les paquets et redémarrer.
 - Collecte :
   - Utilisation du CPU (%)
   - Utilisation de la mémoire (%)
@@ -33,9 +37,13 @@ Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque,
   - Version du système d'exploitation
   - Paquets installés (nombre et liste)
   - Détection de Docker, conteneurs en cours d'exécution et utilisation par conteneur (CPU et mémoire)
+  - Statut du support VNC
+  - Statut du serveur web HTTP/HTTPS
+  - Statut du service SSH
 - **MQTT Discovery** automatique pour une intégration facile avec Home Assistant.
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
 - Interface web légère optionnelle pouvant être affichée dans la barre latérale de Home Assistant, maintenant avec un onglet pour les conteneurs Docker.
+- Services pour obtenir l'adresse IP locale du serveur, le temps de fonctionnement, lister les connexions SSH actives, exécuter des commandes, mettre à jour les paquets et redémarrer l'hôte.
 
 ### Utilisation autonome sans MQTT
 
@@ -89,6 +97,9 @@ mqtt_port: 1883
 mqtt_user: mqttuser
 mqtt_pass: mqttpassword
 interval_seconds: 30
+disabled_entities:
+  - pkg_list
+  - temp
 servers:
   - name: "pi5"
     host: "192.168.1.10"
@@ -106,6 +117,7 @@ servers:
 - **mqtt_port** – Port du broker MQTT (par défaut : `1883`).
 - **mqtt_user / mqtt_pass** – Identifiants MQTT.
 - **interval_seconds** – Intervalle d'interrogation en secondes (minimum 5).
+- **disabled_entities** – Liste des clés de capteurs à désactiver (par ex. `cpu`, `mem`). Toutes activées par défaut.
 - **servers** – Liste des serveurs à surveiller :
   - `name` – Nom convivial (utilisé comme préfixe d'entité).
   - `host` – Adresse IP ou nom d'hôte du serveur.
@@ -113,6 +125,16 @@ servers:
   - `password` – Mot de passe SSH (facultatif si `key` est utilisé).
   - `key` – Chemin vers un fichier de clé privée SSH (facultatif).
   - `port` – (Facultatif) Port SSH (par défaut `22`).
+
+### Désactivation des entités
+
+Ajoutez les clés de capteurs indésirables dans `disabled_entities` pour éviter leur création et leur publication. Par exemple, pour désactiver les capteurs de température et de liste de paquets :
+
+```yaml
+disabled_entities:
+  - temp
+  - pkg_list
+```
 
 ---
 
@@ -138,6 +160,9 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 - `sensor.<name>_pkg_list` – Mises à jour en attente (10 premières)
 - `sensor.<name>_docker` – 1 si Docker est installé, 0 sinon
 - `sensor.<name>_containers` – Conteneurs Docker en cours d'exécution (liste séparée par des virgules)
+- `sensor.<name>_vnc` – "oui" si un serveur VNC est détecté
+- `sensor.<name>_web` – "oui" si un service HTTP ou HTTPS est à l'écoute
+- `sensor.<name>_ssh` – "oui" si le service SSH est actif
 - Pour chaque conteneur en cours d'exécution : `sensor.<name>_container_<container>_cpu` (utilisation CPU %) et `sensor.<name>_container_<container>_mem` (utilisation mémoire %)
 
 ---
