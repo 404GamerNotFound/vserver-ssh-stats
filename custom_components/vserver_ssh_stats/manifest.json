@@ -12,5 +12,5 @@
   "requirements": [
     "paramiko>=3.4.0"
   ],
-  "version": "1.1.18"
+  "version": "1.1.19"
 }
