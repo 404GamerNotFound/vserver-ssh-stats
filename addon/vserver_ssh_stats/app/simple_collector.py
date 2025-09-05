@@ -19,6 +19,26 @@ def _sanitize(name: str) -> str:
     """Return a lowercase, safe name for keys."""
     return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
 
+
+def _flatten_sensors(data: Any) -> Dict[str, float]:
+    """Flatten lm-sensors JSON output."""
+    result: Dict[str, float] = {}
+
+    def _recurse(prefix: str, obj: Any) -> None:
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                ksan = _sanitize(str(k))
+                new_prefix = f"{prefix}_{ksan}" if prefix else ksan
+                _recurse(new_prefix, v)
+        else:
+            try:
+                result[f"sensor_{prefix}"] = float(obj)
+            except (TypeError, ValueError):
+                pass
+
+    _recurse("", data)
+    return result
+
 # ---------- SSH ----------
 def run_ssh(
     host: str,
@@ -56,9 +76,11 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
     now = time.time()
     net_in, net_out = net_cache.compute(host, data["rx"], data["tx"], now)
     cont_stats = data.get("container_stats", [])
+    sensors = _flatten_sensors(data.get("sensors", {}))
     result = {
         "cpu": int(data["cpu"]),
         "mem": int(data["mem"]),
+        "swap": int(data.get("swap", 0)),
         "disk": int(data["disk"]),
         "uptime": int(data["uptime"]),
         "temp": (None if data["temp"] is None else float(data["temp"])),
@@ -74,12 +96,14 @@ def sample(host: str, username: str, password: Optional[str], key: Optional[str]
         "vnc": data.get("vnc", ""),
         "web": data.get("web", ""),
         "ssh": data.get("ssh", ""),
+        "local_ip": data.get("local_ip", ""),
         "container_stats": cont_stats,
     }
     for c in cont_stats:
         cname = _sanitize(c.get("name", ""))
         result[f"container_{cname}_cpu"] = c.get("cpu", 0)
         result[f"container_{cname}_mem"] = c.get("mem", 0)
+    result.update(sensors)
     return result
 
 def main():
@@ -136,6 +160,7 @@ def send_to_home_assistant(base_url: str, token: str, name: str, data: Dict[str,
     units = {
         "cpu": "%",
         "mem": "%",
+        "swap": "%",
         "disk": "%",
         "net_in": "B/s",
         "net_out": "B/s",

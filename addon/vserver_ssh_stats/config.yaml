@@ -1,5 +1,5 @@
 name: VServer SSH Stats
-version: "1.1.15"
+version: "1.1.18"
 slug: vserver_ssh_stats
 description: Holt CPU, RAM, Disk, Net per SSH (ohne Agent) und veröffentlicht sie via MQTT.
 startup: services
@@ -35,7 +35,7 @@ schema:
   mqtt_pass: str
   interval_seconds: int
   disabled_entities:
-    - match(cpu|mem|disk|net_in|net_out|uptime|temp|ram|cores|load_1|load_5|load_15|cpu_freq|os|pkg_count|pkg_list)
+    - match(cpu|mem|swap|disk|net_in|net_out|uptime|temp|ram|cores|load_1|load_5|load_15|cpu_freq|os|pkg_count|pkg_list|local_ip|sensor_.*)
   servers:
     - name: str
       host: str
