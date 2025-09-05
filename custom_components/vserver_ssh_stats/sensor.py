@@ -18,7 +18,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
 
 from . import DOMAIN
@@ -68,14 +68,14 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement="MHz",
         device_class=SensorDeviceClass.FREQUENCY,
     ),
-    VServerSensorDescription(key="os", name="OS"),
-    VServerSensorDescription(key="pkg_count", name="Package Count"),
-    VServerSensorDescription(key="pkg_list", name="Package List"),
-    VServerSensorDescription(key="docker", name="Docker Containers"),
-    VServerSensorDescription(key="containers", name="Containers"),
-    VServerSensorDescription(key="vnc", name="VNC Supported"),
-    VServerSensorDescription(key="web", name="Web Server"),
-    VServerSensorDescription(key="ssh", name="SSH Enabled"),
+    VServerSensorDescription(key="os", name="OS", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="pkg_count", name="Package Count", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="pkg_list", name="Package List", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="docker", name="Docker Containers", entity_category=EntityCategory.DIAGNOSTIC),
+    VServerSensorDescription(key="containers", name="Containers", entity_category=EntityCategory.DIAGNOSTIC),
+    VServerSensorDescription(key="vnc", name="VNC Supported", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="web", name="Web Server", entity_category=EntityCategory.CONFIG),
+    VServerSensorDescription(key="ssh", name="SSH Enabled", entity_category=EntityCategory.CONFIG),
 )
 
 
@@ -161,6 +161,7 @@ async def async_setup_entry(
                         key=f"container_{sanitized}_cpu",
                         name=f"{cname} CPU",
                         native_unit_of_measurement=PERCENTAGE,
+                        entity_category=EntityCategory.DIAGNOSTIC,
                     ),
                 )
             )
@@ -172,6 +173,7 @@ async def async_setup_entry(
                         key=f"container_{sanitized}_mem",
                         name=f"{cname} Memory",
                         native_unit_of_measurement=PERCENTAGE,
+                        entity_category=EntityCategory.DIAGNOSTIC,
                     ),
                 )
             )
