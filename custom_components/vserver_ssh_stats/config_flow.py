@@ -6,21 +6,12 @@ import json
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.helpers import selector
 
 from . import DOMAIN
+from .ssh_discovery import discover_ssh_hosts, guess_local_network
 
 DEFAULT_INTERVAL = 30
-
-DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required("interval", default=DEFAULT_INTERVAL): int,
-        vol.Required("name"): str,
-        vol.Required("host"): str,
-        vol.Required("username"): str,
-        vol.Optional("password"): str,
-        vol.Optional("key"): str,
-    }
-)
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -32,9 +23,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Handle the initial step."""
         if user_input is not None:
             if not user_input.get("password") and not user_input.get("key"):
+                hosts = await self._get_discovered_hosts()
                 return self.async_show_form(
                     step_id="user",
-                    data_schema=DATA_SCHEMA,
+                    data_schema=self._build_schema(hosts),
                     errors={"base": "auth"},
                 )
             server: dict[str, Any] = {
@@ -54,4 +46,40 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             return self.async_create_entry(title=server["name"], data=data)
 
-        return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA)
+        hosts = await self._get_discovered_hosts()
+        return self.async_show_form(step_id="user", data_schema=self._build_schema(hosts))
+
+    async def _get_discovered_hosts(self) -> list[str]:
+        """Return a list of hosts with an open SSH port."""
+        network = guess_local_network()
+        try:
+            return await discover_ssh_hosts(network)
+        except OSError:
+            # If discovery fails, fall back to manual entry
+            return []
+
+    def _build_schema(self, hosts: list[str]) -> vol.Schema:
+        """Create the data schema for the form using *hosts* if provided."""
+        host_field: Any
+        default_host: Any
+        if hosts:
+            host_field = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[selector.SelectOptionDict(value=h, label=h) for h in hosts],
+                    custom_value=True,
+                )
+            )
+            default_host = hosts[0]
+        else:
+            host_field = str
+            default_host = vol.UNDEFINED
+        return vol.Schema(
+            {
+                vol.Required("interval", default=DEFAULT_INTERVAL): int,
+                vol.Required("name"): str,
+                vol.Required("host", default=default_host): host_field,
+                vol.Required("username"): str,
+                vol.Optional("password"): str,
+                vol.Optional("key"): str,
+            }
+        )
