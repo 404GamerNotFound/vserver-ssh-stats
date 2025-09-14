@@ -23,7 +23,7 @@ Además de la recopilación de estadísticas, el complemento incluye ahora un te
 - Soporta autenticación por contraseña y por clave SSH.
 - Terminal interactivo accesible desde la interfaz web del complemento.
 - Servicios de Home Assistant y entidades de botón para ejecutar comandos remotos, actualizar paquetes y reiniciar.
-- Detecta automáticamente hosts con SSH en la red local para una configuración rápida, manteniendo la posibilidad de configuración manual.
+- Detecta automáticamente hosts con SSH en la red local para una configuración rápida, manteniendo la posibilidad de configuración manual. Los servidores compatibles que se anuncian mediante Zeroconf también aparecen en la sección **Descubierto** de Home Assistant.
 - Recopila:
   - Uso de CPU (%)
   - Uso de memoria (%)

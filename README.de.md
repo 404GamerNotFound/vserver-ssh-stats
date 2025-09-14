@@ -22,7 +22,7 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Interaktives Terminal über die Add-on-Weboberfläche.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
-- Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich.
+- Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich. Kompatible Server, die sich per Zeroconf ankündigen, erscheinen außerdem im Bereich **Entdeckt** von Home Assistant.
 - Sammelt:
   - CPU-Auslastung (%)
   - Speicherauslastung (%)
