@@ -70,12 +70,28 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return a list of hosts with an open SSH port."""
         if self._discovered_host:
             return [self._discovered_host]
-        network = guess_local_network()
+
+        networks: list[str] = []
         try:
-            return await discover_ssh_hosts(network)
-        except OSError:
-            # If discovery fails, fall back to manual entry
-            return []
+            # Try to use Home Assistant's network helper to get all local
+            # IPv4 addresses (this includes the host network when running
+            # inside the supervised container).
+            from homeassistant.helpers.network import async_get_ipv4_addresses
+
+            addresses = await async_get_ipv4_addresses(self.hass, include_loopback=False)
+            networks = [f"{addr}/24" for addr in addresses]
+        except Exception:  # pragma: no cover - helper not available
+            networks = [guess_local_network()]
+
+        hosts: set[str] = set()
+        for network in networks:
+            try:
+                hosts.update(await discover_ssh_hosts(network))
+            except OSError:
+                # If discovery for a network fails, skip it and continue
+                continue
+
+        return sorted(hosts)
 
     def _build_schema(self, hosts: list[str]) -> vol.Schema:
         """Create the data schema for the form using *hosts* if provided."""
