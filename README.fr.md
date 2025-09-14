@@ -23,7 +23,7 @@ En plus de la collecte de statistiques, le module inclut désormais un terminal 
 - Prise en charge de l'authentification par mot de passe et par clé SSH.
 - Terminal interactif accessible via l'interface web du module.
 - Services Home Assistant et entités bouton pour exécuter des commandes à distance, mettre à jour les paquets et redémarrer.
-- Détecte automatiquement les hôtes compatibles SSH sur le réseau local pour une configuration rapide, tout en permettant une configuration manuelle.
+- Détecte automatiquement les hôtes compatibles SSH sur le réseau local pour une configuration rapide, tout en permettant une configuration manuelle. Les serveurs compatibles s'annonçant via Zeroconf apparaissent également dans la section **Découvert** de Home Assistant.
 - Collecte :
   - Utilisation du CPU (%)
   - Utilisation de la mémoire (%)

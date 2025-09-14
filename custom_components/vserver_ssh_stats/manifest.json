@@ -5,6 +5,9 @@
     "@404GamerNotFound"
   ],
   "config_flow": true,
+  "zeroconf": [
+    {"type": "_ssh._tcp.local."}
+  ],
   "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
   "integration_type": "service",
   "iot_class": "local_polling",
