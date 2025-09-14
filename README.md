@@ -25,6 +25,7 @@ In addition to statistics collection, the add-on now includes an **interactive w
 - Supports password and SSH key authentication.
 - Interactive terminal accessible via the add-on web UI.
 - Home Assistant services and button entities for remote commands, package updates, and reboots.
+- Automatically discovers SSH-enabled hosts on your local network for quick setup, while still allowing manual configuration.
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
