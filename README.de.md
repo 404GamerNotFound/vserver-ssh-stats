@@ -1,17 +1,15 @@
-# VServer SSH Stats – Home Assistant Add-on
+# VServer SSH Stats – Home Assistant Integration
 
 ![VServer SSH Stats Logo](images/logo/logo.png)
 
 ## Übersicht
-Das **VServer SSH Stats** Add-on für Home Assistant ermöglicht die Überwachung entfernter Linux-Server (vServer, Raspberry Pi oder dedizierte Maschinen), ohne zusätzliche Agenten auf den Zielrechnern zu installieren.
+Die **VServer SSH Stats** Integration für Home Assistant ermöglicht die Überwachung entfernter Linux-Server (vServer, Raspberry Pi oder dedizierte Maschinen), ohne zusätzliche Agenten auf den Zielrechnern zu installieren.
 
-Das Add-on verbindet sich per **SSH** (über IP-Adresse, Benutzername und Passwort oder SSH-Schlüssel) und sammelt Systemmetriken direkt aus `/proc`, `df` und anderen Standard-Linux-Schnittstellen.
-Die Metriken werden anschließend über **MQTT Discovery** an Home Assistant veröffentlicht, sodass sie als native Sensoren erscheinen.
+Die Integration verbindet sich per **SSH** (über IP-Adresse, Benutzername und Passwort oder SSH-Schlüssel) und sammelt Systemmetriken direkt aus `/proc`, `df` und anderen Standard-Linux-Schnittstellen. Die Werte erscheinen als native Sensoren in Home Assistant.
 
-Alternativ kann die HACS-Integration die Server direkt per SSH abfragen und die Sensoren ohne MQTT oder Add-on erstellen.
+So lassen sich CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurchsatz- und Temperaturinformationen in Echtzeit in Home Assistant Dashboards anzeigen.
 
-Dadurch ist es möglich, CPU-, Speicher-, Festplatten-, Laufzeit-, Netzwerkdurchsatz- und Temperaturinformationen in Echtzeit von all Ihren Servern in Home Assistant Dashboards anzuzeigen.
-Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur Verfügung, und es gibt einen Home-Assistant-Service zum Ausführen beliebiger Befehle auf den Servern sowie Dienste zum Abrufen der lokalen IP, der Uptime und aktiver SSH-Verbindungen.
+Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehle auf den Servern auszuführen.
 
 ---
 
@@ -20,7 +18,6 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
 - Unterstützt mehrere Server mit individueller Konfiguration.
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
-- Interaktives Terminal über die Add-on-Weboberfläche.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
 - Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich. Kompatible Server, die sich per Zeroconf ankündigen, erscheinen außerdem im Bereich **Entdeckt** von Home Assistant.
 - Sammelt:
@@ -40,24 +37,8 @@ Zusätzlich steht nun ein **interaktives Terminal** über die Weboberfläche zur
   - VNC-Unterstützung
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
-- Automatische **MQTT Discovery** für einfache Integration in Home Assistant.
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
-- Optionale leichtgewichtige Weboberfläche, die in der Home-Assistant-Seitenleiste angezeigt werden kann, jetzt mit einem Reiter für Docker-Container.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
-
-### Standalone-Nutzung ohne MQTT
-
-Wenn du Statistiken ohne MQTT sammeln möchtest, führe `app/simple_collector.py` aus. Das Skript ermöglicht dir die Eingabe eines oder mehrerer Server (drücke Enter bei der Host-Eingabe, um abzuschließen). Für jeden Server fragt es Host, Benutzername und entweder ein Passwort oder den Pfad zu einem SSH-Schlüssel sowie optional den Port ab und gibt dann alle 30 Sekunden eine JSON-Zeile mit dem Servernamen und CPU-, Speicher-, Festplatten-, Netzwerk-, Laufzeit- und Temperaturwerten aus.
-
-Optional kannst du deine Home Assistant Basis-URL und ein Long-Lived Access Token angeben. Wenn vorhanden, erstellt das Skript über die Home Assistant REST API Sensoren wie `sensor.<name>_cpu`, `sensor.<name>_mem` usw., damit die Werte ohne MQTT in der Oberfläche erscheinen.
-
-Der Haupt-Collector (`app/collector.py`) unterstützt ebenfalls einen leichtgewichtigen Modus ohne MQTT: Führe ihn einfach ohne die Umgebungsvariable `MQTT_HOST` aus. In diesem Fall werden die gesammelten Statistiken in der Konsole protokolliert, anstatt an einen Broker gesendet zu werden.
-
-### Web-Terminal und Befehlsservice
-
-Das Add-on stellt unter `http://<addon-ip>:8099/terminal.html` ein einfaches SSH-Terminal im Browser bereit. Konfigurierte Server werden als Schaltflächen für den Sofortzugriff angezeigt; alternativ kannst du Host, Benutzername und Passwort manuell eingeben, um eine interaktive Shell-Sitzung zu starten. Die Zugangsdaten werden direkt an das Add-on übermittelt und nicht an externe Dienste weitergeleitet.
-
-Für Automatisierungsszenarien registriert die Home-Assistant-Integration mehrere Dienste: `vserver_ssh_stats.run_command`, `vserver_ssh_stats.update_packages` und `vserver_ssh_stats.reboot_host`. Jeder Dienst veröffentlicht seine Ausgabe als Ereignis im Event-Bus. Zusätzlich stellt jeder konfigurierte Server Schaltflächen bereit, um Updates oder Neustarts direkt aus der Oberfläche auszulösen.
 
 ---
 
@@ -72,78 +53,6 @@ Für Automatisierungsszenarien registriert die Home-Assistant-Integration mehrer
 Beispiel aus HACS:
 
 ![HACS Beispiel](images/screeshots/Screenshot5.png)
-
-### Manuelle Add-on-Installation
-1. Kopiere den Add-on-Ordner `addon/vserver_ssh_stats` in dein lokales Home Assistant Add-on-Repository (z. B. `/addons/vserver_ssh_stats`).
-
-2. In Home Assistant:
-   - Navigiere zu **Einstellungen → Add-ons → Add-on Store**.
-   - Klicke auf das Drei-Punkte-Menü → **Repositories**.
-   - Füge deinen lokalen Add-on-Repository-Pfad oder das Git-Repository hinzu, das dieses Add-on enthält.
-
-3. Das Add-on **VServer SSH Stats** sollte nun in der Liste erscheinen. Klicke auf **Installieren**.
-
-4. Konfiguriere das Add-on (siehe unten).
-
-5. Starte das Add-on.
-
-6. Nach kurzer Zeit erscheinen neue Entitäten (Sensoren) automatisch in Home Assistant über MQTT Discovery.
-
----
-
-## Konfiguration
-
-Die Konfiguration wird in `options.json` gespeichert (bearbeitbar über die Add-on-Oberfläche).
-
-Beispiel:
-
-```yaml
-mqtt_host: homeassistant
-mqtt_port: 1883
-mqtt_user: mqttuser
-mqtt_pass: mqttpassword
-interval_seconds: 30
-disabled_entities:
-  - pkg_list
-  - temp
-servers:
-  - name: "pi5"
-    host: "192.168.1.10"
-    username: "tony"
-    password: "supersecret"
-  - name: "vps1"
-    host: "203.0.113.42"
-    username: "root"
-    key: "/config/ssh/id_rsa"
-    port: 22
-```
-
-### Optionen
-- **mqtt_host** – Hostname/IP deines MQTT-Brokers (normalerweise `homeassistant`).
-- **mqtt_port** – Port des MQTT-Brokers (Standard: `1883`).
-- **mqtt_user / mqtt_pass** – MQTT-Anmeldedaten.
-- **interval_seconds** – Abfrageintervall in Sekunden (mindestens 5).
-- **disabled_entities** – Liste von Sensor-Schlüsseln, die deaktiviert werden sollen (z. B. `cpu`, `mem`). Standard: alle aktiv.
-- **servers** – Liste der zu überwachenden Server:
-  - `name` – Anzeigename (wird als Präfix für Entitäten verwendet).
-  - `host` – IP-Adresse oder Hostname des Servers.
-  - `username` – SSH-Benutzername.
-  - `password` – SSH-Passwort (optional, wenn `key` verwendet wird).
-  - `key` – Pfad zu einer SSH-Schlüsseldatei (optional).
-  - `port` – (Optional) SSH-Port (Standard `22`).
-
-### Entitäten deaktivieren
-
-Um bestimmte Sensoren nicht zu erstellen und zu veröffentlichen, füge deren Schlüssel zu `disabled_entities` hinzu. Beispiel: Um
-Temperatur- und Paketlisten-Sensoren zu deaktivieren:
-
-```yaml
-disabled_entities:
-  - temp
-  - pkg_list
-```
-
----
 
 ## Erstellte Entitäten
 
@@ -198,12 +107,11 @@ cards:
 ## Sicherheitshinweise
 - Es wird empfohlen, einen dedizierten, eingeschränkten Benutzer für das SSH-Monitoring zu erstellen (mit nur Lesezugriff auf `/proc` und `df`).
 - SSH-Passwortauthentifizierung wird unterstützt, aber **SSH-Schlüssel-Authentifizierung** wird für den produktiven Einsatz dringend empfohlen.
-- Der Netzwerkverkehr zwischen Home Assistant und deinen Servern ist unverschlüsselt, sofern du kein TLS für MQTT aktivierst.
 
 ---
 
 ## Anforderungen
-- Home Assistant mit MQTT-Broker (eingebauter Mosquitto oder extern).
+- Home Assistant.
 - SSH-Zugang zu den überwachten Servern.
 - Linux-basierte Zielserver (beliebige Distribution mit `/proc` und `df`).
 
@@ -216,4 +124,4 @@ Dieses Projekt ist unter der **MIT-Lizenz** lizenziert.
 
 ## Autor
 **Tony Brüser**
-Originalautor und Maintainer dieses Add-ons.
+Originalautor und Maintainer dieser Integration.
