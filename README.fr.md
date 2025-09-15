@@ -1,18 +1,15 @@
-# VServer SSH Stats – Module complémentaire pour Home Assistant
+# VServer SSH Stats – Intégration pour Home Assistant
 
 ![Logo VServer SSH Stats](images/logo/logo.png)
 
 ## Vue d'ensemble
-Le module complémentaire **VServer SSH Stats** pour Home Assistant permet de surveiller des serveurs Linux distants (vServers, Raspberry Pi ou machines dédiées) sans installer de logiciels supplémentaires sur les machines cibles.
+L'intégration **VServer SSH Stats** pour Home Assistant permet de surveiller des serveurs Linux distants (vServers, Raspberry Pi ou machines dédiées) sans installer de logiciels supplémentaires sur les machines cibles.
 
-Le module se connecte via **SSH** (en utilisant l'adresse IP, le nom d'utilisateur et le mot de passe ou une clé SSH) et collecte les métriques système directement depuis `/proc`, `df` et d'autres interfaces Linux standard.
-Les métriques sont ensuite publiées vers Home Assistant via **MQTT Discovery**, de sorte qu'elles apparaissent comme des capteurs natifs.
-
-Alternativement, l'intégration HACS peut interroger vos serveurs directement via SSH et créer les capteurs sans nécessiter MQTT ni l'add-on.
+L'intégration se connecte via **SSH** (adresse IP, nom d'utilisateur et mot de passe ou clé SSH) et collecte les métriques système directement depuis `/proc`, `df` et d'autres interfaces Linux standard. Les métriques apparaissent comme des capteurs natifs dans Home Assistant.
 
 Cela permet d'afficher en temps réel les informations de CPU, mémoire, disque, temps de fonctionnement, débit réseau et température de tous vos serveurs dans les tableaux de bord Home Assistant.
 
-En plus de la collecte de statistiques, le module inclut désormais un terminal web interactif et un service Home Assistant pour exécuter des commandes ad hoc sur vos serveurs.
+L'intégration fournit également des services Home Assistant pour exécuter des commandes ad hoc sur vos serveurs.
 
 ---
 
@@ -21,7 +18,6 @@ En plus de la collecte de statistiques, le module inclut désormais un terminal 
 - Prise en charge de plusieurs serveurs avec configuration individuelle.
 - Configurable via l'interface Home Assistant (config flow).
 - Prise en charge de l'authentification par mot de passe et par clé SSH.
-- Terminal interactif accessible via l'interface web du module.
 - Services Home Assistant et entités bouton pour exécuter des commandes à distance, mettre à jour les paquets et redémarrer.
 - Détecte automatiquement les hôtes compatibles SSH sur le réseau local pour une configuration rapide, tout en permettant une configuration manuelle. Les serveurs compatibles s'annonçant via Zeroconf apparaissent également dans la section **Découvert** de Home Assistant.
 - Collecte :
@@ -41,18 +37,8 @@ En plus de la collecte de statistiques, le module inclut désormais un terminal 
   - Statut du support VNC
   - Statut du serveur web HTTP/HTTPS
   - Statut du service SSH
-- **MQTT Discovery** automatique pour une intégration facile avec Home Assistant.
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
-- Interface web légère optionnelle pouvant être affichée dans la barre latérale de Home Assistant, maintenant avec un onglet pour les conteneurs Docker.
 - Services pour obtenir l'adresse IP locale du serveur, le temps de fonctionnement, lister les connexions SSH actives, exécuter des commandes, mettre à jour les paquets et redémarrer l'hôte.
-
-### Utilisation autonome sans MQTT
-
-Si vous souhaitez recueillir des statistiques sans MQTT, exécutez `app/simple_collector.py`. Le script permet d'entrer un ou plusieurs serveurs (appuyez sur Entrée au prompt de l'hôte pour terminer). Pour chaque serveur, il demande l'hôte, le nom d'utilisateur et soit un mot de passe soit le chemin vers une clé SSH, plus un port optionnel, puis affiche toutes les 30 secondes une ligne JSON incluant le nom du serveur avec les valeurs de CPU, mémoire, disque, réseau, temps de fonctionnement et température.
-
-Vous pouvez facultativement entrer l'URL de base de Home Assistant et un jeton d'accès longue durée. Lorsque ces informations sont fournies, le script crée via l'API REST de Home Assistant des capteurs comme `sensor.<name>_cpu`, `sensor.<name>_mem`, etc., afin que les valeurs apparaissent dans l'interface sans MQTT.
-
-Le collecteur principal (`app/collector.py`) prend également en charge un mode léger sans MQTT : exécutez-le simplement sans la variable d'environnement `MQTT_HOST`. Dans ce cas, les statistiques collectées sont enregistrées sur la console au lieu d'être publiées sur un broker.
 
 ---
 
@@ -67,77 +53,6 @@ Le collecteur principal (`app/collector.py`) prend également en charge un mode 
 Exemple depuis HACS :
 
 ![Exemple HACS](images/screeshots/Screenshot5.png)
-
-### Installation manuelle du module complémentaire
-1. Copiez le dossier du module `addon/vserver_ssh_stats` dans votre dépôt local de modules complémentaires Home Assistant (par exemple `/addons/vserver_ssh_stats`).
-
-2. Dans Home Assistant :
-   - Accédez à **Paramètres → Add-ons → Add-on Store**.
-   - Cliquez sur le menu à trois points → **Repositories**.
-   - Ajoutez le chemin de votre dépôt local de modules ou le dépôt Git contenant ce module.
-
-3. Le module **VServer SSH Stats** devrait maintenant apparaître dans la liste. Cliquez sur **Install**.
-
-4. Configurez le module (voir ci-dessous).
-
-5. Démarrez le module.
-
-6. Après un court instant, de nouvelles entités (capteurs) apparaîtront automatiquement dans Home Assistant via MQTT Discovery.
-
----
-
-## Configuration
-
-La configuration est stockée dans `options.json` (modifiable via l'interface du module).
-
-Exemple :
-
-```yaml
-mqtt_host: homeassistant
-mqtt_port: 1883
-mqtt_user: mqttuser
-mqtt_pass: mqttpassword
-interval_seconds: 30
-disabled_entities:
-  - pkg_list
-  - temp
-servers:
-  - name: "pi5"
-    host: "192.168.1.10"
-    username: "tony"
-    password: "supersecret"
-  - name: "vps1"
-    host: "203.0.113.42"
-    username: "root"
-    key: "/config/ssh/id_rsa"
-    port: 22
-```
-
-### Options
-- **mqtt_host** – Nom d'hôte/IP de votre broker MQTT (généralement `homeassistant`).
-- **mqtt_port** – Port du broker MQTT (par défaut : `1883`).
-- **mqtt_user / mqtt_pass** – Identifiants MQTT.
-- **interval_seconds** – Intervalle d'interrogation en secondes (minimum 5).
-- **disabled_entities** – Liste des clés de capteurs à désactiver (par ex. `cpu`, `mem`). Toutes activées par défaut.
-- **servers** – Liste des serveurs à surveiller :
-  - `name` – Nom convivial (utilisé comme préfixe d'entité).
-  - `host` – Adresse IP ou nom d'hôte du serveur.
-  - `username` – Nom d'utilisateur SSH.
-  - `password` – Mot de passe SSH (facultatif si `key` est utilisé).
-  - `key` – Chemin vers un fichier de clé privée SSH (facultatif).
-  - `port` – (Facultatif) Port SSH (par défaut `22`).
-
-### Désactivation des entités
-
-Ajoutez les clés de capteurs indésirables dans `disabled_entities` pour éviter leur création et leur publication. Par exemple, pour désactiver les capteurs de température et de liste de paquets :
-
-```yaml
-disabled_entities:
-  - temp
-  - pkg_list
-```
-
----
 
 ## Entités créées
 
@@ -192,12 +107,11 @@ cards:
 ## Notes de sécurité
 - Il est recommandé de créer un utilisateur dédié et restreint pour la surveillance SSH (avec un accès en lecture seule à `/proc` et `df`).
 - L'authentification par mot de passe est prise en charge, mais l'**authentification par clé SSH** est fortement recommandée pour un usage en production.
-- Le trafic réseau entre Home Assistant et vos serveurs n'est pas chiffré à moins d'activer TLS pour MQTT.
 
 ---
 
 ## Exigences
-- Home Assistant avec broker MQTT (Mosquitto intégré ou externe).
+- Home Assistant.
 - Accès SSH aux serveurs surveillés.
 - Serveurs cibles basés sur Linux (toute distribution avec `/proc` et `df`).
 
@@ -210,4 +124,4 @@ Ce projet est sous licence **MIT**.
 
 ## Auteur
 **Tony Brüser**
-Auteur original et mainteneur de ce module.
+Auteur original et mainteneur de cette intégration.
