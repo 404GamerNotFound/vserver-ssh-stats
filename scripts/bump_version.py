@@ -17,6 +17,8 @@ def update_manifest(new_version: str):
     MANIFEST_PATH.write_text(json.dumps(data, indent=2) + "\n")
 
 def update_config(new_version: str):
+    if not CONFIG_PATH.exists():
+        return
     text = CONFIG_PATH.read_text()
     text = re.sub(r'version:\s*"\d+\.\d+\.\d+"', f'version: "{new_version}"', text)
     CONFIG_PATH.write_text(text)
