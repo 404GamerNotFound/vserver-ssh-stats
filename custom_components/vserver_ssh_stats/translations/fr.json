@@ -5,17 +5,49 @@
       "user": {
         "title": "VServer SSH Stats",
         "data": {
-          "interval": "Intervalle",
-          "name": "Nom",
+          "interval": "Intervalle de mise à jour (secondes)",
+          "name": "Nom du serveur",
           "host": "Hôte",
+          "port": "Port SSH",
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
-          "key": "Fichier de clé"
+          "key": "Fichier de clé",
+          "add_another": "Ajouter un autre serveur après celui-ci"
         }
       }
     },
     "error": {
-      "auth": "Fournissez un mot de passe ou un fichier de clé"
+      "auth": "Fournissez un mot de passe ou un fichier de clé",
+      "duplicate_host": "Cet hôte a déjà été ajouté",
+      "host_in_use": "Cet hôte est déjà configuré"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "interval": "Intervalle de mise à jour (secondes)",
+          "reconfigure_servers": "Saisir à nouveau la liste des serveurs"
+        }
+      },
+      "servers": {
+        "title": "VServer SSH Stats",
+        "description": "Ajoutez les serveurs un par un. Choisissez 'Ajouter un autre serveur après celui-ci' pour continuer.",
+        "data": {
+          "name": "Nom du serveur",
+          "host": "Hôte",
+          "port": "Port SSH",
+          "username": "Nom d'utilisateur",
+          "password": "Mot de passe",
+          "key": "Fichier de clé",
+          "add_another": "Ajouter un autre serveur après celui-ci"
+        }
+      }
+    },
+    "error": {
+      "auth": "Fournissez un mot de passe ou un fichier de clé",
+      "duplicate_host": "Cet hôte a déjà été ajouté",
+      "host_in_use": "Cet hôte est déjà configuré"
     }
   }
 }

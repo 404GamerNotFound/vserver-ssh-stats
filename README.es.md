@@ -107,6 +107,15 @@ cards:
 ## Notas de seguridad
 - Se recomienda crear un usuario dedicado y restringido para la supervisión por SSH (con acceso de solo lectura a `/proc` y `df`).
 - Se admite autenticación por contraseña, pero se recomienda encarecidamente la **autenticación por clave SSH** para uso en producción.
+- Las acciones remotas como las actualizaciones de paquetes y los reinicios usan `sudo`. Asegúrate de que la cuenta remota pueda ejecutar `apt-get`, `dnf`, `yum` y `reboot` sin solicitar contraseña (por ejemplo, añadiendo reglas explícitas en `/etc/sudoers`). Documenta o refuerza esos permisos en cada servidor antes de habilitar los botones/servicios.
+
+---
+
+## Gestión de lanzamientos
+- Versión estable actual: **v1.2.7** (coincide con `manifest.json`).
+- Crea una etiqueta Git (por ejemplo, `git tag v1.2.7`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
+- Utiliza el script existente `scripts/bump_version.py` para incrementar la versión de la integración al preparar una nueva publicación.
+- Registra los cambios relevantes en [`CHANGELOG.md`](CHANGELOG.md) junto con cada versión.
 
 ---
 

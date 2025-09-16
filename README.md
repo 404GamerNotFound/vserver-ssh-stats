@@ -109,8 +109,17 @@ cards:
 ```
 
 ## Security Notes
-- It is recommended to create a dedicated, restricted user for SSH monitoring (with read-only access to `/proc` and `df`).  
-- SSH password authentication is supported, but **SSH key authentication** is strongly recommended for production use.  
+- It is recommended to create a dedicated, restricted user for SSH monitoring (with read-only access to `/proc` and `df`).
+- SSH password authentication is supported, but **SSH key authentication** is strongly recommended for production use.
+- Remote actions such as package upgrades and reboots rely on `sudo`. Ensure the remote account is permitted to execute `apt-get`, `dnf`, `yum`, and `reboot` without an interactive password prompt (for example by adding explicit rules to `/etc/sudoers`). Document or harden those permissions for each monitored server before enabling the buttons/services.
+
+---
+
+## Release Management
+- Current stable release: **v1.2.7** (matching `manifest.json`).
+- Create a Git tag (e.g. `git tag v1.2.7`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
+- Use the existing `scripts/bump_version.py` helper to increment the integration version when preparing a new release.
+- Document notable changes in [`CHANGELOG.md`](CHANGELOG.md) alongside each release.
 
 ---
 
