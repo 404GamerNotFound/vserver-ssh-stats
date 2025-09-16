@@ -52,7 +52,7 @@ L'intégration fournit également des services Home Assistant pour exécuter des
 
 Exemple depuis HACS :
 
-![Exemple HACS](images/screeshots/Screenshot5.png)
+![Exemple HACS](images/screenshots/Screenshot5.png)
 
 ## Entités créées
 
@@ -112,8 +112,8 @@ cards:
 ---
 
 ## Gestion des versions
-- Version stable actuelle : **v1.2.8** (conforme à `manifest.json`).
-- Créez une étiquette Git (par exemple `git tag v1.2.8`) et une publication GitHub pour chaque version afin que HACS puisse suivre correctement les mises à jour.
+- Version stable actuelle : **v1.2.9** (conforme à `manifest.json`).
+- Créez une étiquette Git (par exemple `git tag v1.2.9`) et une publication GitHub pour chaque version afin que HACS puisse suivre correctement les mises à jour.
 - Utilisez le script `scripts/bump_version.py` existant pour incrémenter la version de l'intégration lors de la préparation d'une nouvelle publication.
 - Consignez les changements importants dans [`CHANGELOG.md`](CHANGELOG.md) pour chaque version.
 
