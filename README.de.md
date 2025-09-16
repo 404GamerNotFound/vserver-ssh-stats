@@ -107,6 +107,15 @@ cards:
 ## Sicherheitshinweise
 - Es wird empfohlen, einen dedizierten, eingeschränkten Benutzer für das SSH-Monitoring zu erstellen (mit nur Lesezugriff auf `/proc` und `df`).
 - SSH-Passwortauthentifizierung wird unterstützt, aber **SSH-Schlüssel-Authentifizierung** wird für den produktiven Einsatz dringend empfohlen.
+- Remote-Aktionen wie Paketaktualisierungen und Neustarts nutzen `sudo`. Stellen Sie sicher, dass das entfernte Konto `apt-get`, `dnf`, `yum` und `reboot` ohne Passwortabfrage ausführen darf (z. B. durch gezielte Einträge in der `/etc/sudoers`). Dokumentieren oder härten Sie diese Rechte pro Server ab, bevor Sie die Buttons/Services einsetzen.
+
+---
+
+## Release-Management
+- Aktuelle stabile Version: **v1.2.7** (siehe `manifest.json`).
+- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.7`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
+- Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
+- Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 

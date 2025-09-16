@@ -5,17 +5,49 @@
       "user": {
         "title": "VServer SSH Stats",
         "data": {
-          "interval": "Interval",
-          "name": "Name",
+          "interval": "Update interval (seconds)",
+          "name": "Server name",
           "host": "Host",
+          "port": "SSH port",
           "username": "Username",
           "password": "Password",
-          "key": "Key file"
+          "key": "Key file",
+          "add_another": "Add another server after this"
         }
       }
     },
     "error": {
-      "auth": "Provide password or key file"
+      "auth": "Provide password or key file",
+      "duplicate_host": "This host was already added",
+      "host_in_use": "This host is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "interval": "Update interval (seconds)",
+          "reconfigure_servers": "Re-enter the server list"
+        }
+      },
+      "servers": {
+        "title": "VServer SSH Stats",
+        "description": "Add servers one by one. Choose 'Add another server' to continue entering hosts.",
+        "data": {
+          "name": "Server name",
+          "host": "Host",
+          "port": "SSH port",
+          "username": "Username",
+          "password": "Password",
+          "key": "Key file",
+          "add_another": "Add another server after this"
+        }
+      }
+    },
+    "error": {
+      "auth": "Provide password or key file",
+      "duplicate_host": "This host was already added",
+      "host_in_use": "This host is already configured"
     }
   }
 }
