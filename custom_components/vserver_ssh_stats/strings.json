@@ -49,5 +49,101 @@
       "duplicate_host": "This host was already added",
       "host_in_use": "This host is already configured"
     }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Get local IP",
+      "description": "Retrieve the host's local IP address."
+    },
+    "get_uptime": {
+      "name": "Get uptime",
+      "description": "Retrieve system uptime in seconds."
+    },
+    "list_connections": {
+      "name": "List SSH connections",
+      "description": "List IP addresses of active SSH sessions."
+    },
+    "run_command": {
+      "name": "Run SSH command",
+      "description": "Execute an arbitrary command on a remote server.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "command": {
+          "name": "Command",
+          "description": "Command to execute."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Update packages",
+      "description": "Update system packages using apt, dnf, or yum.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Reboot host",
+      "description": "Reboot the remote server.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        }
+      }
+    }
   }
 }

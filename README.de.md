@@ -52,7 +52,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 
 Beispiel aus HACS:
 
-![HACS Beispiel](images/screeshots/Screenshot5.png)
+![HACS Beispiel](images/screenshots/Screenshot5.png)
 
 ## Erstellte Entitäten
 
@@ -112,8 +112,8 @@ cards:
 ---
 
 ## Release-Management
-- Aktuelle stabile Version: **v1.2.8** (siehe `manifest.json`).
-- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.8`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
+- Aktuelle stabile Version: **v1.2.9** (siehe `manifest.json`).
+- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.9`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).
 

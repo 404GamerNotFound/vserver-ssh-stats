@@ -49,5 +49,101 @@
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado"
     }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Obtener IP local",
+      "description": "Obtiene la dirección IP local del host."
+    },
+    "get_uptime": {
+      "name": "Obtener tiempo de actividad",
+      "description": "Obtiene el tiempo de actividad del sistema en segundos."
+    },
+    "list_connections": {
+      "name": "Listar conexiones SSH",
+      "description": "Lista las direcciones IP de las sesiones SSH activas."
+    },
+    "run_command": {
+      "name": "Ejecutar comando SSH",
+      "description": "Ejecuta un comando arbitrario en un servidor remoto.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Nombre de host o IP del servidor."
+        },
+        "username": {
+          "name": "Usuario",
+          "description": "Usuario de SSH."
+        },
+        "command": {
+          "name": "Comando",
+          "description": "Comando a ejecutar."
+        },
+        "password": {
+          "name": "Contraseña",
+          "description": "Contraseña para la autenticación."
+        },
+        "key": {
+          "name": "Archivo de clave",
+          "description": "Ruta a la clave privada SSH."
+        },
+        "port": {
+          "name": "Puerto SSH",
+          "description": "Puerto SSH."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Actualizar paquetes",
+      "description": "Actualiza los paquetes del sistema usando apt, dnf o yum.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Nombre de host o IP del servidor."
+        },
+        "username": {
+          "name": "Usuario",
+          "description": "Usuario de SSH."
+        },
+        "password": {
+          "name": "Contraseña",
+          "description": "Contraseña para la autenticación."
+        },
+        "key": {
+          "name": "Archivo de clave",
+          "description": "Ruta a la clave privada SSH."
+        },
+        "port": {
+          "name": "Puerto SSH",
+          "description": "Puerto SSH."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Reiniciar host",
+      "description": "Reinicia el servidor remoto.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Nombre de host o IP del servidor."
+        },
+        "username": {
+          "name": "Usuario",
+          "description": "Usuario de SSH."
+        },
+        "password": {
+          "name": "Contraseña",
+          "description": "Contraseña para la autenticación."
+        },
+        "key": {
+          "name": "Archivo de clave",
+          "description": "Ruta a la clave privada SSH."
+        },
+        "port": {
+          "name": "Puerto SSH",
+          "description": "Puerto SSH."
+        }
+      }
+    }
   }
 }

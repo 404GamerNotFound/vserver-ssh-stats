@@ -49,5 +49,101 @@
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
       "host_in_use": "Dieser Host ist bereits konfiguriert"
     }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Lokale IP abrufen",
+      "description": "Ermittelt die lokale IP-Adresse des Hosts."
+    },
+    "get_uptime": {
+      "name": "Betriebszeit abrufen",
+      "description": "Liest die Systembetriebszeit in Sekunden aus."
+    },
+    "list_connections": {
+      "name": "SSH-Verbindungen auflisten",
+      "description": "Listet IP-Adressen aktiver SSH-Sitzungen auf."
+    },
+    "run_command": {
+      "name": "SSH-Befehl ausführen",
+      "description": "Führt einen beliebigen Befehl auf einem entfernten Server aus.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "command": {
+          "name": "Befehl",
+          "description": "Befehl, der ausgeführt werden soll."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Pakete aktualisieren",
+      "description": "Aktualisiert Systempakete per apt, dnf oder yum.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Host neu starten",
+      "description": "Startet den entfernten Server neu.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        }
+      }
+    }
   }
 }

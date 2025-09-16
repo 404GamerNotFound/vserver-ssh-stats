@@ -49,5 +49,101 @@
       "duplicate_host": "Cet hôte a déjà été ajouté",
       "host_in_use": "Cet hôte est déjà configuré"
     }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Obtenir l'IP locale",
+      "description": "Récupère l'adresse IP locale de l'hôte."
+    },
+    "get_uptime": {
+      "name": "Obtenir le temps de fonctionnement",
+      "description": "Récupère le temps de fonctionnement du système en secondes."
+    },
+    "list_connections": {
+      "name": "Lister les connexions SSH",
+      "description": "Répertorie les adresses IP des sessions SSH actives."
+    },
+    "run_command": {
+      "name": "Exécuter une commande SSH",
+      "description": "Exécute une commande sur un serveur distant.",
+      "fields": {
+        "host": {
+          "name": "Hôte",
+          "description": "Nom d'hôte ou IP du serveur."
+        },
+        "username": {
+          "name": "Nom d'utilisateur",
+          "description": "Nom d'utilisateur SSH."
+        },
+        "command": {
+          "name": "Commande",
+          "description": "Commande à exécuter."
+        },
+        "password": {
+          "name": "Mot de passe",
+          "description": "Mot de passe pour l'authentification."
+        },
+        "key": {
+          "name": "Fichier de clé",
+          "description": "Chemin vers la clé privée SSH."
+        },
+        "port": {
+          "name": "Port SSH",
+          "description": "Port SSH."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Mettre à jour les paquets",
+      "description": "Met à jour les paquets du système via apt, dnf ou yum.",
+      "fields": {
+        "host": {
+          "name": "Hôte",
+          "description": "Nom d'hôte ou IP du serveur."
+        },
+        "username": {
+          "name": "Nom d'utilisateur",
+          "description": "Nom d'utilisateur SSH."
+        },
+        "password": {
+          "name": "Mot de passe",
+          "description": "Mot de passe pour l'authentification."
+        },
+        "key": {
+          "name": "Fichier de clé",
+          "description": "Chemin vers la clé privée SSH."
+        },
+        "port": {
+          "name": "Port SSH",
+          "description": "Port SSH."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Redémarrer l'hôte",
+      "description": "Redémarre le serveur distant.",
+      "fields": {
+        "host": {
+          "name": "Hôte",
+          "description": "Nom d'hôte ou IP du serveur."
+        },
+        "username": {
+          "name": "Nom d'utilisateur",
+          "description": "Nom d'utilisateur SSH."
+        },
+        "password": {
+          "name": "Mot de passe",
+          "description": "Mot de passe pour l'authentification."
+        },
+        "key": {
+          "name": "Fichier de clé",
+          "description": "Chemin vers la clé privée SSH."
+        },
+        "port": {
+          "name": "Port SSH",
+          "description": "Port SSH."
+        }
+      }
+    }
   }
 }
