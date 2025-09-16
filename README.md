@@ -116,8 +116,8 @@ cards:
 ---
 
 ## Release Management
-- Current stable release: **v1.2.7** (matching `manifest.json`).
-- Create a Git tag (e.g. `git tag v1.2.7`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
+- Current stable release: **v1.2.8** (matching `manifest.json`).
+- Create a Git tag (e.g. `git tag v1.2.8`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
 - Use the existing `scripts/bump_version.py` helper to increment the integration version when preparing a new release.
 - Document notable changes in [`CHANGELOG.md`](CHANGELOG.md) alongside each release.
 
