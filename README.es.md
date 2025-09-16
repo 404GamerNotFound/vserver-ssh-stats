@@ -112,8 +112,8 @@ cards:
 ---
 
 ## Gestión de lanzamientos
-- Versión estable actual: **v1.2.7** (coincide con `manifest.json`).
-- Crea una etiqueta Git (por ejemplo, `git tag v1.2.7`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
+- Versión estable actual: **v1.2.8** (coincide con `manifest.json`).
+- Crea una etiqueta Git (por ejemplo, `git tag v1.2.8`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
 - Utiliza el script existente `scripts/bump_version.py` para incrementar la versión de la integración al preparar una nueva publicación.
 - Registra los cambios relevantes en [`CHANGELOG.md`](CHANGELOG.md) junto con cada versión.
 
