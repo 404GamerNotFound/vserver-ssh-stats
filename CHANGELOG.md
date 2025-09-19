@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.10
+- Dynamically create container CPU and RAM sensors when new Docker containers appear on a monitored server.
+- Mark removed containers as unavailable so they disappear automatically after reloading the integration configuration.
+
 ## v1.2.9
 - Provide service translation strings across all supported languages so hassfest validation passes.
 - Document the 1.2.9 release in each README to keep metadata consistent with the manifest.

@@ -34,6 +34,7 @@ La integración también proporciona servicios de Home Assistant para ejecutar c
   - Versión del sistema operativo
   - Paquetes instalados (cantidad y lista)
   - Detección de Docker, contenedores en ejecución y uso por contenedor (CPU y memoria)
+  - Creación automática de sensores de CPU y memoria por contenedor cuando se detectan nuevos contenedores
   - Estado de soporte VNC
   - Estado de servidor web HTTP/HTTPS
   - Estado de servicio SSH
@@ -112,8 +113,8 @@ cards:
 ---
 
 ## Gestión de lanzamientos
-- Versión estable actual: **v1.2.9** (coincide con `manifest.json`).
-- Crea una etiqueta Git (por ejemplo, `git tag v1.2.9`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
+- Versión estable actual: **v1.2.10** (coincide con `manifest.json`).
+- Crea una etiqueta Git (por ejemplo, `git tag v1.2.10`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
 - Utiliza el script existente `scripts/bump_version.py` para incrementar la versión de la integración al preparar una nueva publicación.
 - Registra los cambios relevantes en [`CHANGELOG.md`](CHANGELOG.md) junto con cada versión.
 

@@ -34,6 +34,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
   - Docker-Installation, laufende Container und Auslastung einzelner Container (CPU und Speicher)
+  - Automatische Erstellung neuer CPU- und Speichersensoren, sobald zusätzliche Container starten
   - VNC-Unterstützung
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
@@ -112,8 +113,8 @@ cards:
 ---
 
 ## Release-Management
-- Aktuelle stabile Version: **v1.2.9** (siehe `manifest.json`).
-- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.9`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
+- Aktuelle stabile Version: **v1.2.10** (siehe `manifest.json`).
+- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.10`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).
 

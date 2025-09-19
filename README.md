@@ -36,6 +36,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - Operating system version
   - Installed packages (count and list)
   - Docker installation, running containers, and per-container CPU/memory usage
+  - Automatic creation of per-container CPU and memory sensors whenever new containers start
   - VNC support status
   - HTTP/HTTPS web server status
   - SSH enabled status
@@ -116,8 +117,8 @@ cards:
 ---
 
 ## Release Management
-- Current stable release: **v1.2.9** (matching `manifest.json`).
-- Create a Git tag (e.g. `git tag v1.2.9`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
+- Current stable release: **v1.2.10** (matching `manifest.json`).
+- Create a Git tag (e.g. `git tag v1.2.10`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
 - Use the existing `scripts/bump_version.py` helper to increment the integration version when preparing a new release.
 - Document notable changes in [`CHANGELOG.md`](CHANGELOG.md) alongside each release.
 
