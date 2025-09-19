@@ -34,6 +34,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
   - Docker-Installation, laufende Container und Auslastung einzelner Container (CPU und Speicher)
+  - Automatische Erstellung neuer CPU- und Speichersensoren, sobald zusätzliche Container starten
   - VNC-Unterstützung
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
@@ -104,6 +105,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Ablage des SSH-Schlüssels
+
+- Unter **Home Assistant OS** die private SSH-Schlüsseldatei in das Verzeichnis `/config/ssh/` kopieren (z. B. über das File-
+  Editor-Add-on oder die Samba-Freigabe). Ein Schlüssel `id_vserver` landet so unter `/config/ssh/id_vserver`.
+- Im Konfigurationsassistenten entweder den absoluten Pfad `/config/ssh/id_vserver` oder den relativen Pfad `ssh/id_vserver`
+  (ausgehend vom Home-Assistant-Konfigurationsordner) eintragen. Beide Varianten werden unterstützt.
+- Es muss immer die **private** Schlüsseldatei angegeben werden, nicht die `.pub`-Datei.
+- Bei Home Assistant Container/Core kann auch ein beliebiger absoluter Pfad verwendet werden, auf den Home Assistant zugreifen
+  darf.
+
 ## Sicherheitshinweise
 - Es wird empfohlen, einen dedizierten, eingeschränkten Benutzer für das SSH-Monitoring zu erstellen (mit nur Lesezugriff auf `/proc` und `df`).
 - SSH-Passwortauthentifizierung wird unterstützt, aber **SSH-Schlüssel-Authentifizierung** wird für den produktiven Einsatz dringend empfohlen.
@@ -112,8 +123,8 @@ cards:
 ---
 
 ## Release-Management
-- Aktuelle stabile Version: **v1.2.9** (siehe `manifest.json`).
-- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.9`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
+- Aktuelle stabile Version: **v1.2.10** (siehe `manifest.json`).
+- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.10`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).
 

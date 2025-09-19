@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Dict
+from typing import Any, Callable, Dict, Iterable
 
 from homeassistant.components.sensor import (
     SensorEntity,
@@ -29,7 +30,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def _sanitize(name: str) -> str:
     """Sanitize a container name for use in entity keys."""
-    import re
 
     return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
 
@@ -37,6 +37,50 @@ def _sanitize(name: str) -> str:
 @dataclass
 class VServerSensorDescription(SensorEntityDescription):
     """Class describing VServer SSH Stats sensor."""
+
+
+@dataclass
+class ServerContainerRegistry:
+    """Track container sensors that were created for a server."""
+
+    coordinator: "VServerCoordinator"
+    server_name: str
+    known_containers: set[str] = field(default_factory=set)
+
+    def _build_container_sensors(self, raw_name: str, sanitized: str) -> list["VServerSensor"]:
+        """Create the sensor entities for a single container."""
+        cpu_description = VServerSensorDescription(
+            key=f"container_{sanitized}_cpu",
+            name=f"{raw_name} CPU",
+            native_unit_of_measurement=PERCENTAGE,
+        )
+        mem_description = VServerSensorDescription(
+            key=f"container_{sanitized}_mem",
+            name=f"{raw_name} Memory",
+            native_unit_of_measurement=PERCENTAGE,
+        )
+        return [
+            VServerSensor(self.coordinator, self.server_name, cpu_description),
+            VServerSensor(self.coordinator, self.server_name, mem_description),
+        ]
+
+    def create_entities_from_stats(
+        self, stats: Iterable[Dict[str, Any]] | None
+    ) -> list["VServerSensor"]:
+        """Create sensor entities for new containers found in the stats."""
+        if not stats:
+            return []
+        new_entities: list[VServerSensor] = []
+        for container in stats:
+            raw_name = container.get("name")
+            if not raw_name:
+                continue
+            sanitized = _sanitize(raw_name)
+            if not sanitized or sanitized in self.known_containers:
+                continue
+            self.known_containers.add(sanitized)
+            new_entities.extend(self._build_container_sensors(raw_name, sanitized))
+        return new_entities
 
 
 SENSORS: tuple[VServerSensorDescription, ...] = (
@@ -146,34 +190,29 @@ async def async_setup_entry(
             continue
         coordinator = VServerCoordinator(hass, srv, interval)
         await coordinator.async_config_entry_first_refresh()
+        registry = ServerContainerRegistry(coordinator, name)
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
-        for cont in coordinator.data.get("container_stats", []):
-            cname = cont.get("name")
-            if not cname:
-                continue
-            sanitized = _sanitize(cname)
-            entities.append(
-                VServerSensor(
-                    coordinator,
-                    name,
-                    VServerSensorDescription(
-                        key=f"container_{sanitized}_cpu",
-                        name=f"{cname} CPU",
-                        native_unit_of_measurement=PERCENTAGE,
-                    ),
-                )
-            )
-            entities.append(
-                VServerSensor(
-                    coordinator,
-                    name,
-                    VServerSensorDescription(
-                        key=f"container_{sanitized}_mem",
-                        name=f"{cname} Memory",
-                        native_unit_of_measurement=PERCENTAGE,
-                    ),
-                )
-            )
-    async_add_entities(entities)
+        initial_stats: Iterable[Dict[str, Any]] | None = None
+        if coordinator.data:
+            initial_stats = coordinator.data.get("container_stats")
+        entities.extend(registry.create_entities_from_stats(initial_stats))
+
+        def _make_container_listener(
+            registry: ServerContainerRegistry,
+        ) -> Callable[[], None]:
+            def _handle_update() -> None:
+                data: Dict[str, Any] | None = registry.coordinator.data
+                stats = data.get("container_stats") if isinstance(data, dict) else None
+                new_entities = registry.create_entities_from_stats(stats)
+                if new_entities:
+                    async_add_entities(new_entities, update_before_add=True)
+
+            return _handle_update
+
+        remove_listener = coordinator.async_add_listener(
+            _make_container_listener(registry)
+        )
+        entry.async_on_unload(remove_listener)
+    async_add_entities(entities, update_before_add=True)
 

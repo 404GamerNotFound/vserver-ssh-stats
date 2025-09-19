@@ -19,7 +19,8 @@
     "error": {
       "auth": "Provide password or key file",
       "duplicate_host": "This host was already added",
-      "host_in_use": "This host is already configured"
+      "host_in_use": "This host is already configured",
+      "key_missing": "SSH key file not found"
     }
   },
   "options": {
@@ -47,7 +48,8 @@
     "error": {
       "auth": "Provide password or key file",
       "duplicate_host": "This host was already added",
-      "host_in_use": "This host is already configured"
+      "host_in_use": "This host is already configured",
+      "key_missing": "SSH key file not found"
     }
   },
   "services": {
@@ -85,7 +87,7 @@
         },
         "key": {
           "name": "Key file",
-          "description": "Path to SSH private key."
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH port",
@@ -111,7 +113,7 @@
         },
         "key": {
           "name": "Key file",
-          "description": "Path to SSH private key."
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH port",
@@ -137,7 +139,7 @@
         },
         "key": {
           "name": "Key file",
-          "description": "Path to SSH private key."
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH port",

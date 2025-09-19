@@ -19,7 +19,8 @@
     "error": {
       "auth": "Fournissez un mot de passe ou un fichier de clé",
       "duplicate_host": "Cet hôte a déjà été ajouté",
-      "host_in_use": "Cet hôte est déjà configuré"
+      "host_in_use": "Cet hôte est déjà configuré",
+      "key_missing": "Fichier de clé SSH introuvable"
     }
   },
   "options": {
@@ -47,7 +48,8 @@
     "error": {
       "auth": "Fournissez un mot de passe ou un fichier de clé",
       "duplicate_host": "Cet hôte a déjà été ajouté",
-      "host_in_use": "Cet hôte est déjà configuré"
+      "host_in_use": "Cet hôte est déjà configuré",
+      "key_missing": "Fichier de clé SSH introuvable"
     }
   },
   "services": {
@@ -85,7 +87,7 @@
         },
         "key": {
           "name": "Fichier de clé",
-          "description": "Chemin vers la clé privée SSH."
+          "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Port SSH",
@@ -111,7 +113,7 @@
         },
         "key": {
           "name": "Fichier de clé",
-          "description": "Chemin vers la clé privée SSH."
+          "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Port SSH",
@@ -137,7 +139,7 @@
         },
         "key": {
           "name": "Fichier de clé",
-          "description": "Chemin vers la clé privée SSH."
+          "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Port SSH",

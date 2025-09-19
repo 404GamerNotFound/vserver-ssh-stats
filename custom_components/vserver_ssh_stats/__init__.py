@@ -12,6 +12,8 @@ from homeassistant.helpers import config_validation as cv
 
 import voluptuous as vol
 import paramiko
+
+from .util import resolve_private_key_path
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
@@ -109,7 +111,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 "port": data.get("port", 22),
                 "password": data.get("password"),
             }
-            key = data.get("key")
+            key = resolve_private_key_path(hass, data.get("key"))
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
@@ -138,7 +140,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 "port": data.get("port", 22),
                 "password": data.get("password"),
             }
-            key = data.get("key")
+            key = resolve_private_key_path(hass, data.get("key"))
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
@@ -176,7 +178,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 "port": data.get("port", 22),
                 "password": data.get("password"),
             }
-            key = data.get("key")
+            key = resolve_private_key_path(hass, data.get("key"))
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
@@ -251,6 +253,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         servers = json.loads(data.get("servers_json", "[]"))
     except ValueError:  # pragma: no cover - validation handled in flow
         servers = []
+    for server in servers:
+        key = resolve_private_key_path(hass, server.get("key"))
+        if key:
+            server["key"] = key
     hass.data[DOMAIN][entry.entry_id] = {
         "interval": data.get("interval"),
         "servers": servers,

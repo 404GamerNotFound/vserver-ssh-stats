@@ -34,6 +34,7 @@ L'intégration fournit également des services Home Assistant pour exécuter des
   - Version du système d'exploitation
   - Paquets installés (nombre et liste)
   - Détection de Docker, conteneurs en cours d'exécution et utilisation par conteneur (CPU et mémoire)
+  - Création automatique de capteurs CPU et mémoire par conteneur lorsque de nouveaux conteneurs sont détectés
   - Statut du support VNC
   - Statut du serveur web HTTP/HTTPS
   - Statut du service SSH
@@ -104,6 +105,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Emplacement de la clé SSH
+
+- Sous **Home Assistant OS**, copiez votre clé privée SSH dans le répertoire `/config/ssh/` (par exemple via l'add-on File Editor
+  ou le partage Samba). Une clé nommée `id_vserver` se retrouvera dans `/config/ssh/id_vserver`.
+- Dans l'assistant de configuration, saisissez soit le chemin absolu `/config/ssh/id_vserver`, soit le chemin relatif au réperto
+  ire de configuration de Home Assistant, par exemple `ssh/id_vserver`. Les deux formats sont acceptés.
+- Indiquez toujours le fichier de clé **privée**. Ne pointez pas vers le fichier public `.pub`.
+- Pour les installations Home Assistant Container/Core, vous pouvez également fournir tout chemin absolu accessible par Home Ass
+  istant.
+
 ## Notes de sécurité
 - Il est recommandé de créer un utilisateur dédié et restreint pour la surveillance SSH (avec un accès en lecture seule à `/proc` et `df`).
 - L'authentification par mot de passe est prise en charge, mais l'**authentification par clé SSH** est fortement recommandée pour un usage en production.
@@ -112,8 +123,8 @@ cards:
 ---
 
 ## Gestion des versions
-- Version stable actuelle : **v1.2.9** (conforme à `manifest.json`).
-- Créez une étiquette Git (par exemple `git tag v1.2.9`) et une publication GitHub pour chaque version afin que HACS puisse suivre correctement les mises à jour.
+- Version stable actuelle : **v1.2.10** (conforme à `manifest.json`).
+- Créez une étiquette Git (par exemple `git tag v1.2.10`) et une publication GitHub pour chaque version afin que HACS puisse suivre correctement les mises à jour.
 - Utilisez le script `scripts/bump_version.py` existant pour incrémenter la version de l'intégration lors de la préparation d'une nouvelle publication.
 - Consignez les changements importants dans [`CHANGELOG.md`](CHANGELOG.md) pour chaque version.
 

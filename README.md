@@ -36,6 +36,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - Operating system version
   - Installed packages (count and list)
   - Docker installation, running containers, and per-container CPU/memory usage
+  - Automatic creation of per-container CPU and memory sensors whenever new containers start
   - VNC support status
   - HTTP/HTTPS web server status
   - SSH enabled status
@@ -108,6 +109,15 @@ cards:
       - sensor.vps1_temp
 ```
 
+## SSH Key Storage
+
+- When running **Home Assistant OS**, copy your SSH private key into the `/config/ssh/` directory (for example via the File
+  Editor add-on or Samba share). A key named `id_vserver` should end up at `/config/ssh/id_vserver`.
+- In the configuration wizard enter either the absolute path `/config/ssh/id_vserver` or the path relative to your Home
+  Assistant configuration directory, e.g. `ssh/id_vserver`. Both forms are now accepted.
+- Always reference the **private** key file. Do not point Home Assistant to the `.pub` public key.
+- For Home Assistant Container/Core installations you may also supply any absolute path that Home Assistant can read.
+
 ## Security Notes
 - It is recommended to create a dedicated, restricted user for SSH monitoring (with read-only access to `/proc` and `df`).
 - SSH password authentication is supported, but **SSH key authentication** is strongly recommended for production use.
@@ -116,8 +126,8 @@ cards:
 ---
 
 ## Release Management
-- Current stable release: **v1.2.9** (matching `manifest.json`).
-- Create a Git tag (e.g. `git tag v1.2.9`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
+- Current stable release: **v1.2.10** (matching `manifest.json`).
+- Create a Git tag (e.g. `git tag v1.2.10`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
 - Use the existing `scripts/bump_version.py` helper to increment the integration version when preparing a new release.
 - Document notable changes in [`CHANGELOG.md`](CHANGELOG.md) alongside each release.
 

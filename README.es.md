@@ -34,6 +34,7 @@ La integración también proporciona servicios de Home Assistant para ejecutar c
   - Versión del sistema operativo
   - Paquetes instalados (cantidad y lista)
   - Detección de Docker, contenedores en ejecución y uso por contenedor (CPU y memoria)
+  - Creación automática de sensores de CPU y memoria por contenedor cuando se detectan nuevos contenedores
   - Estado de soporte VNC
   - Estado de servidor web HTTP/HTTPS
   - Estado de servicio SSH
@@ -104,6 +105,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Ubicación de la clave SSH
+
+- En **Home Assistant OS**, copia tu clave privada SSH en el directorio `/config/ssh/` (por ejemplo mediante el complemento File
+  Editor o el recurso compartido Samba). Una clave llamada `id_vserver` quedará en `/config/ssh/id_vserver`.
+- En el asistente de configuración introduce la ruta absoluta `/config/ssh/id_vserver` o la ruta relativa al directorio de conf
+  iguración de Home Assistant, por ejemplo `ssh/id_vserver`. Ambas formas son válidas.
+- Indica siempre el archivo de clave **privada**. No uses el archivo público `.pub`.
+- En instalaciones Home Assistant Container/Core también puedes proporcionar cualquier ruta absoluta a la que Home Assistant ten
+  ga acceso.
+
 ## Notas de seguridad
 - Se recomienda crear un usuario dedicado y restringido para la supervisión por SSH (con acceso de solo lectura a `/proc` y `df`).
 - Se admite autenticación por contraseña, pero se recomienda encarecidamente la **autenticación por clave SSH** para uso en producción.
@@ -112,8 +123,8 @@ cards:
 ---
 
 ## Gestión de lanzamientos
-- Versión estable actual: **v1.2.9** (coincide con `manifest.json`).
-- Crea una etiqueta Git (por ejemplo, `git tag v1.2.9`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
+- Versión estable actual: **v1.2.10** (coincide con `manifest.json`).
+- Crea una etiqueta Git (por ejemplo, `git tag v1.2.10`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
 - Utiliza el script existente `scripts/bump_version.py` para incrementar la versión de la integración al preparar una nueva publicación.
 - Registra los cambios relevantes en [`CHANGELOG.md`](CHANGELOG.md) junto con cada versión.
 
