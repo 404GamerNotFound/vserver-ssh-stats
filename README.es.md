@@ -105,6 +105,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Ubicación de la clave SSH
+
+- En **Home Assistant OS**, copia tu clave privada SSH en el directorio `/config/ssh/` (por ejemplo mediante el complemento File
+  Editor o el recurso compartido Samba). Una clave llamada `id_vserver` quedará en `/config/ssh/id_vserver`.
+- En el asistente de configuración introduce la ruta absoluta `/config/ssh/id_vserver` o la ruta relativa al directorio de conf
+  iguración de Home Assistant, por ejemplo `ssh/id_vserver`. Ambas formas son válidas.
+- Indica siempre el archivo de clave **privada**. No uses el archivo público `.pub`.
+- En instalaciones Home Assistant Container/Core también puedes proporcionar cualquier ruta absoluta a la que Home Assistant ten
+  ga acceso.
+
 ## Notas de seguridad
 - Se recomienda crear un usuario dedicado y restringido para la supervisión por SSH (con acceso de solo lectura a `/proc` y `df`).
 - Se admite autenticación por contraseña, pero se recomienda encarecidamente la **autenticación por clave SSH** para uso en producción.

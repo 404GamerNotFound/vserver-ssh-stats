@@ -19,7 +19,8 @@
     "error": {
       "auth": "Proporcione contraseña o archivo de clave",
       "duplicate_host": "Este host ya se añadió",
-      "host_in_use": "Este host ya está configurado"
+      "host_in_use": "Este host ya está configurado",
+      "key_missing": "Archivo de clave SSH no encontrado"
     }
   },
   "options": {
@@ -47,7 +48,8 @@
     "error": {
       "auth": "Proporcione contraseña o archivo de clave",
       "duplicate_host": "Este host ya se añadió",
-      "host_in_use": "Este host ya está configurado"
+      "host_in_use": "Este host ya está configurado",
+      "key_missing": "Archivo de clave SSH no encontrado"
     }
   },
   "services": {
@@ -85,7 +87,7 @@
         },
         "key": {
           "name": "Archivo de clave",
-          "description": "Ruta a la clave privada SSH."
+          "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Puerto SSH",
@@ -111,7 +113,7 @@
         },
         "key": {
           "name": "Archivo de clave",
-          "description": "Ruta a la clave privada SSH."
+          "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Puerto SSH",
@@ -137,7 +139,7 @@
         },
         "key": {
           "name": "Archivo de clave",
-          "description": "Ruta a la clave privada SSH."
+          "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "Puerto SSH",

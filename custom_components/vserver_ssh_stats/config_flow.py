@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -12,6 +13,7 @@ from homeassistant.helpers import selector
 
 from . import DOMAIN
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
+from .util import resolve_private_key_path
 
 DEFAULT_INTERVAL = 30
 
@@ -95,35 +97,44 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     }
                     if user_input.get("password"):
                         server["password"] = user_input["password"]
-                    if user_input.get("key"):
-                        server["key"] = user_input["key"]
-                    self._servers.append(server)
-                    if user_input.get("add_another"):
-                        hosts = await self._get_discovered_hosts()
-                        return self.async_show_form(
-                            step_id="user",
-                            data_schema=_build_server_schema(
-                                hosts,
-                                include_interval=False,
-                                interval_default=self._interval,
-                                default_name=vol.UNDEFINED,
-                            ),
-                        )
+                    key_input = user_input.get("key")
+                    if key_input:
+                        resolved = resolve_private_key_path(self.hass, key_input)
+                        if not Path(resolved).exists():
+                            errors["key"] = "key_missing"
+                            defaults = user_input
+                        else:
+                            server["key"] = resolved
+                    if errors:
+                        defaults = user_input
+                    else:
+                        self._servers.append(server)
+                        if user_input.get("add_another"):
+                            hosts = await self._get_discovered_hosts()
+                            return self.async_show_form(
+                                step_id="user",
+                                data_schema=_build_server_schema(
+                                    hosts,
+                                    include_interval=False,
+                                    interval_default=self._interval,
+                                    default_name=vol.UNDEFINED,
+                                ),
+                            )
 
-                    hosts_for_id = ",".join(sorted(server["host"] for server in self._servers))
-                    unique_id = hashlib.sha256(hosts_for_id.encode()).hexdigest()
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
-                    data = {
-                        "interval": self._interval,
-                        "servers_json": json.dumps(self._servers),
-                    }
-                    title = (
-                        self._servers[0]["name"]
-                        if len(self._servers) == 1
-                        else "VServer SSH Stats"
-                    )
-                    return self.async_create_entry(title=title, data=data)
+                        hosts_for_id = ",".join(sorted(server["host"] for server in self._servers))
+                        unique_id = hashlib.sha256(hosts_for_id.encode()).hexdigest()
+                        await self.async_set_unique_id(unique_id)
+                        self._abort_if_unique_id_configured()
+                        data = {
+                            "interval": self._interval,
+                            "servers_json": json.dumps(self._servers),
+                        }
+                        title = (
+                            self._servers[0]["name"]
+                            if len(self._servers) == 1
+                            else "VServer SSH Stats"
+                        )
+                        return self.async_create_entry(title=title, data=data)
 
         hosts = await self._get_discovered_hosts()
         default_name = self._discovered_name if first_server else vol.UNDEFINED
@@ -213,6 +224,11 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
         except ValueError:
             self._existing_servers = []
+        hass = config_entry.hass
+        for server in self._existing_servers:
+            key = resolve_private_key_path(hass, server.get("key")) if hass else server.get("key")
+            if key:
+                server["key"] = key
         self._pending_servers: list[dict[str, Any]] = []
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
@@ -271,23 +287,32 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     }
                     if user_input.get("password"):
                         server["password"] = user_input["password"]
-                    if user_input.get("key"):
-                        server["key"] = user_input["key"]
-                    self._pending_servers.append(server)
-                    if user_input.get("add_another"):
-                        hosts = await self._get_discovered_hosts()
-                        return self.async_show_form(
-                            step_id="servers",
-                            data_schema=_build_server_schema(
-                                hosts,
-                                include_interval=False,
-                                interval_default=self._interval,
-                                default_name=vol.UNDEFINED,
-                            ),
-                        )
+                    key_input = user_input.get("key")
+                    if key_input:
+                        resolved = resolve_private_key_path(self.hass, key_input)
+                        if not Path(resolved).exists():
+                            errors["key"] = "key_missing"
+                            defaults = user_input
+                        else:
+                            server["key"] = resolved
+                    if errors:
+                        defaults = user_input
+                    else:
+                        self._pending_servers.append(server)
+                        if user_input.get("add_another"):
+                            hosts = await self._get_discovered_hosts()
+                            return self.async_show_form(
+                                step_id="servers",
+                                data_schema=_build_server_schema(
+                                    hosts,
+                                    include_interval=False,
+                                    interval_default=self._interval,
+                                    default_name=vol.UNDEFINED,
+                                ),
+                            )
 
-                    self._update_entry(self._pending_servers)
-                    return self.async_create_entry(title="", data={})
+                        self._update_entry(self._pending_servers)
+                        return self.async_create_entry(title="", data={})
 
         hosts = await self._get_discovered_hosts()
         return self.async_show_form(

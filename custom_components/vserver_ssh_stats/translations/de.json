@@ -19,7 +19,8 @@
     "error": {
       "auth": "Passwort oder Schlüsseldatei angeben",
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
-      "host_in_use": "Dieser Host ist bereits konfiguriert"
+      "host_in_use": "Dieser Host ist bereits konfiguriert",
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden"
     }
   },
   "options": {
@@ -47,7 +48,8 @@
     "error": {
       "auth": "Passwort oder Schlüsseldatei angeben",
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
-      "host_in_use": "Dieser Host ist bereits konfiguriert"
+      "host_in_use": "Dieser Host ist bereits konfiguriert",
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden"
     }
   },
   "services": {
@@ -85,7 +87,7 @@
         },
         "key": {
           "name": "Schlüsseldatei",
-          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH-Port",
@@ -111,7 +113,7 @@
         },
         "key": {
           "name": "Schlüsseldatei",
-          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH-Port",
@@ -137,7 +139,7 @@
         },
         "key": {
           "name": "Schlüsseldatei",
-          "description": "Pfad zur privaten SSH-Schlüsseldatei."
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
         },
         "port": {
           "name": "SSH-Port",

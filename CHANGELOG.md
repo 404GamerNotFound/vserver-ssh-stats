@@ -3,6 +3,9 @@
 ## v1.2.10
 - Dynamically create container CPU and RAM sensors when new Docker containers appear on a monitored server.
 - Mark removed containers as unavailable so they disappear automatically after reloading the integration configuration.
+- Resolve SSH key paths relative to the Home Assistant config directory, validate that the file exists during setup, and accept
+  those relative paths in service calls.
+- Document where to store SSH private keys and which path to provide when using the configuration wizard.
 
 ## v1.2.9
 - Provide service translation strings across all supported languages so hassfest validation passes.
