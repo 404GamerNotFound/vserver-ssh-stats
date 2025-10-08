@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.config_entries import ConfigEntry, OptionsFlow
 
 from . import DOMAIN
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
@@ -210,10 +211,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return OptionsFlowHandler(config_entry)
 
 
-class OptionsFlowHandler(config_entries.OptionsFlow):
+class OptionsFlowHandler(OptionsFlow):
     """Handle options flow for VServer SSH Stats."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialise the options flow."""
 
         self.config_entry = config_entry
@@ -224,9 +225,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
         except ValueError:
             self._existing_servers = []
-        hass = config_entry.hass
         for server in self._existing_servers:
-            key = resolve_private_key_path(hass, server.get("key")) if hass else server.get("key")
+            key = resolve_private_key_path(self.hass, server.get("key")) if self.hass else server.get("key")
             if key:
                 server["key"] = key
         self._pending_servers: list[dict[str, Any]] = []
