@@ -2,11 +2,36 @@ REMOTE_SCRIPT = r'''
 set -e
 export LC_ALL=C
 export LANG=C
+
+# Power (best-effort via powercap)
+power_energy_file=""
+for path in /sys/class/powercap/*/energy_uj; do
+  if [ -r "$path" ]; then
+    power_energy_file=$path
+    break
+  fi
+done
+power_energy_before=""
+power_energy_after=""
+power_energy_range=""
+if [ -n "$power_energy_file" ]; then
+  power_energy_before=$(cat "$power_energy_file" 2>/dev/null || echo "")
+  dir=$(dirname "$power_energy_file")
+  if [ -r "$dir/max_energy_range_uj" ]; then
+    power_energy_range=$(cat "$dir/max_energy_range_uj" 2>/dev/null || echo "")
+  elif [ -r "$dir/energy_range_uj" ]; then
+    power_energy_range=$(cat "$dir/energy_range_uj" 2>/dev/null || echo "")
+  fi
+fi
+
 # CPU %
 read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
 prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
 prev_idle=$((idle+iowait))
 sleep 1
+if [ -n "$power_energy_file" ]; then
+  power_energy_after=$(cat "$power_energy_file" 2>/dev/null || echo "")
+fi
 read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
 total=$((user+nice+system+idle+iowait+irq+softirq+steal))
 idle_all=$((idle+iowait))
@@ -24,6 +49,33 @@ ram=$(( (mem_total + 512) / 1024 ))
 
 # DISK % (Root)
 disk=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
+
+# DISK capacity overview (sum of non-virtual filesystems) and per-disk stats
+disk_total_bytes=0
+disk_stats="[]"
+disk_lines=$(df -PB1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 | awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
+if [ -n "$disk_lines" ]; then
+  tab=$(printf '\t')
+  oldifs=$IFS
+  IFS=$tab
+  disk_entries=""
+  while read -r source target size avail; do
+    [ -z "$source" ] && continue
+    if [ -z "$size" ]; then continue; fi
+    disk_total_bytes=$((disk_total_bytes + size))
+    source_json=$(printf '%s' "$source" | sed 's/"/\\\\"/g')
+    target_json=$(printf '%s' "$target" | sed 's/"/\\\\"/g')
+    disk_entries="$disk_entries{\"name\":\"$source_json\",\"mount\":\"$target_json\",\"total\":$size,\"free\":$avail},"
+  done <<EOF
+$disk_lines
+EOF
+  IFS=$oldifs
+  if [ -n "$disk_entries" ]; then
+    disk_stats="[${disk_entries%,}]"
+  fi
+fi
+disk_stats_json=$disk_stats
+disk_total_bytes_json=$disk_total_bytes
 
 # UPTIME (Sekunden)
 uptime=$(awk '{print int($1)}' /proc/uptime)
@@ -121,6 +173,26 @@ rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/ne
 tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
 
 if [ -n "$temp" ]; then temp_json=$temp; else temp_json=null; fi
-printf '{"cpu":%s,"mem":%s,"disk":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s"}\n' \
-  "$cpu" "$mem" "$disk" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled"
+
+power_w_json=null
+energy_counter_json=null
+energy_range_json=null
+if [ -n "$power_energy_before" ] && [ -n "$power_energy_after" ]; then
+  adjusted_after=$power_energy_after
+  if [ "$power_energy_after" -lt "$power_energy_before" ] && [ -n "$power_energy_range" ]; then
+    adjusted_after=$((power_energy_after + power_energy_range))
+  fi
+  delta_energy=$((adjusted_after - power_energy_before))
+  if [ "$delta_energy" -lt 0 ]; then
+    delta_energy=0
+  fi
+  power_w=$(awk -v d="$delta_energy" 'BEGIN{printf "%.2f", d/1000000}')
+  power_w_json=$power_w
+  energy_counter_json=$power_energy_after
+  if [ -n "$power_energy_range" ]; then
+    energy_range_json=$power_energy_range
+  fi
+fi
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s}\n' \
+  "$cpu" "$mem" "$disk" "$disk_total_bytes_json" "$disk_stats_json" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json"
 '''

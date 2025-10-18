@@ -8,13 +8,17 @@ from datetime import timedelta
 from typing import Any, Callable, Dict, Iterable
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorDeviceClass,
+    SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
+    UnitOfEnergy,
+    UnitOfInformation,
+    UnitOfPower,
     UnitOfTemperature,
     UnitOfTime,
 )
@@ -83,10 +87,72 @@ class ServerContainerRegistry:
         return new_entities
 
 
+@dataclass
+class ServerDiskRegistry:
+    """Track disk sensors that were created for a server."""
+
+    coordinator: "VServerCoordinator"
+    server_name: str
+    known_disks: set[str] = field(default_factory=set)
+
+    def _build_disk_sensors(self, label: str, sanitized: str) -> list["VServerSensor"]:
+        """Create the sensor entities for a single disk."""
+
+        total_description = VServerSensorDescription(
+            key=f"disk_{sanitized}_total",
+            name=f"{label} Total",
+            native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+        )
+        free_description = VServerSensorDescription(
+            key=f"disk_{sanitized}_free",
+            name=f"{label} Free",
+            native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+        )
+        return [
+            VServerSensor(self.coordinator, self.server_name, total_description),
+            VServerSensor(self.coordinator, self.server_name, free_description),
+        ]
+
+    def create_entities_from_stats(
+        self, stats: Iterable[Dict[str, Any]] | None
+    ) -> list["VServerSensor"]:
+        """Create sensor entities for new disks found in the stats."""
+
+        if not stats:
+            return []
+        new_entities: list[VServerSensor] = []
+        for disk in stats:
+            sanitized = disk.get("key")
+            if not sanitized or sanitized in self.known_disks:
+                continue
+            label = disk.get("label") or disk.get("name") or disk.get("mount") or sanitized
+            self.known_disks.add(sanitized)
+            new_entities.extend(self._build_disk_sensors(label, sanitized))
+        return new_entities
+
+
 SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="cpu", name="CPU", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="mem", name="Memory", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="disk", name="Disk", native_unit_of_measurement=PERCENTAGE),
+    VServerSensorDescription(
+        key="disk_capacity_total",
+        name="Disk Capacity Total",
+        native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
+    VServerSensorDescription(
+        key="power_w",
+        name="Power",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        device_class=SensorDeviceClass.POWER,
+    ),
+    VServerSensorDescription(
+        key="energy_kwh_total",
+        name="Energy Total",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+    ),
     VServerSensorDescription(key="net_in", name="Network In", native_unit_of_measurement="B/s"),
     VServerSensorDescription(key="net_out", name="Network Out", native_unit_of_measurement="B/s"),
     VServerSensorDescription(
@@ -190,28 +256,38 @@ async def async_setup_entry(
             continue
         coordinator = VServerCoordinator(hass, srv, interval)
         await coordinator.async_config_entry_first_refresh()
-        registry = ServerContainerRegistry(coordinator, name)
+        container_registry = ServerContainerRegistry(coordinator, name)
+        disk_registry = ServerDiskRegistry(coordinator, name)
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
         initial_stats: Iterable[Dict[str, Any]] | None = None
         if coordinator.data:
             initial_stats = coordinator.data.get("container_stats")
-        entities.extend(registry.create_entities_from_stats(initial_stats))
+        disk_initial_stats: Iterable[Dict[str, Any]] | None = None
+        if coordinator.data:
+            disk_initial_stats = coordinator.data.get("disk_stats")
+        entities.extend(container_registry.create_entities_from_stats(initial_stats))
+        entities.extend(disk_registry.create_entities_from_stats(disk_initial_stats))
 
         def _make_container_listener(
-            registry: ServerContainerRegistry,
+            container_registry: ServerContainerRegistry,
+            disk_registry: ServerDiskRegistry,
         ) -> Callable[[], None]:
             def _handle_update() -> None:
-                data: Dict[str, Any] | None = registry.coordinator.data
+                data: Dict[str, Any] | None = container_registry.coordinator.data
                 stats = data.get("container_stats") if isinstance(data, dict) else None
-                new_entities = registry.create_entities_from_stats(stats)
-                if new_entities:
-                    async_add_entities(new_entities, update_before_add=True)
+                new_containers = container_registry.create_entities_from_stats(stats)
+                if new_containers:
+                    async_add_entities(new_containers, update_before_add=True)
+                disk_stats = data.get("disk_stats") if isinstance(data, dict) else None
+                new_disks = disk_registry.create_entities_from_stats(disk_stats)
+                if new_disks:
+                    async_add_entities(new_disks, update_before_add=True)
 
             return _handle_update
 
         remove_listener = coordinator.async_add_listener(
-            _make_container_listener(registry)
+            _make_container_listener(container_registry, disk_registry)
         )
         entry.async_on_unload(remove_listener)
     async_add_entities(entities, update_before_add=True)
