@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import time
 from typing import Any, Dict, Optional
 
@@ -10,6 +11,8 @@ import paramiko
 
 from .net_cache import EnergyStatsCache, NetStatsCache
 from .remote_script import REMOTE_SCRIPT
+
+_LOGGER = logging.getLogger(__name__)
 
 net_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
@@ -45,56 +48,91 @@ def _sanitize(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
 
 
+def _safe_int(value: Any) -> Optional[int]:
+    """Return *value* as int or ``None`` when conversion fails."""
+
+    try:
+        if value is None:
+            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_float(value: Any) -> Optional[float]:
+    """Return *value* as float or ``None`` when conversion fails."""
+
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_list(value: Any) -> list:
+    """Return *value* if it is a list, otherwise an empty list."""
+
+    if isinstance(value, list):
+        return value
+    if value not in (None, []):
+        _LOGGER.debug("Expected list but received %s", type(value))
+    return []
+
+
 async def async_sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
     out = await asyncio.to_thread(_run_ssh, host, username, password, key, port, REMOTE_SCRIPT)
-    data = json.loads(out.strip())
+    try:
+        data = json.loads(out.strip() or "{}")
+    except json.JSONDecodeError as err:
+        _LOGGER.error("Failed to decode SSH response from %s: %s", host, err)
+        return {}
     now = time.time()
-    net_in, net_out = net_cache.compute(host, data["rx"], data["tx"], now)
-    cont_stats = data.get("container_stats", [])
-    disk_stats = data.get("disk_stats", [])
-    disk_total_bytes = int(data.get("disk_capacity_total", 0))
-    power_w_raw = data.get("power_w")
-    energy_uj_raw = data.get("energy_uj")
-    energy_range_raw = data.get("energy_range_uj")
-    power_value: Optional[float]
-    if power_w_raw is None:
-        power_value = None
+
+    rx = _safe_int(data.get("rx"))
+    tx = _safe_int(data.get("tx"))
+    if rx is None or tx is None:
+        _LOGGER.debug("Missing RX/TX stats for host %s", host)
+        net_in = net_out = None
     else:
-        power_value = round(float(power_w_raw), 2)
-    energy_uj: Optional[int]
-    if energy_uj_raw is None:
-        energy_uj = None
-    else:
-        try:
-            energy_uj = int(energy_uj_raw)
-        except (TypeError, ValueError):
-            energy_uj = None
-    energy_range: Optional[int]
-    if energy_range_raw is None:
-        energy_range = None
-    else:
-        try:
-            energy_range = int(energy_range_raw)
-        except (TypeError, ValueError):
-            energy_range = None
-    energy_total_kwh = energy_cache.compute(host, energy_uj, energy_range)
+        net_in_raw, net_out_raw = net_cache.compute(host, rx, tx, now)
+        net_in = round(net_in_raw, 2)
+        net_out = round(net_out_raw, 2)
+
+    cont_stats = _safe_list(data.get("container_stats"))
+    disk_stats = _safe_list(data.get("disk_stats"))
+
+    disk_total_bytes = _safe_int(data.get("disk_capacity_total"))
+    disk_total_gib = (
+        round(disk_total_bytes / (1024 ** 3), 2) if disk_total_bytes is not None else None
+    )
+
+    power_value = _safe_float(data.get("power_w"))
+    if power_value is not None:
+        power_value = round(power_value, 2)
+
+    energy_uj = _safe_int(data.get("energy_uj"))
+    energy_range = _safe_int(data.get("energy_range_uj"))
+    energy_total_kwh_raw = energy_cache.compute(host, energy_uj, energy_range)
+    energy_total_kwh = (
+        round(energy_total_kwh_raw, 5) if energy_total_kwh_raw is not None else None
+    )
+
     result: Dict[str, Any] = {
-        "cpu": int(data["cpu"]),
-        "mem": int(data["mem"]),
-        "disk": int(data["disk"]),
-        "disk_capacity_total": round(disk_total_bytes / (1024 ** 3), 2)
-        if disk_total_bytes
-        else None,
-        "uptime": int(data["uptime"]),
-        "temp": (None if data["temp"] is None else float(data["temp"])),
-        "net_in": round(net_in, 2),
-        "net_out": round(net_out, 2),
-        "ram": int(data.get("ram", 0)),
-        "cores": int(data.get("cores", 0)),
+        "cpu": _safe_int(data.get("cpu")),
+        "mem": _safe_int(data.get("mem")),
+        "disk": _safe_int(data.get("disk")),
+        "disk_capacity_total": disk_total_gib,
+        "uptime": _safe_int(data.get("uptime")),
+        "temp": _safe_float(data.get("temp")),
+        "net_in": net_in,
+        "net_out": net_out,
+        "ram": _safe_int(data.get("ram")),
+        "cores": _safe_int(data.get("cores")),
         "os": data.get("os", ""),
-        "pkg_count": int(data.get("pkg_count", 0)),
+        "pkg_count": _safe_int(data.get("pkg_count")),
         "pkg_list": data.get("pkg_list", ""),
-        "docker": int(data.get("docker", 0)),
+        "docker": _safe_int(data.get("docker")),
         "containers": data.get("containers", ""),
         "load_1": data.get("load_1"),
         "load_5": data.get("load_5"),
@@ -104,9 +142,10 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         "web": data.get("web", ""),
         "ssh": data.get("ssh", ""),
         "power_w": power_value,
-        "energy_kwh_total": (None if energy_total_kwh is None else round(energy_total_kwh, 5)),
+        "energy_kwh_total": energy_total_kwh,
         "container_stats": cont_stats,
     }
+
     processed_disks: list[Dict[str, Any]] = []
     for disk in disk_stats:
         name = disk.get("name") or disk.get("mount")
@@ -121,8 +160,8 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         sanitized = _sanitize(key_source) if key_source else None
         if not sanitized:
             continue
-        total_bytes = int(disk.get("total", 0) or 0)
-        free_bytes = int(disk.get("free", 0) or 0)
+        total_bytes = _safe_int(disk.get("total")) or 0
+        free_bytes = _safe_int(disk.get("free")) or 0
         total_gib = round(total_bytes / (1024 ** 3), 2)
         free_gib = round(free_bytes / (1024 ** 3), 2)
         label = name or mount or sanitized
@@ -141,8 +180,14 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         result[f"disk_{sanitized}_total"] = total_gib
         result[f"disk_{sanitized}_free"] = free_gib
     result["disk_stats"] = processed_disks
-    for c in cont_stats:
-        cname = _sanitize(c.get("name", ""))
-        result[f"container_{cname}_cpu"] = c.get("cpu", 0)
-        result[f"container_{cname}_mem"] = c.get("mem", 0)
+
+    for container in cont_stats:
+        cname = _sanitize(container.get("name", ""))
+        if not cname:
+            continue
+        cpu_value = _safe_float(container.get("cpu"))
+        mem_value = _safe_float(container.get("mem"))
+        result[f"container_{cname}_cpu"] = cpu_value
+        result[f"container_{cname}_mem"] = mem_value
+
     return result
