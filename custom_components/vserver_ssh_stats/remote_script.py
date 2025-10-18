@@ -53,7 +53,22 @@ disk=$(df -P / | awk 'NR==2 {print $5}' | tr -d '%')
 # DISK capacity overview (sum of non-virtual filesystems) and per-disk stats
 disk_total_bytes=0
 disk_stats="[]"
-disk_lines=$(df -PB1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 | awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
+disk_lines=""
+if command -v df >/dev/null 2>&1; then
+  set +e
+  disk_lines=$(df -PB1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 | awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
+  disk_status=$?
+  set -e
+  if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
+    set +e
+    disk_lines=$(df -P 2>/dev/null | tail -n +2 | awk '{if($1 !~ "^/") next; gsub(/\\040/," ",$6); size=$2*1024; avail=$4*1024; printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
+    disk_status=$?
+    set -e
+    if [ $disk_status -ne 0 ]; then
+      disk_lines=""
+    fi
+  fi
+fi
 if [ -n "$disk_lines" ]; then
   tab=$(printf '\t')
   oldifs=$IFS
