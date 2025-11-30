@@ -12,7 +12,7 @@
   "requirements": [
     "paramiko>=3.4.0"
   ],
-  "version": "1.2.18",
+  "version": "1.2.19",
   "zeroconf": [
     {
       "type": "_ssh._tcp.local."
