@@ -107,6 +107,11 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         round(disk_total_bytes / (1024 ** 3), 2) if disk_total_bytes is not None else None
     )
 
+    swap_total_bytes = _safe_int(data.get("swap_total"))
+    swap_total_gib = (
+        round(swap_total_bytes / (1024 ** 3), 2) if swap_total_bytes is not None else None
+    )
+
     power_value = _safe_float(data.get("power_w"))
     if power_value is not None:
         power_value = round(power_value, 2)
@@ -144,6 +149,8 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         "power_w": power_value,
         "energy_kwh_total": energy_total_kwh,
         "container_stats": cont_stats,
+        "swap_usage": _safe_int(data.get("swap_usage")),
+        "swap_total": swap_total_gib,
     }
 
     processed_disks: list[Dict[str, Any]] = []
