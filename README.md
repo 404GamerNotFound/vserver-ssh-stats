@@ -25,6 +25,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - Collects:
   - CPU usage (%)
   - Memory usage (%)
+  - Swap usage (%) and total swap (GiB)
   - Total RAM (MB)
   - Disk usage (% for `/`)
   - Network throughput (bytes/s, in and out)
@@ -63,8 +64,10 @@ Example from HACS:
 
 For each server, the following entities will be available:
 
-- `sensor.<name>_cpu` – CPU usage (%)  
-- `sensor.<name>_mem` – Memory usage (%)  
+- `sensor.<name>_cpu` – CPU usage (%)
+- `sensor.<name>_mem` – Memory usage (%)
+- `sensor.<name>_swap_usage` – Swap usage (%)
+- `sensor.<name>_swap_total` – Total swap (GiB)
 - `sensor.<name>_disk` – Disk usage (%)
 - `sensor.<name>_net_in` – Network inbound (bytes/s)
 - `sensor.<name>_net_out` – Network outbound (bytes/s)

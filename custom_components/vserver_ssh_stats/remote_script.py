@@ -54,15 +54,27 @@ read_cpu_stats() {
 read_mem_stats() {
   mem_total=""
   mem_avail=""
+  swap_total=""
+  swap_free=""
   while IFS=: read -r key value; do
     case "$key" in
       MemTotal) mem_total=${value//[^0-9]/} ;;
       MemAvailable) mem_avail=${value//[^0-9]/} ;;
       MemFree) [ -z "$mem_avail" ] && mem_avail=${value//[^0-9]/} ;;
+      SwapTotal) swap_total=${value//[^0-9]/} ;;
+      SwapFree) swap_free=${value//[^0-9]/} ;;
     esac
   done < /proc/meminfo
   mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
   ram=$(( (mem_total + 512) / 1024 ))
+  swap_usage_json=null
+  swap_total_json=null
+  if [ -n "$swap_total" ] && [ "$swap_total" -gt 0 ]; then
+    swap_used=$((swap_total - swap_free))
+    swap_usage=$(( (100*swap_used + swap_total/2) / swap_total ))
+    swap_usage_json=$swap_usage
+    swap_total_json=$((swap_total * 1024))
+  fi
 }
 
 read_disk_stats() {
@@ -255,8 +267,8 @@ read_temperature
 read_network_bytes
 compute_power
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
   "$cpu" "$mem" "$disk" "$disk_total_bytes_json" "$disk_stats_json" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" \
   "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" \
-  "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json"
+  "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
 '''

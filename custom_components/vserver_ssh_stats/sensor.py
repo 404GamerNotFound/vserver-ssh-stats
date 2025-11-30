@@ -134,6 +134,16 @@ class ServerDiskRegistry:
 SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="cpu", name="CPU", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="mem", name="Memory", native_unit_of_measurement=PERCENTAGE),
+    VServerSensorDescription(
+        key="swap_usage",
+        name="Swap Usage",
+        native_unit_of_measurement=PERCENTAGE,
+    ),
+    VServerSensorDescription(
+        key="swap_total",
+        name="Swap Total",
+        native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
     VServerSensorDescription(key="disk", name="Disk", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(
         key="disk_capacity_total",
