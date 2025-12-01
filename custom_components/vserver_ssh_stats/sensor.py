@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import re
+import socket
 from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Any, Callable, Dict, Iterable
@@ -24,7 +25,11 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity, DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from . import DOMAIN
 from .ssh_collector import async_sample
@@ -214,13 +219,16 @@ class VServerCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch data from the server."""
-        return await async_sample(
-            self.server["host"],
-            self.server["username"],
-            self.server.get("password"),
-            self.server.get("key"),
-            self.server.get("port", 22),
-        )
+        try:
+            return await async_sample(
+                self.server["host"],
+                self.server["username"],
+                self.server.get("password"),
+                self.server.get("key"),
+                self.server.get("port", 22),
+            )
+        except socket.gaierror as err:
+            raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err
 
 
 class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
