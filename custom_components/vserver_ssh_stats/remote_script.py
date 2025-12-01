@@ -12,6 +12,14 @@ json_escape() {
   printf '%s' "$1" | sed 's/"/\\"/g'
 }
 
+number_or_null() {
+  if [ -n "$1" ]; then
+    printf '%s' "$1"
+  else
+    printf 'null'
+  fi
+}
+
 read_power_metrics() {
   power_energy_file=""
   for path in /sys/class/powercap/*/energy_uj; do
@@ -251,6 +259,26 @@ compute_power() {
   fi
 }
 
+# Prepare JSON-safe fallbacks for numeric values
+prepare_numeric_json_values() {
+  cpu_json=$(number_or_null "$cpu")
+  mem_json=$(number_or_null "$mem")
+  disk_json=$(number_or_null "$disk")
+  disk_total_bytes_json=$(number_or_null "$disk_total_bytes")
+  uptime_json=$(number_or_null "$uptime")
+  rx_json=$(number_or_null "$rx")
+  tx_json=$(number_or_null "$tx")
+  ram_json=$(number_or_null "$ram")
+  cores_json=$(number_or_null "$cores")
+  load_1_json=$(number_or_null "$load_1")
+  load_5_json=$(number_or_null "$load_5")
+  load_15_json=$(number_or_null "$load_15")
+  pkg_count_json=$(number_or_null "$pkg_count")
+  docker_json=$(number_or_null "$docker")
+  swap_usage_json=$(number_or_null "$swap_usage_json")
+  swap_total_json=$(number_or_null "$swap_total_json")
+}
+
 # Run collectors (order matters for power deltas)
 read_power_metrics
 read_cpu_stats
@@ -266,9 +294,10 @@ read_service_status
 read_temperature
 read_network_bytes
 compute_power
+prepare_numeric_json_values
 
 printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
-  "$cpu" "$mem" "$disk" "$disk_total_bytes_json" "$disk_stats_json" "$uptime" "$temp_json" "$rx" "$tx" "$ram" "$cores" "$load_1" \
-  "$load_5" "$load_15" "$cpu_freq_json" "$os_json" "$pkg_count" "$pkg_list_json" "$docker" "$containers_json" "$container_stats_json" \
+  "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
+  "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
 '''
