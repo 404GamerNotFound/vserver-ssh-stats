@@ -80,10 +80,43 @@ def _safe_list(value: Any) -> list:
     return []
 
 
+def _parse_json_output(output: str) -> Dict[str, Any]:
+    """Parse JSON output while tolerating surrounding text."""
+
+    stripped = output.strip()
+    if not stripped:
+        return {}
+
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError as err:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = stripped[start : end + 1]
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                _LOGGER.debug(
+                    "Failed to parse extracted JSON substring from SSH output: %s",
+                    candidate[:200],
+                )
+                raise err
+            _LOGGER.debug(
+                "Parsed JSON from SSH output after trimming prefix/suffix (prefix length %s, suffix length %s)",
+                start,
+                len(stripped) - end - 1,
+            )
+            return parsed
+
+        _LOGGER.debug("SSH output missing JSON object: %s", stripped[:200])
+        raise err
+
+
 async def async_sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
     out = await asyncio.to_thread(_run_ssh, host, username, password, key, port, REMOTE_SCRIPT)
     try:
-        data = json.loads(out.strip() or "{}")
+        data = _parse_json_output(out)
     except json.JSONDecodeError as err:
         _LOGGER.error("Failed to decode SSH response from %s: %s", host, err)
         return {}
