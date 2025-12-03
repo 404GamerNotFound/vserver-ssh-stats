@@ -112,6 +112,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Health and Alert Automations
+
+Use the provided sensors to notify you when a server looks unhealthy. For example:
+
+- High CPU or memory usage sustained for several minutes.
+- Disks approaching full capacity.
+- Sensors turning `unavailable`/`unknown`, which likely means SSH connectivity is down.
+
+You can copy and adjust the sample automations in [`examples/automations/health_alerts.yaml`](examples/automations/health_alerts.yaml) to fit your entity names and preferred notification services.
+
 ## SSH Key Storage
 
 - When running **Home Assistant OS**, copy your SSH private key into the `/config/ssh/` directory (for example via the File
