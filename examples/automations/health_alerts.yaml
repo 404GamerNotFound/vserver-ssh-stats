@@ -1,0 +1,47 @@
+# Example Home Assistant automations for VServer SSH Stats sensors
+# Replace entity IDs and notify targets with values from your setup.
+
+- alias: "[VServer] CPU usage high"
+  description: "Alert when CPU usage stays above 85% for 5 minutes."
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.vps1_cpu
+      above: 85
+      for: "00:05:00"
+  action:
+    - service: notify.notify
+      data:
+        title: "High CPU usage on VPS1"
+        message: "CPU has been above 85% for 5 minutes. Current: {{ states('sensor.vps1_cpu') }}%"
+  mode: single
+
+- alias: "[VServer] Disk usage warning"
+  description: "Warn when root filesystem is getting full."
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.vps1_disk
+      above: 85
+  action:
+    - service: notify.notify
+      data:
+        title: "Disk usage warning on VPS1"
+        message: "Root filesystem is {{ states('sensor.vps1_disk') }}% used."
+  mode: single
+
+- alias: "[VServer] SSH sensor offline"
+  description: "Notify when SSH stats go unavailable for 3 minutes."
+  trigger:
+    - platform: state
+      entity_id:
+        - sensor.vps1_cpu
+        - sensor.vps1_mem
+      to:
+        - unavailable
+        - unknown
+      for: "00:03:00"
+  action:
+    - service: notify.notify
+      data:
+        title: "VPS1 offline?"
+        message: "SSH sensors have been unavailable for 3 minutes. Check connectivity."
+  mode: single
