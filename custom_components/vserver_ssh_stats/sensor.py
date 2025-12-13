@@ -160,6 +160,7 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         name="Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     VServerSensorDescription(
         key="energy_kwh_total",
