@@ -45,7 +45,11 @@ def _build_server_schema(
 
     schema: dict[Any, Any] = {}
     if include_interval:
-        schema[vol.Required("interval", default=defaults.get("interval", interval_default))] = int
+        schema[vol.Required("interval", default=defaults.get("interval", interval_default))] = (
+            selector.NumberSelector(
+                selector.NumberSelectorConfig(min=1, step=1, mode=selector.NumberSelectorMode.BOX)
+            )
+        )
 
     schema[vol.Required("name", default=defaults.get("name", default_name))] = str
     schema[vol.Required("host", default=defaults.get("host", default_host))] = host_field
@@ -255,8 +259,10 @@ class OptionsFlowHandler(OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Required("interval", default=self._interval): vol.All(
-                        vol.Coerce(int), vol.Range(min=1)
+                    vol.Required("interval", default=self._interval): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
                     ),
                     vol.Optional("reconfigure_servers", default=False): bool,
                 }
