@@ -178,6 +178,7 @@ read_docker_stats() {
     docker=1
     containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
     containers=$(trim_comma "$containers")
+    containers=${containers//,/, }
     stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' |
 awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f},", $1, cpu, mem}')
     if [ -n "$stats" ]; then

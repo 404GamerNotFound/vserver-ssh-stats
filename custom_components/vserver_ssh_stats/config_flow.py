@@ -155,16 +155,24 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_zeroconf(self, discovery_info: dict[str, Any]):
+    async def async_step_zeroconf(self, discovery_info: Any):
         """Handle zeroconf discovery."""
-
-        host = discovery_info.get("host")
+        if isinstance(discovery_info, dict):
+            host = discovery_info.get("host")
+            name = discovery_info.get("hostname", host)
+        else:
+            host = getattr(discovery_info, "host", None)
+            name = (
+                getattr(discovery_info, "hostname", None)
+                or getattr(discovery_info, "name", None)
+                or host
+            )
         if not host:
             return self.async_abort(reason="unknown")
         if self._host_already_configured(host):
             return self.async_abort(reason="already_configured")
         self._discovered_host = host
-        self._discovered_name = discovery_info.get("hostname", host)
+        self._discovered_name = name
         self.context["title_placeholders"] = {"name": self._discovered_name}
         return await self.async_step_user()
 
