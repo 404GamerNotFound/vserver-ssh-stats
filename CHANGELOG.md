@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.25
+- Handle zeroconf discovery payloads delivered as objects to avoid setup errors when reconfiguring.
+- Format container list strings with spaces after commas for readability.
+
 ## v1.2.24
 - Added a number box input for configuring the update interval during setup and in the options flow.
 - Parallelized initial coordinator refreshes to speed up startup when multiple servers are configured.
