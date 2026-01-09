@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.24
+- Added a number box input for configuring the update interval during setup and in the options flow.
+- Parallelized initial coordinator refreshes to speed up startup when multiple servers are configured.
+
 ## v1.2.10
 - Dynamically create container CPU and RAM sensors when new Docker containers appear on a monitored server.
 - Mark removed containers as unavailable so they disappear automatically after reloading the integration configuration.

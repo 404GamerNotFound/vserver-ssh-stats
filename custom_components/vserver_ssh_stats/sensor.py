@@ -1,6 +1,7 @@
 """Sensor platform for VServer SSH Stats."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import socket
@@ -269,22 +270,28 @@ async def async_setup_entry(
     servers = data.get("servers", [])
     interval = data.get("interval", 30)
     entities: list[VServerSensor] = []
+    coordinators: list[VServerCoordinator] = []
+    registries: list[tuple[ServerContainerRegistry, ServerDiskRegistry, str]] = []
     for srv in servers:
         name = srv.get("name")
         if not name:
             continue
         coordinator = VServerCoordinator(hass, srv, interval)
-        await coordinator.async_config_entry_first_refresh()
+        coordinators.append(coordinator)
         container_registry = ServerContainerRegistry(coordinator, name)
         disk_registry = ServerDiskRegistry(coordinator, name)
+        registries.append((container_registry, disk_registry, name))
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
-        initial_stats: Iterable[Dict[str, Any]] | None = None
-        if coordinator.data:
-            initial_stats = coordinator.data.get("container_stats")
-        disk_initial_stats: Iterable[Dict[str, Any]] | None = None
-        if coordinator.data:
-            disk_initial_stats = coordinator.data.get("disk_stats")
+    if coordinators:
+        await asyncio.gather(
+            *(coordinator.async_config_entry_first_refresh() for coordinator in coordinators)
+        )
+    for container_registry, disk_registry, _name in registries:
+        coordinator = container_registry.coordinator
+        stats = coordinator.data if isinstance(coordinator.data, dict) else {}
+        initial_stats = stats.get("container_stats")
+        disk_initial_stats = stats.get("disk_stats")
         entities.extend(container_registry.create_entities_from_stats(initial_stats))
         entities.extend(disk_registry.create_entities_from_stats(disk_initial_stats))
 
@@ -310,4 +317,3 @@ async def async_setup_entry(
         )
         entry.async_on_unload(remove_listener)
     async_add_entities(entities, update_before_add=True)
-
