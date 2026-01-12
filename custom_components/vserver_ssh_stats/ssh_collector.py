@@ -156,6 +156,12 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         round(energy_total_kwh_raw, 5) if energy_total_kwh_raw is not None else None
     )
 
+    containers_raw = data.get("containers", "")
+    if isinstance(containers_raw, str) and "," in containers_raw:
+        containers = ", ".join([part.strip() for part in containers_raw.split(",") if part.strip()])
+    else:
+        containers = containers_raw
+
     result: Dict[str, Any] = {
         "cpu": _safe_int(data.get("cpu")),
         "mem": _safe_int(data.get("mem")),
@@ -171,7 +177,7 @@ async def async_sample(host: str, username: str, password: Optional[str], key: O
         "pkg_count": _safe_int(data.get("pkg_count")),
         "pkg_list": data.get("pkg_list", ""),
         "docker": _safe_int(data.get("docker")),
-        "containers": data.get("containers", ""),
+        "containers": containers,
         "load_1": data.get("load_1"),
         "load_5": data.get("load_5"),
         "load_15": data.get("load_15"),

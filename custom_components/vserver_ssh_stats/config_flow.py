@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -157,11 +158,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_zeroconf(self, discovery_info: Any):
         """Handle zeroconf discovery."""
-        if isinstance(discovery_info, dict):
-            host = discovery_info.get("host")
-            name = discovery_info.get("hostname", host)
+        if isinstance(discovery_info, Mapping):
+            host = discovery_info.get("host") or discovery_info.get("ip_address")
+            name = discovery_info.get("hostname") or discovery_info.get("name") or host
         else:
-            host = getattr(discovery_info, "host", None)
+            host = (
+                getattr(discovery_info, "host", None)
+                or getattr(discovery_info, "ip_address", None)
+            )
             name = (
                 getattr(discovery_info, "hostname", None)
                 or getattr(discovery_info, "name", None)
