@@ -2,6 +2,7 @@
 
 ## v1.2.28
 - Deduplicated zeroconf discovery by assigning a stable unique ID, enabling the ignore button.
+- Removed the manifest funding entry to satisfy hassfest validation (donation link remains in the README).
 
 ## v1.2.27
 - Expanded the README with a services/events overview and donation details.
