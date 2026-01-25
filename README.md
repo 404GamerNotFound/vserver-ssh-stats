@@ -44,6 +44,28 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - Configurable update interval (default: 30 seconds).
 - Services to fetch the server's local IP, uptime, list active SSH connections, run commands, update packages, and reboot the host.
 
+## Services & Events
+
+The integration exposes Home Assistant services for remote actions:
+
+- `vserver_ssh_stats.get_local_ip` – Return the server's local IP address.
+- `vserver_ssh_stats.get_uptime` – Return uptime in seconds.
+- `vserver_ssh_stats.list_connections` – List active SSH sessions.
+- `vserver_ssh_stats.run_command` – Run an arbitrary shell command remotely.
+- `vserver_ssh_stats.update_packages` – Trigger OS package updates (apt/dnf/yum).
+- `vserver_ssh_stats.reboot_host` – Reboot the remote host.
+
+When `update_packages` completes, the integration fires the `vserver_ssh_stats_update_packages` event on the Home Assistant
+event bus with the command output in the payload, so you can automate notifications or post-update actions.
+
+## Support the Project
+
+If this integration saves you time, feel free to support development with a donation:
+
+[PayPal – Donate](https://www.paypal.com/paypalme/TonyBrueser)
+
+Thank you for your support! Every contribution helps keep this project moving forward.
+
 
 ---
 

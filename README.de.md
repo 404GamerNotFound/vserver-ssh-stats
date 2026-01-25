@@ -41,6 +41,28 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
 
+## Dienste & Events
+
+Die Integration stellt Home-Assistant-Dienste für Remote-Aktionen bereit:
+
+- `vserver_ssh_stats.get_local_ip` – Lokale IP-Adresse des Servers abrufen.
+- `vserver_ssh_stats.get_uptime` – Uptime in Sekunden abrufen.
+- `vserver_ssh_stats.list_connections` – Aktive SSH-Sitzungen auflisten.
+- `vserver_ssh_stats.run_command` – Beliebigen Shell-Befehl remote ausführen.
+- `vserver_ssh_stats.update_packages` – Systempakete aktualisieren (apt/dnf/yum).
+- `vserver_ssh_stats.reboot_host` – Den Remote-Host neu starten.
+
+Nach Abschluss von `update_packages` wird das Event `vserver_ssh_stats_update_packages` auf dem Home-Assistant-Event-Bus
+ausgelöst. Die Ausgabe des Befehls ist im Payload enthalten und kann z. B. für Benachrichtigungen oder Folgeaktionen genutzt werden.
+
+## Unterstützung
+
+Wenn dir die Integration hilft, freue ich mich über eine Spende:
+
+[PayPal – Spenden](https://www.paypal.com/paypalme/TonyBrueser)
+
+Vielen Dank für deine Unterstützung! Jede Spende hilft, das Projekt weiterzuentwickeln.
+
 ---
 
 ## Installation
