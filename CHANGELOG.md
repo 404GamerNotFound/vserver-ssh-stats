@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.2.28
+- Deduplicated zeroconf discovery by assigning a stable unique ID, enabling the ignore button.
+
+## v1.2.27
+- Expanded the README with a services/events overview and donation details.
+- Added a funding link so the donation button is visible in Home Assistant.
+
 ## v1.2.25
 - Handle zeroconf discovery payloads delivered as objects to avoid setup errors when reconfiguring.
 - Format container list strings with spaces after commas for readability.

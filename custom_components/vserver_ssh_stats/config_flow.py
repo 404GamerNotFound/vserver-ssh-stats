@@ -173,6 +173,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         if not host:
             return self.async_abort(reason="unknown")
+        host = host.lower()
+        await self.async_set_unique_id(host)
+        self._abort_if_unique_id_configured()
         if self._host_already_configured(host):
             return self.async_abort(reason="already_configured")
         self._discovered_host = host
