@@ -22,6 +22,7 @@ number_or_null() {
 
 read_power_metrics() {
   power_energy_file=""
+  sudo chmod a+r /sys/class/powercap/*/energy_uj
   for path in /sys/class/powercap/*/energy_uj; do
     if [ -r "$path" ]; then
       power_energy_file=$path
