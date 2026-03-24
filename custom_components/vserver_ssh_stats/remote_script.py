@@ -22,12 +22,13 @@ number_or_null() {
 
 read_power_metrics() {
   power_energy_file=""
-  sudo chmod a+r /sys/class/powercap/*/energy_uj
-  for path in /sys/class/powercap/*/energy_uj; do
-    if [ -r "$path" ]; then
-      power_energy_file=$path
-      break
-    fi
+
+  # Check and fix read permissions on Intel RAPL powercap directories
+  changed=0
+  for rapl in /sys/class/powercap/*/energy_uj; do
+    [[ -e "$rapl" ]] || continue;
+    [[ -r "$rapl" ]] && power_energy_file=$rapl && break;
+    sudo chmod o+r /sys/class/powercap/*/energy_uj && changed=1 && break;
   done
 
   power_energy_before=""
@@ -42,6 +43,8 @@ read_power_metrics() {
       power_energy_range=$(cat "$dir/energy_range_uj" 2>/dev/null || echo "")
     fi
   fi
+  # restore permissions iff changed
+  [[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 }
 
 read_cpu_stats() {
