@@ -28,7 +28,7 @@ read_power_metrics() {
   for rapl in /sys/class/powercap/*/energy_uj; do
     [[ -e "$rapl" ]] || continue;
     [[ -r "$rapl" ]] && power_energy_file=$rapl && break;
-    sudo chmod o+r /sys/class/powercap/*/energy_uj && changed=1 && break;
+    sudo chmod o+r /sys/class/powercap/*/energy_uj && changed=1 && power_energy_file="$rapl" && break;
   done
 
   power_energy_before=""
@@ -43,8 +43,6 @@ read_power_metrics() {
       power_energy_range=$(cat "$dir/energy_range_uj" 2>/dev/null || echo "")
     fi
   fi
-  # restore permissions iff changed
-  [[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 }
 
 read_cpu_stats() {
@@ -300,6 +298,9 @@ read_temperature
 read_network_bytes
 compute_power
 prepare_numeric_json_values
+
+# restore permissions iff changed
+[[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 
 printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
