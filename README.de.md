@@ -142,6 +142,21 @@ cards:
 - SSH-Passwortauthentifizierung wird unterstützt, aber **SSH-Schlüssel-Authentifizierung** wird für den produktiven Einsatz dringend empfohlen.
 - Remote-Aktionen wie Paketaktualisierungen und Neustarts nutzen `sudo`. Stellen Sie sicher, dass das entfernte Konto `apt-get`, `dnf`, `yum` und `reboot` ohne Passwortabfrage ausführen darf (z. B. durch gezielte Einträge in der `/etc/sudoers`). Dokumentieren oder härten Sie diese Rechte pro Server ab, bevor Sie die Buttons/Services einsetzen.
 
+Eine Beispiel-Konfiguration für `/etc/sudoers.d/<Ihr-user-name-für-VServer-SSH-Stats>`
+```
+# Monitoring-User <Ihr user name für VServer-SSH-Stats>: wenige spezifische CMDs ohne Passwort:
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/apt update
+
+# Auf echten Produktionssystemen sollte apt upgrade nicht hierüber ausgeführt werden.
+# Nutzen Sie statt dessen die Buttons in der HA-UI, um den Prozess gezielt steuern zu können.
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/apt upgrade
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /sbin/reboot
+
+# Leistungswerte auf jüngeren Ubuntu / Debian Systemen und evtl. weiteren
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a+r /sys/class/powercap/*/energy_uj
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a-r /sys/class/powercap/*/energy_uj
+```
+
 ---
 
 ## Release-Management
