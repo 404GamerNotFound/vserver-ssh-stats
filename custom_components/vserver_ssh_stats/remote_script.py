@@ -108,7 +108,7 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
   fi
 
   if [ -n "$disk_lines" ]; then
-    tab=$(printf '\t')
+    tab=$(echo -ne '\t')
     oldifs=$IFS
     IFS=$tab
     disk_entries=""
