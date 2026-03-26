@@ -7,7 +7,7 @@ import socket
 import json
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv
 
 import voluptuous as vol
@@ -71,7 +71,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the VServer SSH Stats integration."""
     _LOGGER.debug("Setting up VServer SSH Stats")
 
-    async def handle_get_local_ip(call: ServiceCall) -> None:
+    async def handle_get_local_ip(call: ServiceCall) -> ServiceResponse:
         """Handle service call to fetch the local IP."""
         try:
             ip = await _async_get_local_ip()
@@ -79,8 +79,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Failed to fetch local IP: %s", err)
             ip = ""
         hass.bus.async_fire(f"{DOMAIN}_local_ip", {"ip": ip})
+        return {"ip": ip}
 
-    async def handle_get_uptime(call: ServiceCall) -> None:
+    async def handle_get_uptime(call: ServiceCall) -> ServiceResponse:
         """Handle service call to fetch system uptime."""
         try:
             uptime = await _async_get_uptime()
@@ -88,8 +89,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Failed to fetch uptime: %s", err)
             uptime = 0.0
         hass.bus.async_fire(f"{DOMAIN}_uptime", {"uptime": uptime})
+        return {"uptime": uptime}
 
-    async def handle_list_connections(call: ServiceCall) -> None:
+    async def handle_list_connections(call: ServiceCall) -> ServiceResponse:
         """Handle service call to list active SSH connections."""
         try:
             connections = await _async_list_ssh_connections()
@@ -97,8 +99,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Listing SSH connections failed: %s", err)
             connections = []
         hass.bus.async_fire(f"{DOMAIN}_connections", {"connections": connections})
+        return {"connections": connections}
 
-    async def handle_run_command(call: ServiceCall) -> None:
+    async def handle_run_command(call: ServiceCall) -> ServiceResponse:
         """Execute an arbitrary command on a server via SSH."""
         data = call.data
 
@@ -126,8 +129,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Command execution failed: %s", err)
             output = ""
         hass.bus.async_fire(f"{DOMAIN}_command", {"output": output})
+        return {"output": output}
 
-    async def handle_update_packages(call: ServiceCall) -> None:
+    async def handle_update_packages(call: ServiceCall) -> ServiceResponse:
         """Update packages on a server via SSH."""
         data = call.data
 
@@ -164,8 +168,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Package update failed: %s", err)
             output = ""
         hass.bus.async_fire(f"{DOMAIN}_update_packages", {"output": output})
+        return {"output": output}
 
-    async def handle_reboot_host(call: ServiceCall) -> None:
+    async def handle_reboot_host(call: ServiceCall) -> ServiceResponse:
         """Reboot a server via SSH."""
         data = call.data
 
@@ -194,10 +199,26 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             _LOGGER.error("Reboot failed: %s", err)
             output = ""
         hass.bus.async_fire(f"{DOMAIN}_reboot", {"output": output})
+        return {"output": output}
 
-    hass.services.async_register(DOMAIN, "get_local_ip", handle_get_local_ip)
-    hass.services.async_register(DOMAIN, "get_uptime", handle_get_uptime)
-    hass.services.async_register(DOMAIN, "list_connections", handle_list_connections)
+    hass.services.async_register(
+        DOMAIN,
+        "get_local_ip",
+        handle_get_local_ip,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "get_uptime",
+        handle_get_uptime,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "list_connections",
+        handle_list_connections,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
     hass.services.async_register(
         DOMAIN,
         "run_command",
@@ -212,6 +233,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("port", default=22): cv.port,
             }
         ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN,
@@ -226,6 +248,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("port", default=22): cv.port,
             }
         ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN,
@@ -240,6 +263,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("port", default=22): cv.port,
             }
         ),
+        supports_response=SupportsResponse.OPTIONAL,
     )
     return True
 
