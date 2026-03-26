@@ -1,5 +1,7 @@
 # VServer SSH Stats – Intégration pour Home Assistant
 
+[Deutsch](README.de.md) | [English](README.md) | [Español](README.es.md)
+
 ![Logo VServer SSH Stats](images/logo/logo.png)
 
 ## Vue d'ensemble
@@ -23,6 +25,8 @@ L'intégration fournit également des services Home Assistant pour exécuter des
 - Collecte :
   - Utilisation du CPU (%)
   - Utilisation de la mémoire (%)
+  - Utilisation du swap (%)
+  - Swap total (GiB)
   - RAM totale (MB)
   - Utilisation du disque (% pour `/`)
   - Débit réseau (octets/s, entrant et sortant)
@@ -40,6 +44,27 @@ L'intégration fournit également des services Home Assistant pour exécuter des
   - Statut du service SSH
 - Intervalle de mise à jour configurable (par défaut : 30 secondes).
 - Services pour obtenir l'adresse IP locale du serveur, le temps de fonctionnement, lister les connexions SSH actives, exécuter des commandes, mettre à jour les paquets et redémarrer l'hôte.
+
+## Services et événements
+
+L'intégration expose des services Home Assistant pour les actions à distance :
+
+- `vserver_ssh_stats.get_local_ip` – Retourne l'adresse IP locale du serveur.
+- `vserver_ssh_stats.get_uptime` – Retourne le temps de fonctionnement en secondes.
+- `vserver_ssh_stats.list_connections` – Liste les sessions SSH actives.
+- `vserver_ssh_stats.run_command` – Exécute une commande shell arbitraire à distance.
+- `vserver_ssh_stats.update_packages` – Lance les mises à jour des paquets système (apt/dnf/yum).
+- `vserver_ssh_stats.reboot_host` – Redémarre l'hôte distant.
+
+Lorsque `update_packages` se termine, l'intégration déclenche l'événement `vserver_ssh_stats_update_packages` sur le bus d'événements Home Assistant avec la sortie de la commande dans la charge utile, afin d'automatiser des notifications ou des actions post-mise à jour.
+
+## Soutenir le projet
+
+Si cette intégration vous fait gagner du temps, vous pouvez soutenir le développement par un don :
+
+[PayPal – Faire un don](https://www.paypal.com/paypalme/TonyBrueser)
+
+Merci pour votre soutien ! Chaque contribution aide à faire avancer ce projet.
 
 ---
 
@@ -61,6 +86,8 @@ Pour chaque serveur, les entités suivantes seront disponibles :
 
 - `sensor.<name>_cpu` – Utilisation du CPU (%)
 - `sensor.<name>_mem` – Utilisation de la mémoire (%)
+- `sensor.<name>_swap_usage` – Utilisation du swap (%)
+- `sensor.<name>_swap_total` – Swap total (GiB)
 - `sensor.<name>_disk` – Utilisation du disque (%)
 - `sensor.<name>_net_in` – Trafic entrant (octets/s)
 - `sensor.<name>_net_out` – Trafic sortant (octets/s)
@@ -105,6 +132,16 @@ cards:
       - sensor.vps1_temp
 ```
 
+## Automatisations de santé et d’alerte
+
+Utilisez les capteurs fournis pour être averti quand un serveur semble en mauvais état. Par exemple :
+
+- utilisation CPU ou mémoire élevée pendant plusieurs minutes ;
+- disques proches de la saturation ;
+- capteurs qui passent à `unavailable`/`unknown`, ce qui indique souvent une perte de connectivité SSH.
+
+Vous pouvez copier et adapter les exemples dans [`examples/automations/health_alerts.yaml`](examples/automations/health_alerts.yaml) selon vos entités et services de notification.
+
 ## Emplacement de la clé SSH
 
 - Sous **Home Assistant OS**, copiez votre clé privée SSH dans le répertoire `/config/ssh/` (par exemple via l'add-on File Editor
@@ -117,8 +154,25 @@ cards:
 
 ## Notes de sécurité
 - Il est recommandé de créer un utilisateur dédié et restreint pour la surveillance SSH (avec un accès en lecture seule à `/proc` et `df`).
+- En raison de la syntaxe des commandes exécutées, l'utilisateur distant doit utiliser /bin/bash (ou un shell compatible) ; /bin/sh ne reconnaît pas certaines expressions.
 - L'authentification par mot de passe est prise en charge, mais l'**authentification par clé SSH** est fortement recommandée pour un usage en production.
 - Les actions distantes telles que les mises à jour de paquets et les redémarrages utilisent `sudo`. Assurez-vous que le compte distant peut exécuter `apt-get`, `dnf`, `yum` et `reboot` sans invite de mot de passe (par exemple via des règles explicites dans `/etc/sudoers`). Documentez ou sécurisez ces droits sur chaque serveur avant d'activer les boutons/services.
+
+
+Exemple de configuration pour `/etc/sudoers.d/<votre-utilisateur-vserver-ssh-stats>`
+```
+# Utilisateur de monitoring <votre utilisateur VServer SSH Stats> : quelques commandes spécifiques sans mot de passe
+<votre utilisateur vserver> ALL=(root) NOPASSWD: /usr/bin/apt update
+
+# Sur des systèmes de production réels, évitez les upgrades automatiques.
+# Utilisez plutôt les boutons de l'interface Home Assistant pour garder le contrôle.
+<votre utilisateur vserver> ALL=(root) NOPASSWD: /usr/bin/apt upgrade
+<votre utilisateur vserver> ALL=(root) NOPASSWD: /sbin/reboot
+
+# Récupération de valeurs d'énergie sur des systèmes Ubuntu / Debian récents (et possiblement d'autres)
+<votre utilisateur vserver> ALL=(root) NOPASSWD: /usr/bin/chmod a+r /sys/class/powercap/*/energy_uj
+<votre utilisateur vserver> ALL=(root) NOPASSWD: /usr/bin/chmod a-r /sys/class/powercap/*/energy_uj
+```
 
 ---
 
