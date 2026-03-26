@@ -127,9 +127,7 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       source_json=$(json_escape "$source")
       target_json=$(json_escape "$target")
       disk_entries="$disk_entries{\"name\":\"$source_json\",\"mount\":\"$target_json\",\"total\":$size,\"free\":$avail},"
-    done <<'DISKLINES'
-$disk_lines
-DISKLINES
+    done < <(echo "$disk_lines")
     IFS=$oldifs
     if [ -n "$disk_entries" ]; then
       disk_stats="[${disk_entries%,}]"
