@@ -99,6 +99,14 @@ awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
     set -e
     if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
       set +e
+      disk_lines=$(df -B1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 |
+        awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
+      echo "$disk_lines" | hd >> /tmp/x
+      disk_status=$?
+      set -e
+    fi
+    if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
+      set +e
       disk_lines=$(df -P 2>/dev/null | tail -n +2 | awk '{if($1 !~ "^/") next; gsub(/\\040/," ",$6); size=$2*1024; avail=$4*1024;
 printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       disk_status=$?
@@ -110,7 +118,7 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
   fi
 
   if [ -n "$disk_lines" ]; then
-    tab=$(printf '\t')
+    tab=$(echo -ne '\t')
     oldifs=$IFS
     IFS=$tab
     disk_entries=""
@@ -121,9 +129,7 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       source_json=$(json_escape "$source")
       target_json=$(json_escape "$target")
       disk_entries="$disk_entries{\"name\":\"$source_json\",\"mount\":\"$target_json\",\"total\":$size,\"free\":$avail},"
-    done <<'DISKLINES'
-$disk_lines
-DISKLINES
+    done < <(echo "$disk_lines")
     IFS=$oldifs
     if [ -n "$disk_entries" ]; then
       disk_stats="[${disk_entries%,}]"
