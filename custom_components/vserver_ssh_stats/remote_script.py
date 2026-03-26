@@ -97,6 +97,14 @@ awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
     set -e
     if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
       set +e
+      disk_lines=$(df -B1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 |
+        awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
+      echo "$disk_lines" | hd >> /tmp/x
+      disk_status=$?
+      set -e
+    fi
+    if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
+      set +e
       disk_lines=$(df -P 2>/dev/null | tail -n +2 | awk '{if($1 !~ "^/") next; gsub(/\\040/," ",$6); size=$2*1024; avail=$4*1024;
 printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       disk_status=$?
