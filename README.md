@@ -155,6 +155,7 @@ You can copy and adjust the sample automations in [`examples/automations/health_
 
 ## Security Notes
 - It is recommended to create a dedicated, restricted user for SSH monitoring (with read-only access to `/proc` and `df`).
+- Due to the syntax of the commands being executed, the user must select /bin/bash or a compatible shell; /bin/sh does not recognise certain expressions.
 - SSH password authentication is supported, but **SSH key authentication** is strongly recommended for production use.
 - Remote actions such as package upgrades and reboots rely on `sudo`. Ensure the remote account is permitted to execute `apt-get`, `dnf`, `yum`, and `reboot` without an interactive password prompt (for example by adding explicit rules to `/etc/sudoers`). Document or harden those permissions for each monitored server before enabling the buttons/services.
 
