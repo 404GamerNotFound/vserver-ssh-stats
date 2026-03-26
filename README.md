@@ -158,6 +158,21 @@ You can copy and adjust the sample automations in [`examples/automations/health_
 - SSH password authentication is supported, but **SSH key authentication** is strongly recommended for production use.
 - Remote actions such as package upgrades and reboots rely on `sudo`. Ensure the remote account is permitted to execute `apt-get`, `dnf`, `yum`, and `reboot` without an interactive password prompt (for example by adding explicit rules to `/etc/sudoers`). Document or harden those permissions for each monitored server before enabling the buttons/services.
 
+An example configuration for `/etc/sudoers.d/<your-user-name-for-VServer-SSH-Stats>`
+```
+# Monitoring-User <your user name for VServer-SSH-Stats>: A few specific cmds w/o passwort:
+<your vserver-user name> ALL=(root) NOPASSWD: /usr/bin/apt update
+
+# on real production systems there should be no upgrade.
+# Use the buttons instead to get more control.
+<your vserver-user name> ALL=(root) NOPASSWD: /usr/bin/apt upgrade
+<your vserver-user name> ALL=(root) NOPASSWD: /sbin/reboot
+
+# retrieving power values on newer Ubuntu / Debian Systems and may be others
+<your vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a+r /sys/class/powercap/*/energy_uj
+<your vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a-r /sys/class/powercap/*/energy_uj
+```
+
 ---
 
 ## Release Management
