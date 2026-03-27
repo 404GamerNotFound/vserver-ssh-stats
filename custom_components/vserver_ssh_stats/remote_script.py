@@ -101,7 +101,6 @@ awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
       set +e
       disk_lines=$(df -B1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 |
         awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
-      echo "$disk_lines" | hd >> /tmp/x
       disk_status=$?
       set -e
     fi
