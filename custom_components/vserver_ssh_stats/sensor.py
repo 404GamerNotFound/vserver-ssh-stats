@@ -228,6 +228,7 @@ class VServerCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 self.server.get("password"),
                 self.server.get("key"),
                 self.server.get("port", 22),
+                self.server.get("target_os", "auto"),
             )
         except socket.gaierror as err:
             raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err

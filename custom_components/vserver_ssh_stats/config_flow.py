@@ -58,6 +58,17 @@ def _build_server_schema(
         vol.Coerce(int), vol.Range(min=1, max=65535)
     )
     schema[vol.Required("username", default=defaults.get("username", vol.UNDEFINED))] = str
+    schema[vol.Optional("target_os", default=defaults.get("target_os", "auto"))] = selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(value="auto", label="Auto-detect"),
+                selector.SelectOptionDict(value="debian", label="Debian/Ubuntu/Linux"),
+                selector.SelectOptionDict(value="raspbian", label="Raspberry Pi OS"),
+                selector.SelectOptionDict(value="windows", label="Windows (experimental)"),
+            ],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
     schema[vol.Optional("password")] = str
     schema[vol.Optional("key")] = str
     schema[vol.Optional("add_another", default=defaults.get("add_another", False))] = bool
@@ -100,6 +111,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "host": host,
                         "username": user_input["username"],
                         "port": user_input["port"],
+                        "target_os": user_input.get("target_os", "auto"),
                     }
                     if user_input.get("password"):
                         server["password"] = user_input["password"]
@@ -305,6 +317,7 @@ class OptionsFlowHandler(OptionsFlow):
                         "host": host,
                         "username": user_input["username"],
                         "port": user_input["port"],
+                        "target_os": user_input.get("target_os", "auto"),
                     }
                     if user_input.get("password"):
                         server["password"] = user_input["password"]

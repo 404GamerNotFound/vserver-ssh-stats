@@ -35,7 +35,7 @@ run_command:
 
 update_packages:
   name: Update packages
-  description: Update system packages using apt, dnf, or yum.
+  description: Update system packages using OS-specific commands.
   fields:
     host:
       description: Hostname or IP of the server.
@@ -52,10 +52,13 @@ update_packages:
     port:
       description: SSH port.
       example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
 
 reboot_host:
   name: Reboot host
-  description: Reboot the remote server.
+  description: Reboot the remote server using an OS-specific command.
   fields:
     host:
       description: Hostname or IP of the server.
@@ -72,3 +75,6 @@ reboot_host:
     port:
       description: SSH port.
       example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto

@@ -12,7 +12,8 @@
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
-          "add_another": "Agregar otro servidor después de este"
+          "add_another": "Agregar otro servidor después de este",
+          "target_os": "Sistema de destino"
         }
       }
     },
@@ -41,7 +42,8 @@
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
-          "add_another": "Agregar otro servidor después de este"
+          "add_another": "Agregar otro servidor después de este",
+          "target_os": "Sistema de destino"
         }
       }
     },
@@ -118,6 +120,10 @@
         "port": {
           "name": "Puerto SSH",
           "description": "Puerto SSH."
+        },
+        "target_os": {
+          "name": "Sistema de destino",
+          "description": "Perfil de SO usado para seleccionar comandos."
         }
       }
     },
@@ -144,6 +150,10 @@
         "port": {
           "name": "Puerto SSH",
           "description": "Puerto SSH."
+        },
+        "target_os": {
+          "name": "Sistema de destino",
+          "description": "Perfil de SO usado para seleccionar comandos."
         }
       }
     }

@@ -20,6 +20,57 @@ DOMAIN = "vserver_ssh_stats"
 PLATFORMS: list[str] = ["sensor", "button"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
+SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
+
+
+def _normalize_target_os(value: str | None) -> str:
+    """Return a safe target OS value."""
+
+    normalized = (value or "auto").strip().lower()
+    return normalized if normalized in SUPPORTED_TARGET_OS else "auto"
+
+
+def _build_update_commands(target_os: str) -> list[str]:
+    """Return update commands ordered by target OS preference."""
+
+    linux_cmd = (
+        "if command -v apt-get >/dev/null 2>&1; then "
+        "sudo apt-get update && sudo apt-get -y upgrade; "
+        "elif command -v dnf >/dev/null 2>&1; then "
+        "sudo dnf -y upgrade; "
+        "elif command -v yum >/dev/null 2>&1; then "
+        "sudo yum -y update; "
+        "else echo 'No supported package manager found'; fi"
+    )
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        "\"if (Get-Command winget -ErrorAction SilentlyContinue) { "
+        "winget upgrade --all --accept-source-agreements --accept-package-agreements "
+        "} else { Write-Output 'winget not available'; exit 1 }\""
+    )
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
+def _build_reboot_commands(target_os: str) -> list[str]:
+    """Return reboot commands ordered by target OS preference."""
+
+    windows_cmd = "shutdown /r /t 0"
+    linux_cmd = "sudo reboot &"
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
+def _exec_ssh_with_fallback(client: paramiko.SSHClient, commands: list[str]) -> tuple[str, bool]:
+    """Run commands in order and return the first successful output."""
+
+    last_output = ""
+    for command in commands:
+        _, stdout, stderr = client.exec_command(command)
+        output = stdout.read().decode() + stderr.read().decode()
+        status = stdout.channel.recv_exit_status()
+        if status == 0:
+            return output, True
+        last_output = output
+    return last_output, False
 
 
 def _get_local_ip() -> str:
@@ -148,17 +199,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
-            cmd = (
-                "if command -v apt-get >/dev/null 2>&1; then "
-                "sudo apt-get update && sudo apt-get -y upgrade; "
-                "elif command -v dnf >/dev/null 2>&1; then "
-                "sudo dnf -y upgrade; "
-                "elif command -v yum >/dev/null 2>&1; then "
-                "sudo yum -y update; "
-                "else echo 'No supported package manager found'; fi"
-            )
-            _, stdout, stderr = client.exec_command(cmd)
-            output = stdout.read().decode() + stderr.read().decode()
+            target_os = _normalize_target_os(data.get("target_os"))
+            commands = _build_update_commands(target_os)
+            output, _ = _exec_ssh_with_fallback(client, commands)
             client.close()
             return output
 
@@ -188,10 +231,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
             try:
-                client.exec_command("sudo reboot &")
+                target_os = _normalize_target_os(data.get("target_os"))
+                commands = _build_reboot_commands(target_os)
+                output, success = _exec_ssh_with_fallback(client, commands)
             finally:
                 client.close()
-            return "reboot triggered"
+            return output if success else "reboot command failed"
 
         try:
             output = await asyncio.to_thread(_exec_reboot)
@@ -246,6 +291,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("password"): cv.string,
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
+                vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -261,6 +307,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("password"): cv.string,
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
+                vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,

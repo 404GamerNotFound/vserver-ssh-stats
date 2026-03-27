@@ -80,6 +80,30 @@ def _safe_list(value: Any) -> list:
     return []
 
 
+WINDOWS_REMOTE_SCRIPT = (
+    "powershell -NoProfile -NonInteractive -Command "
+    "\"$boot=(Get-CimInstance Win32_OperatingSystem).LastBootUpTime; "
+    "$uptime=[int]((Get-Date)-$boot).TotalSeconds; "
+    "$obj=[ordered]@{"
+    "cpu=$null;mem=$null;disk=$null;disk_capacity_total=$null;uptime=$uptime;"
+    "temp=$null;rx=$null;tx=$null;ram=$null;cores=$env:NUMBER_OF_PROCESSORS;"
+    "os='Windows';pkg_count=$null;pkg_list='';docker=0;containers='';"
+    "load_1=$null;load_5=$null;load_15=$null;cpu_freq=$null;vnc='no';web='no';"
+    "ssh='yes';power_w=$null;energy_uj=$null;energy_range_uj=$null;"
+    "container_stats=@();disk_stats=@();swap_usage=$null;swap_total=$null}; "
+    "$obj | ConvertTo-Json -Compress\""
+)
+
+
+def _build_collection_commands(target_os: Optional[str]) -> list[str]:
+    """Return collection commands ordered by target OS preference."""
+
+    normalized = (target_os or "auto").strip().lower()
+    if normalized == "windows":
+        return [WINDOWS_REMOTE_SCRIPT, REMOTE_SCRIPT]
+    return [REMOTE_SCRIPT, WINDOWS_REMOTE_SCRIPT]
+
+
 def _parse_json_output(output: str) -> Dict[str, Any]:
     """Parse JSON output while tolerating surrounding text."""
 
@@ -113,12 +137,27 @@ def _parse_json_output(output: str) -> Dict[str, Any]:
         raise err
 
 
-async def async_sample(host: str, username: str, password: Optional[str], key: Optional[str], port: int) -> Dict[str, Any]:
-    out = await asyncio.to_thread(_run_ssh, host, username, password, key, port, REMOTE_SCRIPT)
-    try:
-        data = _parse_json_output(out)
-    except json.JSONDecodeError as err:
-        _LOGGER.error("Failed to decode SSH response from %s: %s", host, err)
+async def async_sample(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    target_os: Optional[str] = "auto",
+) -> Dict[str, Any]:
+    data: Dict[str, Any] | None = None
+    last_error: Exception | None = None
+    for cmd in _build_collection_commands(target_os):
+        try:
+            out = await asyncio.to_thread(_run_ssh, host, username, password, key, port, cmd)
+            data = _parse_json_output(out)
+            break
+        except (RuntimeError, json.JSONDecodeError) as err:
+            last_error = err
+            _LOGGER.debug("Collector command failed for %s: %s", host, err)
+
+    if data is None:
+        _LOGGER.error("Failed to collect SSH response from %s: %s", host, last_error)
         return {}
     now = time.time()
 
