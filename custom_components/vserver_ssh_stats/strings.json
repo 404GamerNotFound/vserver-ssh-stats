@@ -12,7 +12,8 @@
           "username": "Username",
           "password": "Password",
           "key": "Key file",
-          "add_another": "Add another server after this"
+          "add_another": "Add another server after this",
+          "target_os": "Target system"
         }
       }
     },
@@ -41,7 +42,8 @@
           "username": "Username",
           "password": "Password",
           "key": "Key file",
-          "add_another": "Add another server after this"
+          "add_another": "Add another server after this",
+          "target_os": "Target system"
         }
       }
     },
@@ -118,6 +120,10 @@
         "port": {
           "name": "SSH port",
           "description": "SSH port."
+        },
+        "target_os": {
+          "name": "Target system",
+          "description": "OS profile used for command selection."
         }
       }
     },
@@ -144,6 +150,10 @@
         "port": {
           "name": "SSH port",
           "description": "SSH port."
+        },
+        "target_os": {
+          "name": "Target system",
+          "description": "OS profile used for command selection."
         }
       }
     }

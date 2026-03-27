@@ -12,7 +12,8 @@
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
           "key": "Fichier de clé",
-          "add_another": "Ajouter un autre serveur après celui-ci"
+          "add_another": "Ajouter un autre serveur après celui-ci",
+          "target_os": "Système cible"
         }
       }
     },
@@ -41,7 +42,8 @@
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
           "key": "Fichier de clé",
-          "add_another": "Ajouter un autre serveur après celui-ci"
+          "add_another": "Ajouter un autre serveur après celui-ci",
+          "target_os": "Système cible"
         }
       }
     },
@@ -118,6 +120,10 @@
         "port": {
           "name": "Port SSH",
           "description": "Port SSH."
+        },
+        "target_os": {
+          "name": "Système cible",
+          "description": "Profil OS utilisé pour choisir les commandes."
         }
       }
     },
@@ -144,6 +150,10 @@
         "port": {
           "name": "Port SSH",
           "description": "Port SSH."
+        },
+        "target_os": {
+          "name": "Système cible",
+          "description": "Profil OS utilisé pour choisir les commandes."
         }
       }
     }

@@ -36,6 +36,7 @@ class VServerActionButton(ButtonEntity):
             "host": self._server["host"],
             "username": self._server["username"],
             "port": self._server.get("port", 22),
+            "target_os": self._server.get("target_os", "auto"),
         }
         if self._server.get("password"):
             data["password"] = self._server["password"]
