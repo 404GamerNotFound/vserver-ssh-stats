@@ -1,0 +1,51 @@
+# Example Home Assistant scripts for VServer SSH Stats services.
+# Import these into your scripts.yaml and adjust host names / entity IDs.
+
+vserver_get_uptime_vps1:
+  alias: "VServer: Get VPS1 uptime"
+  sequence:
+    - service: vserver_ssh_stats.get_uptime
+      data:
+        name: "VPS1"
+    - service: notify.notify
+      data:
+        title: "Requested uptime for VPS1"
+        message: "The integration service was triggered. Check logs/events for output."
+
+vserver_list_ssh_connections_vps1:
+  alias: "VServer: List VPS1 SSH connections"
+  sequence:
+    - service: vserver_ssh_stats.list_connections
+      data:
+        name: "VPS1"
+    - service: notify.notify
+      data:
+        title: "Requested active SSH sessions"
+        message: "The list_connections service was triggered for VPS1."
+
+vserver_safe_update_vps1:
+  alias: "VServer: Update packages on VPS1"
+  mode: single
+  sequence:
+    - service: notify.notify
+      data:
+        title: "Package update started"
+        message: "Running package update on VPS1. You will receive a result event when completed."
+    - service: vserver_ssh_stats.update_packages
+      data:
+        name: "VPS1"
+
+vserver_reboot_with_confirmation_vps1:
+  alias: "VServer: Reboot VPS1 (confirmed)"
+  mode: single
+  sequence:
+    - condition: state
+      entity_id: input_boolean.confirm_vps1_reboot
+      state: "on"
+    - service: notify.notify
+      data:
+        title: "Reboot command sent"
+        message: "Rebooting VPS1 now."
+    - service: vserver_ssh_stats.reboot_host
+      data:
+        name: "VPS1"
