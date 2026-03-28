@@ -144,6 +144,9 @@ Use the provided sensors to notify you when a server looks unhealthy. For exampl
 
 You can copy and adjust the sample automations in [`examples/automations/health_alerts.yaml`](examples/automations/health_alerts.yaml) to fit your entity names and preferred notification services.
 
+For reusable one-click operations (uptime query, listing SSH sessions, package updates, and reboot with confirmation),
+see [`examples/scripts/maintenance_scripts.yaml`](examples/scripts/maintenance_scripts.yaml).
+
 ## SSH Key Storage
 
 - When running **Home Assistant OS**, copy your SSH private key into the `/config/ssh/` directory (for example via the File
