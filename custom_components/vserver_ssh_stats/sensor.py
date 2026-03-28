@@ -1,12 +1,8 @@
 """Sensor platform for VServer SSH Stats."""
 from __future__ import annotations
 
-import asyncio
-import logging
 import re
-import socket
 from dataclasses import dataclass, field
-from datetime import timedelta
 from typing import Any, Callable, Dict, Iterable
 
 from homeassistant.components.sensor import (
@@ -26,17 +22,10 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
-from .ssh_collector import async_sample
-
-_LOGGER = logging.getLogger(__name__)
-
+from .coordinator import VServerCoordinator, async_get_or_create_coordinators
 
 def _sanitize(name: str) -> str:
     """Sanitize a container name for use in entity keys."""
@@ -206,34 +195,6 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
 )
 
 
-class VServerCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
-    """Coordinator that polls a server via SSH."""
-
-    def __init__(self, hass: HomeAssistant, server: Dict[str, Any], interval: int) -> None:
-        """Initialize the coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            name=server["name"],
-            update_interval=timedelta(seconds=interval),
-        )
-        self.server = server
-
-    async def _async_update_data(self) -> Dict[str, Any]:
-        """Fetch data from the server."""
-        try:
-            return await async_sample(
-                self.server["host"],
-                self.server["username"],
-                self.server.get("password"),
-                self.server.get("key"),
-                self.server.get("port", 22),
-                self.server.get("target_os", "auto"),
-            )
-        except socket.gaierror as err:
-            raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err
-
-
 class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
     """Representation of a VServer SSH Stats sensor."""
 
@@ -267,27 +228,18 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up VServer SSH Stats sensors based on a config entry."""
-    data = hass.data[DOMAIN][entry.entry_id]
-    servers = data.get("servers", [])
-    interval = data.get("interval", 30)
     entities: list[VServerSensor] = []
-    coordinators: list[VServerCoordinator] = []
     registries: list[tuple[ServerContainerRegistry, ServerDiskRegistry, str]] = []
-    for srv in servers:
-        name = srv.get("name")
+    coordinators = await async_get_or_create_coordinators(hass, entry)
+    for coordinator in coordinators:
+        name = coordinator.server.get("name")
         if not name:
             continue
-        coordinator = VServerCoordinator(hass, srv, interval)
-        coordinators.append(coordinator)
         container_registry = ServerContainerRegistry(coordinator, name)
         disk_registry = ServerDiskRegistry(coordinator, name)
         registries.append((container_registry, disk_registry, name))
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
-    if coordinators:
-        await asyncio.gather(
-            *(coordinator.async_config_entry_first_refresh() for coordinator in coordinators)
-        )
     for container_registry, disk_registry, _name in registries:
         coordinator = container_registry.coordinator
         stats = coordinator.data if isinstance(coordinator.data, dict) else {}
