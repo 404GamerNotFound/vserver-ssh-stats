@@ -17,7 +17,7 @@ from .util import resolve_private_key_path
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
-PLATFORMS: list[str] = ["sensor", "button"]
+PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
