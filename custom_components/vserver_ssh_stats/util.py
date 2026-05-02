@@ -6,6 +6,11 @@ from typing import Optional
 
 from homeassistant.core import HomeAssistant
 
+DEFAULT_INTERVAL = 30
+DEFAULT_CONNECT_TIMEOUT = 10
+DEFAULT_COMMAND_TIMEOUT = 15
+DEFAULT_ACTION_COMMAND_TIMEOUT = 300
+
 
 def resolve_private_key_path(hass: HomeAssistant, key: Optional[str]) -> Optional[str]:
     """Return an absolute path for an SSH private key.

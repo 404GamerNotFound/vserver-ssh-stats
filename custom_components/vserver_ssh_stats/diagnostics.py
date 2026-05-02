@@ -35,6 +35,8 @@ async def async_get_config_entry_diagnostics(
             "entry_id": config_entry.entry_id,
             "unique_id": config_entry.unique_id,
             "interval": config_entry.data.get("interval"),
+            "connect_timeout": config_entry.data.get("connect_timeout"),
+            "command_timeout": config_entry.data.get("command_timeout"),
         },
         "servers": redacted_servers,
         "options": config_entry.options,

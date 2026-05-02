@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.1
+- Expanded the options flow so existing servers can be edited, added, removed, or fully replaced from the integration gear menu.
+- Added configurable SSH connect and collection command timeouts, plus timing sensors for SSH connection and collection duration.
+- Fixed root disk usage collection and hardened CPU/memory collection against empty or zero counters.
+- Aligned README release references with the manifest version.
+
 ## v1.2.28
 - Deduplicated zeroconf discovery by assigning a stable unique ID, enabling the ignore button.
 - Removed the manifest funding entry to satisfy hassfest validation (donation link remains in the README).

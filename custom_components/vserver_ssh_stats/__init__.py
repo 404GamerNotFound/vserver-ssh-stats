@@ -13,7 +13,13 @@ from homeassistant.helpers import config_validation as cv
 import voluptuous as vol
 import paramiko
 
-from .util import resolve_private_key_path
+from .util import (
+    DEFAULT_ACTION_COMMAND_TIMEOUT,
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_INTERVAL,
+    resolve_private_key_path,
+)
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
@@ -28,6 +34,16 @@ def _normalize_target_os(value: str | None) -> str:
 
     normalized = (value or "auto").strip().lower()
     return normalized if normalized in SUPPORTED_TARGET_OS else "auto"
+
+
+def _positive_timeout(value: object, default: int) -> int:
+    """Return *value* as a positive timeout in seconds."""
+
+    try:
+        timeout = int(value)
+    except (TypeError, ValueError):
+        return default
+    return timeout if timeout > 0 else default
 
 
 def _build_update_commands(target_os: str) -> list[str]:
@@ -59,12 +75,16 @@ def _build_reboot_commands(target_os: str) -> list[str]:
     return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
 
 
-def _exec_ssh_with_fallback(client: paramiko.SSHClient, commands: list[str]) -> tuple[str, bool]:
+def _exec_ssh_with_fallback(
+    client: paramiko.SSHClient,
+    commands: list[str],
+    command_timeout: int,
+) -> tuple[str, bool]:
     """Run commands in order and return the first successful output."""
 
     last_output = ""
     for command in commands:
-        _, stdout, stderr = client.exec_command(command)
+        _, stdout, stderr = client.exec_command(command, timeout=command_timeout)
         output = stdout.read().decode() + stderr.read().decode()
         status = stdout.channel.recv_exit_status()
         if status == 0:
@@ -159,20 +179,29 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         def _exec_cmd() -> str:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
+            command_timeout = _positive_timeout(
+                data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
+            )
             connect_args = {
                 "hostname": data["host"],
                 "username": data["username"],
                 "port": data.get("port", 22),
                 "password": data.get("password"),
+                "timeout": connect_timeout,
+                "banner_timeout": connect_timeout,
+                "auth_timeout": connect_timeout,
             }
             key = resolve_private_key_path(hass, data.get("key"))
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
-            _, stdout, stderr = client.exec_command(data["command"])
-            output = stdout.read().decode() + stderr.read().decode()
-            client.close()
-            return output
+            try:
+                _, stdout, stderr = client.exec_command(data["command"], timeout=command_timeout)
+                output = stdout.read().decode() + stderr.read().decode()
+                return output
+            finally:
+                client.close()
 
         try:
             output = await asyncio.to_thread(_exec_cmd)
@@ -189,21 +218,30 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         def _exec_update() -> str:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
+            command_timeout = _positive_timeout(
+                data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
+            )
             connect_args = {
                 "hostname": data["host"],
                 "username": data["username"],
                 "port": data.get("port", 22),
                 "password": data.get("password"),
+                "timeout": connect_timeout,
+                "banner_timeout": connect_timeout,
+                "auth_timeout": connect_timeout,
             }
             key = resolve_private_key_path(hass, data.get("key"))
             if key:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
-            target_os = _normalize_target_os(data.get("target_os"))
-            commands = _build_update_commands(target_os)
-            output, _ = _exec_ssh_with_fallback(client, commands)
-            client.close()
-            return output
+            try:
+                target_os = _normalize_target_os(data.get("target_os"))
+                commands = _build_update_commands(target_os)
+                output, _ = _exec_ssh_with_fallback(client, commands, command_timeout)
+                return output
+            finally:
+                client.close()
 
         try:
             output = await asyncio.to_thread(_exec_update)
@@ -220,11 +258,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         def _exec_reboot() -> str:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
+            command_timeout = _positive_timeout(
+                data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
+            )
             connect_args = {
                 "hostname": data["host"],
                 "username": data["username"],
                 "port": data.get("port", 22),
                 "password": data.get("password"),
+                "timeout": connect_timeout,
+                "banner_timeout": connect_timeout,
+                "auth_timeout": connect_timeout,
             }
             key = resolve_private_key_path(hass, data.get("key"))
             if key:
@@ -233,7 +278,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             try:
                 target_os = _normalize_target_os(data.get("target_os"))
                 commands = _build_reboot_commands(target_os)
-                output, success = _exec_ssh_with_fallback(client, commands)
+                output, success = _exec_ssh_with_fallback(client, commands, command_timeout)
             finally:
                 client.close()
             return output if success else "reboot command failed"
@@ -276,6 +321,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("password"): cv.string,
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
+                vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=300)
+                ),
+                vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=3600)
+                ),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -292,6 +343,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
                 vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
+                vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=300)
+                ),
+                vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=3600)
+                ),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -308,6 +365,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional("key"): cv.string,
                 vol.Optional("port", default=22): cv.port,
                 vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
+                vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=300)
+                ),
+                vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=3600)
+                ),
             }
         ),
         supports_response=SupportsResponse.OPTIONAL,
@@ -329,7 +392,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if key:
             server["key"] = key
     hass.data[DOMAIN][entry.entry_id] = {
-        "interval": data.get("interval"),
+        "interval": data.get("interval") or DEFAULT_INTERVAL,
+        "connect_timeout": data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT,
+        "command_timeout": data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT,
         "servers": servers,
     }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

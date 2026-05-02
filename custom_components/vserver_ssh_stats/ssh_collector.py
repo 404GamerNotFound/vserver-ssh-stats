@@ -11,6 +11,7 @@ import paramiko
 
 from .net_cache import EnergyStatsCache, NetStatsCache
 from .remote_script import REMOTE_SCRIPT
+from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,26 +19,41 @@ net_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
 
 
-def _run_ssh(host: str, username: str, password: Optional[str], key: Optional[str], port: int, cmd: str) -> str:
+def _run_ssh(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    cmd: str,
+    connect_timeout: int,
+    command_timeout: int,
+) -> tuple[str, Dict[str, float]]:
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    started = time.monotonic()
     ssh.connect(
         hostname=host,
         port=port,
         username=username,
         password=password,
         key_filename=key,
-        timeout=10,
-        banner_timeout=10,
-        auth_timeout=10,
+        timeout=connect_timeout,
+        banner_timeout=connect_timeout,
+        auth_timeout=connect_timeout,
     )
+    connected = time.monotonic()
     try:
-        _, stdout, stderr = ssh.exec_command(cmd, timeout=15)
+        _, stdout, stderr = ssh.exec_command(cmd, timeout=command_timeout)
         out = stdout.read().decode("utf-8", "ignore")
         err = stderr.read().decode("utf-8", "ignore")
         if err and not out:
             raise RuntimeError(err.strip())
-        return out
+        finished = time.monotonic()
+        return out, {
+            "connect_time_ms": (connected - started) * 1000,
+            "collection_time_ms": (finished - started) * 1000,
+        }
     finally:
         ssh.close()
 
@@ -144,12 +160,25 @@ async def async_sample(
     key: Optional[str],
     port: int,
     target_os: Optional[str] = "auto",
+    connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
+    command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
 ) -> Dict[str, Any]:
     data: Dict[str, Any] | None = None
+    timing: Dict[str, float] = {}
     last_error: Exception | None = None
     for cmd in _build_collection_commands(target_os):
         try:
-            out = await asyncio.to_thread(_run_ssh, host, username, password, key, port, cmd)
+            out, timing = await asyncio.to_thread(
+                _run_ssh,
+                host,
+                username,
+                password,
+                key,
+                port,
+                cmd,
+                connect_timeout,
+                command_timeout,
+            )
             data = _parse_json_output(out)
             break
         except (RuntimeError, json.JSONDecodeError) as err:
@@ -229,6 +258,8 @@ async def async_sample(
         "container_stats": cont_stats,
         "swap_usage": _safe_int(data.get("swap_usage")),
         "swap_total": swap_total_gib,
+        "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
+        "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
     }
 
     processed_disks: list[Dict[str, Any]] = []

@@ -15,9 +15,42 @@ from homeassistant.config_entries import ConfigEntry, OptionsFlow
 
 from . import DOMAIN
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
-from .util import resolve_private_key_path
+from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, DEFAULT_INTERVAL, resolve_private_key_path
 
-DEFAULT_INTERVAL = 30
+
+def _coerce_positive_int(value: Any, default: int) -> int:
+    """Return *value* as a positive integer or *default* when invalid."""
+
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number > 0 else default
+
+
+def _number_box(min_value: int = 1, max_value: int | None = None) -> selector.NumberSelector:
+    """Create a consistent numeric box selector."""
+
+    config: dict[str, Any] = {
+        "min": min_value,
+        "step": 1,
+        "mode": selector.NumberSelectorMode.BOX,
+    }
+    if max_value is not None:
+        config["max"] = max_value
+    return selector.NumberSelector(selector.NumberSelectorConfig(**config))
+
+
+def _password_selector() -> Any:
+    """Return a password selector when supported by the Home Assistant version."""
+
+    text_selector = getattr(selector, "TextSelector", None)
+    text_selector_config = getattr(selector, "TextSelectorConfig", None)
+    text_selector_type = getattr(selector, "TextSelectorType", None)
+    password_type = getattr(text_selector_type, "PASSWORD", None)
+    if text_selector and text_selector_config and password_type:
+        return text_selector(text_selector_config(type=password_type))
+    return str
 
 
 def _build_server_schema(
@@ -26,6 +59,9 @@ def _build_server_schema(
     interval_default: int,
     default_name: Any,
     defaults: dict[str, Any] | None = None,
+    *,
+    include_add_another: bool = True,
+    editing_existing: bool = False,
 ) -> vol.Schema:
     """Create the data schema for a single server entry."""
 
@@ -46,18 +82,18 @@ def _build_server_schema(
 
     schema: dict[Any, Any] = {}
     if include_interval:
-        schema[vol.Required("interval", default=defaults.get("interval", interval_default))] = (
-            selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, step=1, mode=selector.NumberSelectorMode.BOX)
-            )
-        )
+        schema[vol.Required("interval", default=defaults.get("interval", interval_default))] = _number_box()
 
-    schema[vol.Required("name", default=defaults.get("name", default_name))] = str
+    schema[vol.Required("name", default=defaults.get("name", default_name))] = vol.All(
+        str, vol.Length(min=1)
+    )
     schema[vol.Required("host", default=defaults.get("host", default_host))] = host_field
     schema[vol.Required("port", default=defaults.get("port", 22))] = vol.All(
         vol.Coerce(int), vol.Range(min=1, max=65535)
     )
-    schema[vol.Required("username", default=defaults.get("username", vol.UNDEFINED))] = str
+    schema[vol.Required("username", default=defaults.get("username", vol.UNDEFINED))] = vol.All(
+        str, vol.Length(min=1)
+    )
     schema[vol.Optional("target_os", default=defaults.get("target_os", "auto"))] = selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=[
@@ -69,10 +105,36 @@ def _build_server_schema(
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
-    schema[vol.Optional("password")] = str
-    schema[vol.Optional("key")] = str
-    schema[vol.Optional("add_another", default=defaults.get("add_another", False))] = bool
+    schema[vol.Optional("password")] = _password_selector()
+    if editing_existing:
+        schema[vol.Optional("clear_password", default=defaults.get("clear_password", False))] = bool
+        schema[vol.Optional("key", default=defaults.get("key", ""))] = str
+        schema[vol.Optional("clear_key", default=defaults.get("clear_key", False))] = bool
+    else:
+        schema[vol.Optional("key", default=defaults.get("key", ""))] = str
+    if include_add_another:
+        schema[vol.Optional("add_another", default=defaults.get("add_another", False))] = bool
     return vol.Schema(schema)
+
+
+def _build_options_schema(
+    interval: int,
+    connect_timeout: int,
+    command_timeout: int,
+) -> vol.Schema:
+    """Create the top-level options schema."""
+
+    return vol.Schema(
+        {
+            vol.Required("interval", default=interval): _number_box(),
+            vol.Required("connect_timeout", default=connect_timeout): _number_box(max_value=300),
+            vol.Required("command_timeout", default=command_timeout): _number_box(max_value=300),
+            vol.Optional("edit_server", default=False): bool,
+            vol.Optional("add_server", default=False): bool,
+            vol.Optional("remove_server", default=False): bool,
+            vol.Optional("reconfigure_servers", default=False): bool,
+        }
+    )
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -96,7 +158,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             if first_server:
-                self._interval = user_input["interval"]
+                self._interval = _coerce_positive_int(user_input["interval"], DEFAULT_INTERVAL)
             if not user_input.get("password") and not user_input.get("key"):
                 errors["base"] = "auth"
             else:
@@ -145,6 +207,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         self._abort_if_unique_id_configured()
                         data = {
                             "interval": self._interval,
+                            "connect_timeout": DEFAULT_CONNECT_TIMEOUT,
+                            "command_timeout": DEFAULT_COMMAND_TIMEOUT,
                             "servers_json": json.dumps(self._servers),
                         }
                         title = (
@@ -249,25 +313,61 @@ class OptionsFlowHandler(OptionsFlow):
         """Initialise the options flow."""
 
         self._config_entry = config_entry
-        self._interval: int = config_entry.data.get("interval", DEFAULT_INTERVAL)
+        self._interval = _coerce_positive_int(config_entry.data.get("interval"), DEFAULT_INTERVAL)
+        self._connect_timeout = _coerce_positive_int(
+            config_entry.data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT
+        )
+        self._command_timeout = _coerce_positive_int(
+            config_entry.data.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
+        )
         try:
             self._existing_servers: list[dict[str, Any]] = json.loads(
                 config_entry.data.get("servers_json", "[]")
             )
         except ValueError:
             self._existing_servers = []
-        for server in self._existing_servers:
-            key = resolve_private_key_path(self.hass, server.get("key")) if self.hass else server.get("key")
-            if key:
-                server["key"] = key
         self._pending_servers: list[dict[str, Any]] = []
+        self._selected_server_index: int | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage the initial options step."""
 
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._interval = user_input["interval"]
-            if user_input.get("reconfigure_servers"):
+            self._apply_common_options(user_input)
+            actions = [
+                action
+                for action in (
+                    "edit_server",
+                    "add_server",
+                    "remove_server",
+                    "reconfigure_servers",
+                )
+                if user_input.get(action)
+            ]
+            if len(actions) > 1:
+                errors["base"] = "single_action"
+            elif actions == ["edit_server"]:
+                if not self._existing_servers:
+                    errors["base"] = "no_servers"
+                else:
+                    return self.async_show_form(
+                        step_id="select_server",
+                        data_schema=self._build_server_selector_schema(),
+                    )
+            elif actions == ["add_server"]:
+                self._pending_servers = []
+                return await self.async_step_add_server()
+            elif actions == ["remove_server"]:
+                if len(self._existing_servers) <= 1:
+                    errors["base"] = "cannot_remove_last_server"
+                else:
+                    return self.async_show_form(
+                        step_id="remove_server",
+                        data_schema=self._remove_server_form_schema(),
+                    )
+            elif actions == ["reconfigure_servers"]:
+                self._pending_servers = []
                 hosts = await self._get_discovered_hosts()
                 return self.async_show_form(
                     step_id="servers",
@@ -278,75 +378,307 @@ class OptionsFlowHandler(OptionsFlow):
                         default_name=vol.UNDEFINED,
                     ),
                 )
+            else:
+                self._update_entry(self._existing_servers)
+                return self.async_create_entry(title="", data={})
 
-            self._update_entry(self._existing_servers)
-            return self.async_create_entry(title="", data={})
+        return self._show_init_form(errors)
+
+    def _show_init_form(self, errors: dict[str, str] | None = None):
+        """Return the top-level options form."""
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("interval", default=self._interval): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=1, step=1, mode=selector.NumberSelectorMode.BOX
-                        )
-                    ),
-                    vol.Optional("reconfigure_servers", default=False): bool,
-                }
+            data_schema=_build_options_schema(
+                self._interval,
+                self._connect_timeout,
+                self._command_timeout,
             ),
+            errors=errors or {},
         )
 
+    def _apply_common_options(self, user_input: dict[str, Any]) -> None:
+        """Store common options selected on the first options step."""
+
+        self._interval = _coerce_positive_int(user_input.get("interval"), DEFAULT_INTERVAL)
+        self._connect_timeout = _coerce_positive_int(
+            user_input.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT
+        )
+        self._command_timeout = _coerce_positive_int(
+            user_input.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
+        )
+
+    def _server_select_options(self) -> list[selector.SelectOptionDict]:
+        """Return selector options for all configured servers."""
+
+        return [
+            selector.SelectOptionDict(
+                value=str(index),
+                label=f"{server.get('name') or server.get('host')} ({server.get('host')}:{server.get('port', 22)})",
+            )
+            for index, server in enumerate(self._existing_servers)
+        ]
+
+    def _server_select_selector(self) -> selector.SelectSelector:
+        """Return a selector for choosing a configured server."""
+
+        return selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=self._server_select_options(),
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
+
+    def _build_server_selector_schema(self) -> vol.Schema:
+        """Create a schema for selecting one configured server."""
+
+        options = self._server_select_options()
+        return vol.Schema(
+            {
+                vol.Required("server", default=options[0]["value"] if options else vol.UNDEFINED): (
+                    self._server_select_selector()
+                )
+            }
+        )
+
+    def _remove_server_form_schema(self) -> vol.Schema:
+        """Create a schema for removing one configured server."""
+
+        options = self._server_select_options()
+        return vol.Schema(
+            {
+                vol.Required("server", default=options[0]["value"] if options else vol.UNDEFINED): (
+                    self._server_select_selector()
+                ),
+                vol.Optional("confirm_remove", default=False): bool,
+            }
+        )
+
+    async def async_step_select_server(self, user_input: dict[str, Any] | None = None):
+        """Select the server to edit."""
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                self._selected_server_index = int(user_input["server"])
+                self._existing_servers[self._selected_server_index]
+                return await self.async_step_edit_server()
+            except (KeyError, TypeError, ValueError, IndexError):
+                errors["base"] = "no_servers"
+
+        return self.async_show_form(
+            step_id="select_server",
+            data_schema=self._build_server_selector_schema(),
+            errors=errors,
+        )
+
+    async def async_step_edit_server(self, user_input: dict[str, Any] | None = None):
+        """Edit an existing server in place."""
+
+        if self._selected_server_index is None:
+            return await self.async_step_select_server()
+
+        try:
+            current = self._existing_servers[self._selected_server_index]
+        except IndexError:
+            self._selected_server_index = None
+            return await self.async_step_select_server()
+
+        errors: dict[str, str] = {}
+        defaults = dict(current)
+        defaults.pop("password", None)
+        if user_input is not None:
+            defaults.update(user_input)
+            server = self._server_from_input(
+                user_input,
+                errors,
+                existing=current,
+                ignore_index=self._selected_server_index,
+            )
+            if server is not None and not errors:
+                self._existing_servers[self._selected_server_index] = server
+                self._update_entry(self._existing_servers)
+                return self.async_create_entry(title="", data={})
+
+        hosts = await self._get_discovered_hosts()
+        return self.async_show_form(
+            step_id="edit_server",
+            data_schema=_build_server_schema(
+                hosts,
+                include_interval=False,
+                interval_default=self._interval,
+                default_name=current.get("name", vol.UNDEFINED),
+                defaults=defaults,
+                include_add_another=False,
+                editing_existing=True,
+            ),
+            errors=errors,
+        )
+
+    async def async_step_add_server(self, user_input: dict[str, Any] | None = None):
+        """Append one or more servers to the current entry."""
+
+        errors: dict[str, str] = {}
+        defaults = user_input or {}
+        if user_input is not None:
+            server = self._server_from_input(
+                user_input,
+                errors,
+                pending_servers=self._pending_servers,
+            )
+            if server is not None and not errors:
+                self._pending_servers.append(server)
+                if user_input.get("add_another"):
+                    hosts = await self._get_discovered_hosts()
+                    return self.async_show_form(
+                        step_id="add_server",
+                        data_schema=_build_server_schema(
+                            hosts,
+                            include_interval=False,
+                            interval_default=self._interval,
+                            default_name=vol.UNDEFINED,
+                        ),
+                    )
+
+                self._update_entry([*self._existing_servers, *self._pending_servers])
+                return self.async_create_entry(title="", data={})
+
+        hosts = await self._get_discovered_hosts()
+        return self.async_show_form(
+            step_id="add_server",
+            data_schema=_build_server_schema(
+                hosts,
+                include_interval=False,
+                interval_default=self._interval,
+                default_name=vol.UNDEFINED,
+                defaults=defaults,
+            ),
+            errors=errors,
+        )
+
+    async def async_step_remove_server(self, user_input: dict[str, Any] | None = None):
+        """Remove one configured server."""
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                index = int(user_input["server"])
+                self._existing_servers[index]
+            except (KeyError, TypeError, ValueError, IndexError):
+                errors["base"] = "no_servers"
+            else:
+                if not user_input.get("confirm_remove"):
+                    errors["base"] = "confirm_remove"
+                elif len(self._existing_servers) <= 1:
+                    errors["base"] = "cannot_remove_last_server"
+                else:
+                    servers = [
+                        server
+                        for current_index, server in enumerate(self._existing_servers)
+                        if current_index != index
+                    ]
+                    self._update_entry(servers)
+                    return self.async_create_entry(title="", data={})
+
+        return self.async_show_form(
+            step_id="remove_server",
+            data_schema=self._remove_server_form_schema(),
+            errors=errors,
+        )
+
+    def _server_from_input(
+        self,
+        user_input: dict[str, Any],
+        errors: dict[str, str],
+        *,
+        existing: dict[str, Any] | None = None,
+        ignore_index: int | None = None,
+        pending_servers: list[dict[str, Any]] | None = None,
+        check_current_entry: bool = True,
+    ) -> dict[str, Any] | None:
+        """Validate server form input and return a normalized server definition."""
+
+        host = str(user_input["host"]).strip()
+        current_servers = []
+        if check_current_entry:
+            current_servers = [
+                server
+                for index, server in enumerate(self._existing_servers)
+                if ignore_index is None or index != ignore_index
+            ]
+        if any(server.get("host") == host for server in current_servers):
+            errors["host"] = "duplicate_host"
+        elif pending_servers and any(server.get("host") == host for server in pending_servers):
+            errors["host"] = "duplicate_host"
+        elif self._host_already_configured(host):
+            errors["host"] = "host_in_use"
+
+        server = dict(existing or {})
+        server.update(
+            {
+                "name": str(user_input["name"]).strip(),
+                "host": host,
+                "username": str(user_input["username"]).strip(),
+                "port": user_input["port"],
+                "target_os": user_input.get("target_os", "auto"),
+            }
+        )
+
+        password = user_input.get("password")
+        if user_input.get("clear_password"):
+            server.pop("password", None)
+        elif password:
+            server["password"] = password
+        elif existing is None:
+            server.pop("password", None)
+
+        key_input = user_input.get("key")
+        key = key_input.strip() if isinstance(key_input, str) else key_input
+        if user_input.get("clear_key"):
+            server.pop("key", None)
+        elif key:
+            resolved = resolve_private_key_path(self.hass, key)
+            if not Path(resolved).exists():
+                errors["key"] = "key_missing"
+            else:
+                server["key"] = resolved
+        elif existing is None:
+            server.pop("key", None)
+
+        if not server.get("password") and not server.get("key"):
+            errors["base"] = "auth"
+
+        return None if errors else server
+
     async def async_step_servers(self, user_input: dict[str, Any] | None = None):
-        """Collect server information during options flow."""
+        """Collect replacement server information during options flow."""
 
         errors: dict[str, str] = {}
         defaults = user_input or {}
 
         if user_input is not None:
-            if not user_input.get("password") and not user_input.get("key"):
-                errors["base"] = "auth"
-            else:
-                host = user_input["host"]
-                if any(server["host"] == host for server in self._pending_servers):
-                    errors["host"] = "duplicate_host"
-                elif self._host_already_configured(host):
-                    errors["host"] = "host_in_use"
-                else:
-                    server: dict[str, Any] = {
-                        "name": user_input["name"],
-                        "host": host,
-                        "username": user_input["username"],
-                        "port": user_input["port"],
-                        "target_os": user_input.get("target_os", "auto"),
-                    }
-                    if user_input.get("password"):
-                        server["password"] = user_input["password"]
-                    key_input = user_input.get("key")
-                    if key_input:
-                        resolved = resolve_private_key_path(self.hass, key_input)
-                        if not Path(resolved).exists():
-                            errors["key"] = "key_missing"
-                            defaults = user_input
-                        else:
-                            server["key"] = resolved
-                    if errors:
-                        defaults = user_input
-                    else:
-                        self._pending_servers.append(server)
-                        if user_input.get("add_another"):
-                            hosts = await self._get_discovered_hosts()
-                            return self.async_show_form(
-                                step_id="servers",
-                                data_schema=_build_server_schema(
-                                    hosts,
-                                    include_interval=False,
-                                    interval_default=self._interval,
-                                    default_name=vol.UNDEFINED,
-                                ),
-                            )
+            server = self._server_from_input(
+                user_input,
+                errors,
+                pending_servers=self._pending_servers,
+                check_current_entry=False,
+            )
+            if server is not None and not errors:
+                self._pending_servers.append(server)
+                if user_input.get("add_another"):
+                    hosts = await self._get_discovered_hosts()
+                    return self.async_show_form(
+                        step_id="servers",
+                        data_schema=_build_server_schema(
+                            hosts,
+                            include_interval=False,
+                            interval_default=self._interval,
+                            default_name=vol.UNDEFINED,
+                        ),
+                    )
 
-                        self._update_entry(self._pending_servers)
-                        return self.async_create_entry(title="", data={})
+                self._update_entry(self._pending_servers)
+                return self.async_create_entry(title="", data={})
 
         hosts = await self._get_discovered_hosts()
         return self.async_show_form(
@@ -366,9 +698,12 @@ class OptionsFlowHandler(OptionsFlow):
 
         data = {
             "interval": self._interval,
+            "connect_timeout": self._connect_timeout,
+            "command_timeout": self._command_timeout,
             "servers_json": json.dumps(servers),
         }
-        self.hass.config_entries.async_update_entry(self._config_entry, data=data)
+        title = servers[0]["name"] if len(servers) == 1 else "VServer SSH Stats"
+        self.hass.config_entries.async_update_entry(self._config_entry, title=title, data=data)
         self.hass.async_create_task(
             self.hass.config_entries.async_reload(self._config_entry.entry_id)
         )

@@ -19,6 +19,8 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - No software installation required on the target server (only SSH access).
 - Supports multiple servers with individual configuration.
 - Configurable via Home Assistant UI (config flow).
+- Existing server entries can be edited from the integration options, including host, port, username, password, SSH key,
+  target OS, and polling timeouts.
 - Supports password and SSH key authentication.
 - Home Assistant services and button entities for remote commands, package updates, and reboots.
 - Automatically discovers SSH-enabled hosts on your local network for quick setup, while still allowing manual configuration. Compatible servers announcing themselves via Zeroconf also appear under Home Assistant's **Discovered** section.
@@ -42,6 +44,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - HTTP/HTTPS web server status
   - SSH enabled status
 - Configurable update interval (default: 30 seconds).
+- Configurable SSH connect timeout and collection command timeout.
 - Services to fetch the server's local IP, uptime, list active SSH connections, run commands, update packages, and reboot the host.
 
 ## Services & Events
@@ -91,8 +94,11 @@ For each server, the following entities will be available:
 - `sensor.<name>_swap_usage` – Swap usage (%)
 - `sensor.<name>_swap_total` – Total swap (GiB)
 - `sensor.<name>_disk` – Disk usage (%)
+- `sensor.<name>_disk_capacity_total` – Total detected disk capacity (GiB)
 - `sensor.<name>_net_in` – Network inbound (bytes/s)
 - `sensor.<name>_net_out` – Network outbound (bytes/s)
+- `sensor.<name>_ssh_connect_time_ms` – SSH connection setup time (ms)
+- `sensor.<name>_collection_time_ms` – Full collection runtime (ms)
 - `sensor.<name>_uptime` – Uptime (seconds)
 - `sensor.<name>_temp` – Temperature (°C, if available)
 - `sensor.<name>_ram` – Total RAM (MB)
@@ -109,6 +115,7 @@ For each server, the following entities will be available:
 - `sensor.<name>_vnc` – "yes" if a VNC server is detected
 - `sensor.<name>_web` – "yes" if an HTTP or HTTPS service is listening
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening
+- For each detected mount point: total and free space sensors in GiB
 - For each running container: `sensor.<name>_container_<container>_cpu` (CPU usage %) and `sensor.<name>_container_<container>_mem` (memory usage %)
 
 ---
@@ -180,8 +187,8 @@ An example configuration for `/etc/sudoers.d/<your-user-name-for-VServer-SSH-Sta
 ---
 
 ## Release Management
-- Current stable release: **v1.2.10** (matching `manifest.json`).
-- Create a Git tag (e.g. `git tag v1.2.10`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
+- Current stable release: **v1.3.1** (matching `manifest.json`).
+- Create a Git tag (e.g. `git tag v1.3.1`) and a corresponding GitHub release for every published version so HACS can track updates reliably.
 - Use the existing `scripts/bump_version.py` helper to increment the integration version when preparing a new release.
 - Document notable changes in [`CHANGELOG.md`](CHANGELOG.md) alongside each release.
 

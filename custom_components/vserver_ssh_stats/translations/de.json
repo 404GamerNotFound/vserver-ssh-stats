@@ -29,7 +29,54 @@
       "init": {
         "data": {
           "interval": "Aktualisierungsintervall (Sekunden)",
-          "reconfigure_servers": "Serverliste erneut eingeben"
+          "connect_timeout": "SSH-Verbindungs-Timeout (Sekunden)",
+          "command_timeout": "Timeout für Sammelbefehl (Sekunden)",
+          "edit_server": "Bestehenden Server bearbeiten",
+          "add_server": "Weiteren Server hinzufügen",
+          "remove_server": "Server entfernen",
+          "reconfigure_servers": "Komplette Serverliste ersetzen"
+        }
+      },
+      "select_server": {
+        "title": "Server auswählen",
+        "data": {
+          "server": "Server"
+        }
+      },
+      "edit_server": {
+        "title": "Server bearbeiten",
+        "description": "Passwort leer lassen, um das gespeicherte Passwort beizubehalten. Mit den Entfernen-Optionen können gespeicherte Zugangsdaten gelöscht werden.",
+        "data": {
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort (leer lassen = beibehalten)",
+          "clear_password": "Gespeichertes Passwort entfernen",
+          "key": "Schlüsseldatei",
+          "clear_key": "Gespeicherte Schlüsseldatei entfernen",
+          "target_os": "Zielsystem"
+        }
+      },
+      "add_server": {
+        "title": "Server hinzufügen",
+        "description": "Fügt dieser Integration einen weiteren Server hinzu.",
+        "data": {
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key": "Schlüsseldatei",
+          "add_another": "Weiteren Server danach hinzufügen",
+          "target_os": "Zielsystem"
+        }
+      },
+      "remove_server": {
+        "title": "Server entfernen",
+        "data": {
+          "server": "Server",
+          "confirm_remove": "Entfernen bestätigen"
         }
       },
       "servers": {
@@ -51,7 +98,11 @@
       "auth": "Passwort oder Schlüsseldatei angeben",
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
       "host_in_use": "Dieser Host ist bereits konfiguriert",
-      "key_missing": "SSH-Schlüsseldatei nicht gefunden"
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden",
+      "single_action": "Bitte nur eine Serveraktion gleichzeitig auswählen",
+      "no_servers": "Es wurde kein konfigurierter Server gefunden",
+      "cannot_remove_last_server": "Mindestens ein Server muss konfiguriert bleiben",
+      "confirm_remove": "Bitte bestätigen, dass der ausgewählte Server entfernt werden soll"
     }
   },
   "services": {
@@ -94,6 +145,14 @@
         "port": {
           "name": "SSH-Port",
           "description": "SSH-Port."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den entfernten Befehl."
         }
       }
     },
@@ -124,6 +183,14 @@
         "target_os": {
           "name": "Zielsystem",
           "description": "Für die Befehlsauswahl verwendetes OS-Profil."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den Paketupdate-Befehl."
         }
       }
     },
@@ -154,6 +221,14 @@
         "target_os": {
           "name": "Zielsystem",
           "description": "Für die Befehlsauswahl verwendetes OS-Profil."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den Neustart-Befehl."
         }
       }
     }

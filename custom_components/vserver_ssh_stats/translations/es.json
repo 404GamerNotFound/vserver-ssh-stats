@@ -29,7 +29,54 @@
       "init": {
         "data": {
           "interval": "Intervalo de actualización (segundos)",
-          "reconfigure_servers": "Volver a introducir la lista de servidores"
+          "connect_timeout": "Tiempo de espera de conexión SSH (segundos)",
+          "command_timeout": "Tiempo de espera del comando de recolección (segundos)",
+          "edit_server": "Editar un servidor existente",
+          "add_server": "Agregar otro servidor",
+          "remove_server": "Eliminar un servidor",
+          "reconfigure_servers": "Reemplazar toda la lista de servidores"
+        }
+      },
+      "select_server": {
+        "title": "Seleccionar servidor",
+        "data": {
+          "server": "Servidor"
+        }
+      },
+      "edit_server": {
+        "title": "Editar servidor",
+        "description": "Deja la contraseña vacía para conservar la almacenada. Usa las casillas de eliminación para borrar credenciales guardadas.",
+        "data": {
+          "name": "Nombre del servidor",
+          "host": "Host",
+          "port": "Puerto SSH",
+          "username": "Usuario",
+          "password": "Contraseña (vacía para conservar la actual)",
+          "clear_password": "Eliminar contraseña almacenada",
+          "key": "Archivo de clave",
+          "clear_key": "Eliminar archivo de clave almacenado",
+          "target_os": "Sistema de destino"
+        }
+      },
+      "add_server": {
+        "title": "Agregar servidor",
+        "description": "Agrega otro servidor a esta entrada de integración.",
+        "data": {
+          "name": "Nombre del servidor",
+          "host": "Host",
+          "port": "Puerto SSH",
+          "username": "Usuario",
+          "password": "Contraseña",
+          "key": "Archivo de clave",
+          "add_another": "Agregar otro servidor después de este",
+          "target_os": "Sistema de destino"
+        }
+      },
+      "remove_server": {
+        "title": "Eliminar servidor",
+        "data": {
+          "server": "Servidor",
+          "confirm_remove": "Confirmar eliminación"
         }
       },
       "servers": {
@@ -51,7 +98,11 @@
       "auth": "Proporcione contraseña o archivo de clave",
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
-      "key_missing": "Archivo de clave SSH no encontrado"
+      "key_missing": "Archivo de clave SSH no encontrado",
+      "single_action": "Elige solo una acción de servidor a la vez",
+      "no_servers": "No se encontró ningún servidor configurado",
+      "cannot_remove_last_server": "Debe quedar al menos un servidor configurado",
+      "confirm_remove": "Confirma que se debe eliminar el servidor seleccionado"
     }
   },
   "services": {
@@ -94,6 +145,14 @@
         "port": {
           "name": "Puerto SSH",
           "description": "Puerto SSH."
+        },
+        "connect_timeout": {
+          "name": "Tiempo de espera de conexión SSH",
+          "description": "Tiempo máximo de espera al abrir la conexión SSH."
+        },
+        "command_timeout": {
+          "name": "Tiempo de espera del comando",
+          "description": "Tiempo máximo de espera para el comando remoto."
         }
       }
     },
@@ -124,6 +183,14 @@
         "target_os": {
           "name": "Sistema de destino",
           "description": "Perfil de SO usado para seleccionar comandos."
+        },
+        "connect_timeout": {
+          "name": "Tiempo de espera de conexión SSH",
+          "description": "Tiempo máximo de espera al abrir la conexión SSH."
+        },
+        "command_timeout": {
+          "name": "Tiempo de espera del comando",
+          "description": "Tiempo máximo de espera para el comando de actualización."
         }
       }
     },
@@ -154,6 +221,14 @@
         "target_os": {
           "name": "Sistema de destino",
           "description": "Perfil de SO usado para seleccionar comandos."
+        },
+        "connect_timeout": {
+          "name": "Tiempo de espera de conexión SSH",
+          "description": "Tiempo máximo de espera al abrir la conexión SSH."
+        },
+        "command_timeout": {
+          "name": "Tiempo de espera del comando",
+          "description": "Tiempo máximo de espera para el comando de reinicio."
         }
       }
     }

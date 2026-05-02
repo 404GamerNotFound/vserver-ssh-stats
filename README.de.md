@@ -17,6 +17,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Keine Softwareinstallation auf dem Zielserver erforderlich (nur SSH-Zugriff).
 - Unterstützt mehrere Server mit individueller Konfiguration.
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
+- Bestehende Server können über die Integrationsoptionen bearbeitet, hinzugefügt oder entfernt werden, inklusive Host,
+  Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem und Polling-Timeouts.
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
 - Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich. Kompatible Server, die sich per Zeroconf ankündigen, erscheinen außerdem im Bereich **Entdeckt** von Home Assistant.
@@ -39,6 +41,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
+- Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
 
 ## Dienste & Events
@@ -83,9 +86,14 @@ Für jeden Server sind folgende Entitäten verfügbar:
 
 - `sensor.<name>_cpu` – CPU-Auslastung (%)
 - `sensor.<name>_mem` – Speicherauslastung (%)
+- `sensor.<name>_swap_usage` – Swap-Auslastung (%)
+- `sensor.<name>_swap_total` – Gesamter Swap (GiB)
 - `sensor.<name>_disk` – Festplattenauslastung (%)
+- `sensor.<name>_disk_capacity_total` – Gesamte erkannte Festplattenkapazität (GiB)
 - `sensor.<name>_net_in` – Netzwerkeingang (Bytes/s)
 - `sensor.<name>_net_out` – Netzwerkausgang (Bytes/s)
+- `sensor.<name>_ssh_connect_time_ms` – Dauer des SSH-Verbindungsaufbaus (ms)
+- `sensor.<name>_collection_time_ms` – Laufzeit der vollständigen Datensammlung (ms)
 - `sensor.<name>_uptime` – Laufzeit (Sekunden)
 - `sensor.<name>_temp` – Temperatur (°C, falls verfügbar)
 - `sensor.<name>_ram` – Gesamt-RAM (MB)
@@ -102,6 +110,7 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_vnc` – "ja", wenn ein VNC-Server erkannt wurde
 - `sensor.<name>_web` – "ja", wenn ein HTTP- oder HTTPS-Dienst lauscht
 - `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht
+- Für jeden erkannten Mountpoint: Sensoren für Gesamt- und freien Speicher in GiB
 - Für jeden laufenden Container: `sensor.<name>_container_<container>_cpu` (CPU-Auslastung %) und `sensor.<name>_container_<container>_mem` (Speicherauslastung %)
 
 ---
@@ -161,8 +170,8 @@ Eine Beispiel-Konfiguration für `/etc/sudoers.d/<Ihr-user-name-für-VServer-SSH
 ---
 
 ## Release-Management
-- Aktuelle stabile Version: **v1.2.10** (siehe `manifest.json`).
-- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.2.10`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
+- Aktuelle stabile Version: **v1.3.1** (siehe `manifest.json`).
+- Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.3.1`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).
 

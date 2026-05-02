@@ -32,6 +32,12 @@ run_command:
     port:
       description: SSH port.
       example: 22
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the remote command.
+      example: 300
 
 update_packages:
   name: Update packages
@@ -55,6 +61,12 @@ update_packages:
     target_os:
       description: Target OS profile (auto, debian, raspbian, windows).
       example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the package update command.
+      example: 300
 
 reboot_host:
   name: Reboot host
@@ -78,3 +90,9 @@ reboot_host:
     target_os:
       description: Target OS profile (auto, debian, raspbian, windows).
       example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the reboot command.
+      example: 300

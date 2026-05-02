@@ -177,8 +177,8 @@ Ejemplo de configuración para `/etc/sudoers.d/<tu-usuario-vserver-ssh-stats>`
 ---
 
 ## Gestión de lanzamientos
-- Versión estable actual: **v1.2.10** (coincide con `manifest.json`).
-- Crea una etiqueta Git (por ejemplo, `git tag v1.2.10`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
+- Versión estable actual: **v1.3.1** (coincide con `manifest.json`).
+- Crea una etiqueta Git (por ejemplo, `git tag v1.3.1`) y una versión en GitHub para cada lanzamiento a fin de que HACS pueda seguir las actualizaciones correctamente.
 - Utiliza el script existente `scripts/bump_version.py` para incrementar la versión de la integración al preparar una nueva publicación.
 - Registra los cambios relevantes en [`CHANGELOG.md`](CHANGELOG.md) junto con cada versión.
 

@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from . import DOMAIN
 from .ssh_collector import async_sample
+from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, DEFAULT_INTERVAL
 
 _LOGGER = logging.getLogger(__name__)
 COORDINATORS_KEY = "coordinators"
@@ -22,7 +23,14 @@ COORDINATOR_LOCK_KEY = "coordinators_lock"
 class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator that polls a server via SSH."""
 
-    def __init__(self, hass: HomeAssistant, server: dict[str, Any], interval: int) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: dict[str, Any],
+        interval: int,
+        connect_timeout: int,
+        command_timeout: int,
+    ) -> None:
         """Initialize the coordinator."""
         super().__init__(
             hass,
@@ -31,6 +39,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=interval),
         )
         self.server = server
+        self.connect_timeout = connect_timeout
+        self.command_timeout = command_timeout
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the server."""
@@ -42,6 +52,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.server.get("key"),
                 self.server.get("port", 22),
                 self.server.get("target_os", "auto"),
+                self.connect_timeout,
+                self.command_timeout,
             )
         except socket.gaierror as err:
             raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err
@@ -63,12 +75,16 @@ async def async_get_or_create_coordinators(
         if coordinators is not None:
             return coordinators
 
-        interval = entry_data.get("interval", 30)
+        interval = entry_data.get("interval") or DEFAULT_INTERVAL
+        connect_timeout = entry_data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
+        command_timeout = entry_data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT
         coordinators = []
         for server in entry_data.get("servers", []):
             if not server.get("name"):
                 continue
-            coordinators.append(VServerCoordinator(hass, server, interval))
+            coordinators.append(
+                VServerCoordinator(hass, server, interval, connect_timeout, command_timeout)
+            )
 
         if coordinators:
             await asyncio.gather(

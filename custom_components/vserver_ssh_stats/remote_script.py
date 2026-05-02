@@ -58,7 +58,11 @@ read_cpu_stats() {
   idle_all=$((idle+iowait))
   d_total=$((total-prev_total))
   d_idle=$((idle_all-prev_idle))
-  cpu=$(( (100*(d_total - d_idle) + d_total/2) / d_total ))
+  if [ "$d_total" -gt 0 ]; then
+    cpu=$(( (100*(d_total - d_idle) + d_total/2) / d_total ))
+  else
+    cpu=0
+  fi
 }
 
 read_mem_stats() {
@@ -75,8 +79,14 @@ read_mem_stats() {
       SwapFree) swap_free=${value//[^0-9]/} ;;
     esac
   done < /proc/meminfo
-  mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
-  ram=$(( (mem_total + 512) / 1024 ))
+  if [ -n "$mem_total" ] && [ "$mem_total" -gt 0 ]; then
+    [ -z "$mem_avail" ] && mem_avail=0
+    mem=$(( (100*(mem_total - mem_avail) + mem_total/2) / mem_total ))
+    ram=$(( (mem_total + 512) / 1024 ))
+  else
+    mem=""
+    ram=""
+  fi
   swap_usage_json=null
   swap_total_json=null
   if [ -n "$swap_total" ] && [ "$swap_total" -gt 0 ]; then
@@ -88,9 +98,13 @@ read_mem_stats() {
 }
 
 read_disk_stats() {
+  disk=""
   disk_total_bytes=0
+  disk_free_bytes=0
   disk_stats="[]"
   disk_lines=""
+  root_size=""
+  root_avail=""
   if command -v df >/dev/null 2>&1; then
     set +e
     disk_lines=$(df -PB1 --output=source,target,size,avail -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null | tail -n +2 |
@@ -124,7 +138,13 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
     while read -r source target size avail; do
       [ -z "$source" ] && continue
       [ -z "$size" ] && continue
+      [ -z "$avail" ] && avail=0
       disk_total_bytes=$((disk_total_bytes + size))
+      disk_free_bytes=$((disk_free_bytes + avail))
+      if [ "$target" = "/" ]; then
+        root_size=$size
+        root_avail=$avail
+      fi
       source_json=$(json_escape "$source")
       target_json=$(json_escape "$target")
       disk_entries="$disk_entries{\"name\":\"$source_json\",\"mount\":\"$target_json\",\"total\":$size,\"free\":$avail},"
@@ -133,6 +153,11 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
     if [ -n "$disk_entries" ]; then
       disk_stats="[${disk_entries%,}]"
     fi
+  fi
+  if [ -n "$root_size" ] && [ "$root_size" -gt 0 ]; then
+    disk=$(( (100*(root_size - root_avail) + root_size/2) / root_size ))
+  elif [ "$disk_total_bytes" -gt 0 ]; then
+    disk=$(( (100*(disk_total_bytes - disk_free_bytes) + disk_total_bytes/2) / disk_total_bytes ))
   fi
   disk_stats_json=$disk_stats
   disk_total_bytes_json=$disk_total_bytes

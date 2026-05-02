@@ -162,6 +162,18 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="net_in", name="Network In", native_unit_of_measurement="B/s"),
     VServerSensorDescription(key="net_out", name="Network Out", native_unit_of_measurement="B/s"),
     VServerSensorDescription(
+        key="ssh_connect_time_ms",
+        name="SSH Connect Time",
+        native_unit_of_measurement="ms",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="collection_time_ms",
+        name="Collection Time",
+        native_unit_of_measurement="ms",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
         key="uptime",
         name="Uptime",
         native_unit_of_measurement=UnitOfTime.SECONDS,
