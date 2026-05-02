@@ -248,7 +248,7 @@ class OptionsFlowHandler(OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialise the options flow."""
 
-        self.config_entry = config_entry
+        self._config_entry = config_entry
         self._interval: int = config_entry.data.get("interval", DEFAULT_INTERVAL)
         try:
             self._existing_servers: list[dict[str, Any]] = json.loads(
@@ -368,9 +368,9 @@ class OptionsFlowHandler(OptionsFlow):
             "interval": self._interval,
             "servers_json": json.dumps(servers),
         }
-        self.hass.config_entries.async_update_entry(self.config_entry, data=data)
+        self.hass.config_entries.async_update_entry(self._config_entry, data=data)
         self.hass.async_create_task(
-            self.hass.config_entries.async_reload(self.config_entry.entry_id)
+            self.hass.config_entries.async_reload(self._config_entry.entry_id)
         )
 
     async def _get_discovered_hosts(self) -> list[str]:
@@ -398,7 +398,7 @@ class OptionsFlowHandler(OptionsFlow):
         """Return True if *host* is already configured in another entry."""
 
         for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.entry_id == self.config_entry.entry_id:
+            if entry.entry_id == self._config_entry.entry_id:
                 continue
             try:
                 servers = json.loads(entry.data.get("servers_json", "[]"))
