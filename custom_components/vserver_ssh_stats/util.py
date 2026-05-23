@@ -5,9 +5,13 @@ from pathlib import Path
 import re
 from typing import Optional
 
-from homeassistant.const import CONNECTION_NETWORK_MAC
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
+
+try:
+    from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
+except ImportError:  # pragma: no cover - compatibility with older Home Assistant versions
+    CONNECTION_NETWORK_MAC = "mac"
 
 DEFAULT_INTERVAL = 30
 DEFAULT_CONNECT_TIMEOUT = 10
