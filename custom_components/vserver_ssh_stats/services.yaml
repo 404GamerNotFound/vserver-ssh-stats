@@ -10,6 +10,14 @@ list_connections:
   name: List SSH connections
   description: List IP addresses of active SSH sessions.
 
+refresh:
+  name: Refresh now
+  description: Request an immediate refresh for one server or all configured servers.
+  fields:
+    host:
+      description: Optional hostname or IP of the server. If omitted, all servers are refreshed.
+      example: 192.168.1.10
+
 run_command:
   name: Run SSH command
   description: Execute an arbitrary command on a remote server.
@@ -37,6 +45,35 @@ run_command:
       example: 10
     command_timeout:
       description: Maximum time to wait for the remote command.
+      example: 300
+
+update_package_list:
+  name: Update package list
+  description: Refresh package metadata without upgrading installed packages.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the package metadata update command.
       example: 300
 
 update_packages:
@@ -68,6 +105,35 @@ update_packages:
       description: Maximum time to wait for the package update command.
       example: 300
 
+upgrade_packages:
+  name: Upgrade packages
+  description: Upgrade installed packages using OS-specific commands.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the package upgrade command.
+      example: 300
+
 reboot_host:
   name: Reboot host
   description: Reboot the remote server using an OS-specific command.
@@ -95,4 +161,245 @@ reboot_host:
       example: 10
     command_timeout:
       description: Maximum time to wait for the reboot command.
+      example: 300
+
+restart_service:
+  name: Restart service
+  description: Restart one system service on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    service:
+      description: System service name.
+      example: docker
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the service restart command.
+      example: 300
+
+start_docker_container:
+  name: Start Docker container
+  description: Start one Docker container on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    container:
+      description: Docker container name or ID.
+      example: evcc
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the Docker command.
+      example: 300
+
+stop_docker_container:
+  name: Stop Docker container
+  description: Stop one Docker container on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    container:
+      description: Docker container name or ID.
+      example: evcc
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the Docker command.
+      example: 300
+
+restart_docker_container:
+  name: Restart Docker container
+  description: Restart one Docker container on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    container:
+      description: Docker container name or ID.
+      example: evcc
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the Docker command.
+      example: 300
+
+prune_docker:
+  name: Prune Docker
+  description: Remove unused Docker resources on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the Docker prune command.
+      example: 300
+
+clear_package_cache:
+  name: Clear package cache
+  description: Clear package manager caches on the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the cleanup command.
+      example: 300
+
+get_server_diagnostics:
+  name: Get server diagnostics
+  description: Return a compact diagnostic report from the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for diagnostics.
+      example: 300
+
+tail_logs:
+  name: Tail logs
+  description: Return recent journal or system log lines from the remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    service:
+      description: Optional system service name.
+      example: docker
+    lines:
+      description: Number of log lines to return.
+      example: 100
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for log output.
       example: 300

@@ -5,6 +5,7 @@ import asyncio
 import logging
 import socket
 import json
+import re
 from datetime import UTC, datetime
 
 from homeassistant.config_entries import ConfigEntry
@@ -32,6 +33,7 @@ PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
+REMOTE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
 
 
 def _normalize_target_os(value: str | None) -> str:
@@ -49,6 +51,21 @@ def _positive_timeout(value: object, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return timeout if timeout > 0 else default
+
+
+def _safe_remote_name(value: object) -> str:
+    """Validate a remote service or container identifier."""
+
+    name = str(cv.string(value)).strip()
+    if not REMOTE_NAME_RE.match(name):
+        raise vol.Invalid("Only letters, numbers, dot, underscore, dash and @ are allowed")
+    return name
+
+
+def _log_line_count(value: object) -> int:
+    """Validate log tail line count."""
+
+    return vol.All(vol.Coerce(int), vol.Range(min=1, max=1000))(value)
 
 
 def _build_update_commands(target_os: str) -> list[str]:
@@ -72,11 +89,139 @@ def _build_update_commands(target_os: str) -> list[str]:
     return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
 
 
+def _build_package_list_update_commands(target_os: str) -> list[str]:
+    """Return commands that refresh package metadata without upgrading packages."""
+
+    linux_cmd = (
+        "if command -v apt-get >/dev/null 2>&1; then "
+        "sudo apt-get update; "
+        "elif command -v dnf >/dev/null 2>&1; then "
+        "sudo dnf -y makecache; "
+        "elif command -v yum >/dev/null 2>&1; then "
+        "sudo yum -y makecache; "
+        "elif command -v pacman >/dev/null 2>&1; then "
+        "sudo pacman -Sy --noconfirm; "
+        "elif command -v zypper >/dev/null 2>&1; then "
+        "sudo zypper --non-interactive refresh; "
+        "elif command -v apk >/dev/null 2>&1; then "
+        "sudo apk update; "
+        "else echo 'No supported package manager found'; exit 1; fi"
+    )
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        "\"if (Get-Command winget -ErrorAction SilentlyContinue) { "
+        "winget source update "
+        "} else { Write-Output 'winget not available'; exit 1 }\""
+    )
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
 def _build_reboot_commands(target_os: str) -> list[str]:
     """Return reboot commands ordered by target OS preference."""
 
     windows_cmd = "shutdown /r /t 0"
     linux_cmd = "sudo reboot &"
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
+def _build_clear_package_cache_commands(target_os: str) -> list[str]:
+    """Return commands that clear package manager caches."""
+
+    linux_cmd = (
+        "if command -v apt-get >/dev/null 2>&1; then "
+        "sudo apt-get clean; "
+        "elif command -v dnf >/dev/null 2>&1; then "
+        "sudo dnf clean all; "
+        "elif command -v yum >/dev/null 2>&1; then "
+        "sudo yum clean all; "
+        "elif command -v pacman >/dev/null 2>&1; then "
+        "sudo pacman -Sc --noconfirm; "
+        "elif command -v zypper >/dev/null 2>&1; then "
+        "sudo zypper clean --all; "
+        "elif command -v apk >/dev/null 2>&1; then "
+        "sudo apk cache clean; "
+        "else echo 'No supported package manager found'; exit 1; fi"
+    )
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        "\"Write-Output 'Package cache cleanup is not supported on this Windows target'; exit 1\""
+    )
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
+def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
+    """Return commands that restart a service."""
+
+    linux_cmd = (
+        f"if command -v systemctl >/dev/null 2>&1; then sudo systemctl restart {service}; "
+        "else echo 'systemctl not available'; exit 1; fi"
+    )
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        f"\"Restart-Service -Name '{service}' -Force\""
+    )
+    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+
+
+def _build_docker_container_commands(action: str, container: str) -> list[str]:
+    """Return commands for Docker container actions."""
+
+    return [
+        f"docker {action} {container}",
+        f"sudo docker {action} {container}",
+    ]
+
+
+def _build_docker_prune_commands() -> list[str]:
+    """Return commands that prune unused Docker resources."""
+
+    return [
+        "docker system prune -f",
+        "sudo docker system prune -f",
+    ]
+
+
+def _build_diagnostics_commands() -> list[str]:
+    """Return a compact remote diagnostics command."""
+
+    linux_cmd = (
+        "printf 'OS: '; "
+        "(grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '\"' || uname -sr); "
+        "printf '\\nKernel: '; uname -r 2>/dev/null; "
+        "printf '\\nUptime: '; (uptime -p 2>/dev/null || uptime 2>/dev/null); "
+        "printf '\\nDisk:\\n'; df -h -x tmpfs -x devtmpfs -x squashfs -x overlay 2>/dev/null; "
+        "printf '\\nFailed units:\\n'; (systemctl --failed --no-pager 2>/dev/null || true); "
+        "printf '\\nDocker:\\n'; "
+        "(docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Image}}' 2>/dev/null || true)"
+    )
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        "\"Get-ComputerInfo | Select-Object OsName,OsVersion,CsName,WindowsVersion | Format-List\""
+    )
+    return [linux_cmd, windows_cmd]
+
+
+def _build_tail_logs_commands(target_os: str, service: str | None, lines: int) -> list[str]:
+    """Return commands that fetch recent logs."""
+
+    if service:
+        linux_cmd = (
+            f"journalctl -u {service} -n {lines} --no-pager 2>/dev/null || "
+            f"sudo journalctl -u {service} -n {lines} --no-pager"
+        )
+        windows_cmd = (
+            "powershell.exe -NoProfile -NonInteractive -Command "
+            f"\"Get-EventLog -LogName System -Newest {lines} | Format-Table -AutoSize\""
+        )
+    else:
+        linux_cmd = (
+            f"journalctl -n {lines} --no-pager 2>/dev/null || "
+            f"sudo journalctl -n {lines} --no-pager"
+        )
+        windows_cmd = (
+            "powershell.exe -NoProfile -NonInteractive -Command "
+            f"\"Get-EventLog -LogName System -Newest {lines} | Format-Table -AutoSize\""
+        )
     return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
 
 
@@ -96,6 +241,38 @@ def _exec_ssh_with_fallback(
             return output, True
         last_output = output
     return last_output, False
+
+
+def _exec_remote_commands(
+    hass: HomeAssistant,
+    data: dict,
+    commands: list[str],
+) -> tuple[str, bool]:
+    """Connect via SSH, run command fallbacks, and return output/success."""
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
+    command_timeout = _positive_timeout(
+        data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
+    )
+    connect_args = {
+        "hostname": data["host"],
+        "username": data["username"],
+        "port": data.get("port", 22),
+        "password": data.get("password"),
+        "timeout": connect_timeout,
+        "banner_timeout": connect_timeout,
+        "auth_timeout": connect_timeout,
+    }
+    key = resolve_private_key_path(hass, data.get("key"))
+    if key:
+        connect_args["key_filename"] = key
+    client.connect(**{k: v for k, v in connect_args.items() if v})
+    try:
+        return _exec_ssh_with_fallback(client, commands, command_timeout)
+    finally:
+        client.close()
 
 
 def _command_allowlist_for_host(hass: HomeAssistant, host: str) -> list[str]:
@@ -275,94 +452,200 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.bus.async_fire(f"{DOMAIN}_command", {"host": host, "output": output, "success": success})
         return {"output": output, "success": success}
 
-    async def handle_update_packages(call: ServiceCall) -> ServiceResponse:
-        """Update packages on a server via SSH."""
-        data = call.data
+    async def _run_remote_action(
+        call: ServiceCall,
+        action: str,
+        commands: list[str],
+        event_suffix: str,
+    ) -> ServiceResponse:
+        """Run a remote action and keep status handling consistent."""
 
-        def _exec_update() -> tuple[str, bool]:
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
-            command_timeout = _positive_timeout(
-                data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
-            )
-            connect_args = {
-                "hostname": data["host"],
-                "username": data["username"],
-                "port": data.get("port", 22),
-                "password": data.get("password"),
-                "timeout": connect_timeout,
-                "banner_timeout": connect_timeout,
-                "auth_timeout": connect_timeout,
-            }
-            key = resolve_private_key_path(hass, data.get("key"))
-            if key:
-                connect_args["key_filename"] = key
-            client.connect(**{k: v for k, v in connect_args.items() if v})
-            try:
-                target_os = _normalize_target_os(data.get("target_os"))
-                commands = _build_update_commands(target_os)
-                return _exec_ssh_with_fallback(client, commands, command_timeout)
-            finally:
-                client.close()
-
+        data = dict(call.data)
         try:
-            output, success = await asyncio.to_thread(_exec_update)
+            output, success = await asyncio.to_thread(
+                _exec_remote_commands,
+                hass,
+                data,
+                commands,
+            )
         except Exception as err:  # pragma: no cover - best effort
-            _LOGGER.error("Package update failed: %s", err)
-            output = ""
+            _LOGGER.error("%s failed for %s: %s", action, data.get("host"), err)
+            output = str(err)
             success = False
-        _store_action_status(hass, data["host"], "update_packages", output, success)
+        _store_action_status(hass, data["host"], action, output, success)
         hass.bus.async_fire(
-            f"{DOMAIN}_update_packages",
+            f"{DOMAIN}_{event_suffix}",
             {"host": data["host"], "output": output, "success": success},
         )
         return {"output": output, "success": success}
+
+    async def handle_refresh(call: ServiceCall) -> ServiceResponse:
+        """Request an immediate coordinator refresh for one or all servers."""
+
+        host = call.data.get("host")
+        coordinators = []
+        for entry_data in hass.data.get(DOMAIN, {}).values():
+            if not isinstance(entry_data, dict):
+                continue
+            for coordinator in entry_data.get("coordinators", []) or []:
+                if host and coordinator.server.get("host") != host:
+                    continue
+                coordinators.append(coordinator)
+
+        if not coordinators:
+            output = "No matching coordinator found"
+            if host:
+                _store_action_status(hass, host, "refresh", output, False)
+            return {"refreshed": 0, "success": False, "output": output}
+
+        results = await asyncio.gather(
+            *(coordinator.async_request_refresh() for coordinator in coordinators),
+            return_exceptions=True,
+        )
+        success = not any(isinstance(result, Exception) for result in results)
+        output = f"Requested refresh for {len(coordinators)} coordinator(s)"
+        for coordinator in coordinators:
+            _store_action_status(hass, coordinator.server["host"], "refresh", output, success)
+        hass.bus.async_fire(
+            f"{DOMAIN}_refresh",
+            {"host": host, "refreshed": len(coordinators), "success": success},
+        )
+        return {"refreshed": len(coordinators), "success": success, "output": output}
+
+    async def handle_update_package_list(call: ServiceCall) -> ServiceResponse:
+        """Refresh package metadata on a server via SSH."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_package_list_update_commands(target_os)
+        return await _run_remote_action(call, "update_package_list", commands, "update_package_list")
+
+    async def handle_update_packages(call: ServiceCall) -> ServiceResponse:
+        """Update packages on a server via SSH."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_update_commands(target_os)
+        return await _run_remote_action(call, "update_packages", commands, "update_packages")
+
+    async def handle_upgrade_packages(call: ServiceCall) -> ServiceResponse:
+        """Upgrade packages on a server via SSH."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_update_commands(target_os)
+        return await _run_remote_action(call, "upgrade_packages", commands, "upgrade_packages")
 
     async def handle_reboot_host(call: ServiceCall) -> ServiceResponse:
         """Reboot a server via SSH."""
-        data = call.data
 
-        def _exec_reboot() -> tuple[str, bool]:
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
-            command_timeout = _positive_timeout(
-                data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
-            )
-            connect_args = {
-                "hostname": data["host"],
-                "username": data["username"],
-                "port": data.get("port", 22),
-                "password": data.get("password"),
-                "timeout": connect_timeout,
-                "banner_timeout": connect_timeout,
-                "auth_timeout": connect_timeout,
-            }
-            key = resolve_private_key_path(hass, data.get("key"))
-            if key:
-                connect_args["key_filename"] = key
-            client.connect(**{k: v for k, v in connect_args.items() if v})
-            try:
-                target_os = _normalize_target_os(data.get("target_os"))
-                commands = _build_reboot_commands(target_os)
-                output, success = _exec_ssh_with_fallback(client, commands, command_timeout)
-            finally:
-                client.close()
-            return (output if success else "reboot command failed", success)
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_reboot_commands(target_os)
+        return await _run_remote_action(call, "reboot_host", commands, "reboot")
 
-        try:
-            output, success = await asyncio.to_thread(_exec_reboot)
-        except Exception as err:  # pragma: no cover - best effort
-            _LOGGER.error("Reboot failed: %s", err)
-            output = ""
-            success = False
-        _store_action_status(hass, data["host"], "reboot_host", output, success)
-        hass.bus.async_fire(
-            f"{DOMAIN}_reboot",
-            {"host": data["host"], "output": output, "success": success},
+    async def handle_restart_service(call: ServiceCall) -> ServiceResponse:
+        """Restart one service on a server via SSH."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_restart_service_commands(target_os, call.data["service"])
+        return await _run_remote_action(call, "restart_service", commands, "restart_service")
+
+    async def handle_docker_container_action(call: ServiceCall, action: str) -> ServiceResponse:
+        """Run one Docker container action."""
+
+        commands = _build_docker_container_commands(action, call.data["container"])
+        return await _run_remote_action(
+            call,
+            f"{action}_docker_container",
+            commands,
+            f"{action}_docker_container",
         )
-        return {"output": output, "success": success}
+
+    async def handle_start_docker_container(call: ServiceCall) -> ServiceResponse:
+        """Start one Docker container."""
+
+        return await handle_docker_container_action(call, "start")
+
+    async def handle_stop_docker_container(call: ServiceCall) -> ServiceResponse:
+        """Stop one Docker container."""
+
+        return await handle_docker_container_action(call, "stop")
+
+    async def handle_restart_docker_container(call: ServiceCall) -> ServiceResponse:
+        """Restart one Docker container."""
+
+        return await handle_docker_container_action(call, "restart")
+
+    async def handle_prune_docker(call: ServiceCall) -> ServiceResponse:
+        """Prune unused Docker resources."""
+
+        return await _run_remote_action(
+            call,
+            "prune_docker",
+            _build_docker_prune_commands(),
+            "prune_docker",
+        )
+
+    async def handle_clear_package_cache(call: ServiceCall) -> ServiceResponse:
+        """Clear package manager caches on a server via SSH."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_clear_package_cache_commands(target_os)
+        return await _run_remote_action(
+            call,
+            "clear_package_cache",
+            commands,
+            "clear_package_cache",
+        )
+
+    async def handle_get_server_diagnostics(call: ServiceCall) -> ServiceResponse:
+        """Return a compact remote diagnostics report."""
+
+        return await _run_remote_action(
+            call,
+            "get_server_diagnostics",
+            _build_diagnostics_commands(),
+            "server_diagnostics",
+        )
+
+    async def handle_tail_logs(call: ServiceCall) -> ServiceResponse:
+        """Fetch recent logs from the remote host."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_tail_logs_commands(
+            target_os,
+            call.data.get("service"),
+            call.data["lines"],
+        )
+        return await _run_remote_action(call, "tail_logs", commands, "tail_logs")
+
+    remote_action_schema_fields = {
+        vol.Required("host"): cv.string,
+        vol.Required("username"): cv.string,
+        vol.Optional("password"): cv.string,
+        vol.Optional("key"): cv.string,
+        vol.Optional("port", default=22): cv.port,
+        vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=300)
+        ),
+        vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=3600)
+        ),
+    }
+    os_action_schema_fields = {
+        **remote_action_schema_fields,
+        vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
+    }
+    docker_container_schema_fields = {
+        **remote_action_schema_fields,
+        vol.Required("container"): _safe_remote_name,
+    }
+    restart_service_schema_fields = {
+        **os_action_schema_fields,
+        vol.Required("service"): _safe_remote_name,
+    }
+    tail_logs_schema_fields = {
+        **os_action_schema_fields,
+        vol.Optional("service"): _safe_remote_name,
+        vol.Optional("lines", default=100): _log_line_count,
+    }
 
     hass.services.async_register(
         DOMAIN,
@@ -380,6 +663,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DOMAIN,
         "list_connections",
         handle_list_connections,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "refresh",
+        handle_refresh,
+        schema=vol.Schema({vol.Optional("host"): cv.string}),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
@@ -406,46 +696,86 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     )
     hass.services.async_register(
         DOMAIN,
+        "update_package_list",
+        handle_update_package_list,
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
         "update_packages",
         handle_update_packages,
-        schema=vol.Schema(
-            {
-                vol.Required("host"): cv.string,
-                vol.Required("username"): cv.string,
-                vol.Optional("password"): cv.string,
-                vol.Optional("key"): cv.string,
-                vol.Optional("port", default=22): cv.port,
-                vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
-                vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=300)
-                ),
-                vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=3600)
-                ),
-            }
-        ),
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "upgrade_packages",
+        handle_upgrade_packages,
+        schema=vol.Schema(os_action_schema_fields),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
         DOMAIN,
         "reboot_host",
         handle_reboot_host,
-        schema=vol.Schema(
-            {
-                vol.Required("host"): cv.string,
-                vol.Required("username"): cv.string,
-                vol.Optional("password"): cv.string,
-                vol.Optional("key"): cv.string,
-                vol.Optional("port", default=22): cv.port,
-                vol.Optional("target_os", default="auto"): vol.In(SUPPORTED_TARGET_OS),
-                vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=300)
-                ),
-                vol.Optional("command_timeout", default=DEFAULT_ACTION_COMMAND_TIMEOUT): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=3600)
-                ),
-            }
-        ),
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "restart_service",
+        handle_restart_service,
+        schema=vol.Schema(restart_service_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "start_docker_container",
+        handle_start_docker_container,
+        schema=vol.Schema(docker_container_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "stop_docker_container",
+        handle_stop_docker_container,
+        schema=vol.Schema(docker_container_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "restart_docker_container",
+        handle_restart_docker_container,
+        schema=vol.Schema(docker_container_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "prune_docker",
+        handle_prune_docker,
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "clear_package_cache",
+        handle_clear_package_cache,
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "get_server_diagnostics",
+        handle_get_server_diagnostics,
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "tail_logs",
+        handle_tail_logs,
+        schema=vol.Schema(tail_logs_schema_fields),
         supports_response=SupportsResponse.OPTIONAL,
     )
     return True

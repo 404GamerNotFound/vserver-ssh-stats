@@ -38,17 +38,23 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - CPU cores
   - Load average (1/5/15 min)
   - CPU frequency (MHz)
+  - Health score, reboot-required state, read-only root filesystem state, and temperature status
   - Operating system version
+  - Last boot time, kernel version, primary IP, and primary MAC address
   - Installed packages (count and list)
+  - Security updates separately
   - Docker installation, running containers, per-container CPU/memory usage, image, status, restart count, ports, and health state
+  - Unhealthy containers and total Docker restart count
   - Automatic creation of per-container CPU and memory sensors whenever new containers start
   - Top CPU processes with PID, command, CPU and memory usage as sensor attributes
+  - Failed systemd units and journal errors from the last 15 minutes
+  - Disk I/O read and write rate
   - VNC support status
   - HTTP/HTTPS web server status
   - SSH enabled status
 - Configurable update interval (default: 30 seconds).
 - Configurable SSH connect timeout and collection command timeout.
-- Services to fetch the server's local IP, uptime, list active SSH connections, run commands, update packages, and reboot the host.
+- Services to fetch the server's local IP, uptime, list active SSH connections, run commands, refresh package metadata, upgrade packages, reboot the host, restart services, control Docker containers, prune Docker, clear package caches, fetch diagnostics, and tail logs.
 - Last package update and reboot status sensors with timestamp, success flag, and command output attributes.
 - Aggregated `health_status` sensor with `ok`, `warning`, `critical`, or `offline`, plus score and reason attributes.
 - Technical metadata is marked as Home Assistant diagnostics so operational sensors stay easier to scan.
@@ -62,9 +68,18 @@ The integration exposes Home Assistant services for remote actions:
 - `vserver_ssh_stats.get_local_ip` – Return the server's local IP address.
 - `vserver_ssh_stats.get_uptime` – Return uptime in seconds.
 - `vserver_ssh_stats.list_connections` – List active SSH sessions.
+- `vserver_ssh_stats.refresh` – Request an immediate refresh for one or all configured servers.
 - `vserver_ssh_stats.run_command` – Run an arbitrary shell command remotely.
+- `vserver_ssh_stats.update_package_list` – Refresh package metadata.
 - `vserver_ssh_stats.update_packages` – Trigger OS package updates (apt/dnf/yum).
+- `vserver_ssh_stats.upgrade_packages` – Upgrade installed packages.
 - `vserver_ssh_stats.reboot_host` – Reboot the remote host.
+- `vserver_ssh_stats.restart_service` – Restart one system service.
+- `vserver_ssh_stats.start_docker_container`, `stop_docker_container`, `restart_docker_container` – Control Docker containers.
+- `vserver_ssh_stats.prune_docker` – Remove unused Docker resources.
+- `vserver_ssh_stats.clear_package_cache` – Clear package manager caches.
+- `vserver_ssh_stats.get_server_diagnostics` – Fetch a compact diagnostics report.
+- `vserver_ssh_stats.tail_logs` – Fetch recent journal or system logs.
 
 When `update_packages` or `reboot_host` completes, the integration updates the matching last-action status sensor and fires
 an event with `host`, `output`, and `success` in the payload. If a command allowlist is configured in the integration
@@ -99,18 +114,21 @@ Example from HACS:
 For each server, the following entities will be available:
 
 - `sensor.<name>_health_status` – Aggregated server health (`ok`, `warning`, `critical`, or `offline`) with score and reasons
+- `sensor.<name>_health_score` – Numeric health score (0–100)
 - `sensor.<name>_cpu` – CPU usage (%)
 - `sensor.<name>_mem` – Memory usage (%)
 - `sensor.<name>_swap_usage` – Swap usage (%)
 - `sensor.<name>_swap_total` – Total swap (GiB)
 - `sensor.<name>_disk` – Disk usage (%)
 - `sensor.<name>_disk_capacity_total` – Total detected disk capacity (GiB)
+- `sensor.<name>_disk_io_read` / `sensor.<name>_disk_io_write` – Disk I/O in bytes/s
 - `sensor.<name>_net_in` – Network inbound (bytes/s)
 - `sensor.<name>_net_out` – Network outbound (bytes/s)
 - `sensor.<name>_ssh_connect_time_ms` – SSH connection setup time (ms)
 - `sensor.<name>_collection_time_ms` – Full collection runtime (ms)
 - `sensor.<name>_uptime` – Uptime (seconds)
 - `sensor.<name>_temp` – Temperature (°C, if available)
+- `sensor.<name>_cpu_temperature_status` – Temperature state (`ok`, `warning`, `critical`)
 - `sensor.<name>_ram` – Total RAM (MB)
 - `sensor.<name>_cores` – CPU cores
 - `sensor.<name>_load_1` – 1‑minute load average
@@ -118,13 +136,27 @@ For each server, the following entities will be available:
 - `sensor.<name>_load_15` – 15‑minute load average
 - `sensor.<name>_cpu_freq` – CPU frequency (MHz)
 - `sensor.<name>_os` – Operating system version
+- `sensor.<name>_last_boot` – Last boot timestamp
+- `sensor.<name>_kernel_version` – Kernel version
 - `sensor.<name>_pkg_count` – Pending update count
 - `sensor.<name>_pkg_list` – Pending update packages (first 10)
+- `sensor.<name>_security_updates` – Pending security update count
 - `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
 - `sensor.<name>_containers` – Running Docker containers (comma-separated list), with image, status, restart count, ports, and health state in attributes
+- `sensor.<name>_docker_unhealthy_containers` – Number of unhealthy containers
+- `sensor.<name>_docker_restart_count_total` – Total Docker restart count
 - `sensor.<name>_top_processes` – Top CPU processes, with detailed process data in attributes
+- `sensor.<name>_failed_systemd_units` – Failed systemd unit count
+- `sensor.<name>_failed_systemd_units_list` – Failed systemd unit list
+- `sensor.<name>_journal_errors` – Journal errors in the last 15 minutes
+- `sensor.<name>_network_primary_mac` – Primary MAC address
+- `sensor.<name>_primary_ip` – Primary IP address
 - `sensor.<name>_last_package_update_status` – Last package update result (`success`, `failed`, or `never_run`)
+- `sensor.<name>_last_package_list_update_status` – Last package metadata refresh result
+- `sensor.<name>_last_package_upgrade_status` – Last package upgrade result
 - `sensor.<name>_last_reboot_status` – Last reboot result (`success`, `failed`, or `never_run`)
+- `binary_sensor.<name>_reboot_required` – Reboot required
+- `binary_sensor.<name>_root_fs_readonly` – Root filesystem is read-only
 - `sensor.<name>_vnc` – "yes" if a VNC server is detected
 - `sensor.<name>_web` – "yes" if an HTTP or HTTPS service is listening
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening

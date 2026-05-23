@@ -155,6 +155,31 @@ def _build_health(data: dict[str, Any], online: bool) -> dict[str, Any]:
     if collection_time is not None and collection_time >= 10000:
         add_reason(f"Collection time is high at {collection_time:.0f} ms", 10)
 
+    if data.get("reboot_required"):
+        add_reason("Reboot is required", 10)
+
+    if data.get("root_fs_readonly"):
+        add_reason("Root filesystem is mounted read-only", 40)
+
+    security_updates = _as_float(data.get("security_updates"))
+    if security_updates is not None:
+        if security_updates >= 10:
+            add_reason(f"{security_updates:.0f} security updates are pending", 15)
+        elif security_updates >= 1:
+            add_reason(f"{security_updates:.0f} security updates are pending", 8)
+
+    failed_units = _as_float(data.get("failed_systemd_units"))
+    if failed_units is not None and failed_units > 0:
+        penalty = min(30, 10 + int(failed_units) * 5)
+        add_reason(f"{failed_units:.0f} systemd units failed", penalty)
+
+    journal_errors = _as_float(data.get("journal_errors"))
+    if journal_errors is not None:
+        if journal_errors >= 20:
+            add_reason(f"{journal_errors:.0f} journal errors in the last 15 minutes", 15)
+        elif journal_errors >= 1:
+            add_reason(f"{journal_errors:.0f} journal errors in the last 15 minutes", 5)
+
     unhealthy_containers: list[str] = []
     for container in data.get("container_stats", []):
         if not isinstance(container, dict):
@@ -265,6 +290,12 @@ class ServerDiskRegistry:
 
 SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="health_status", name="Health Status"),
+    _diagnostic_sensor(
+        key="health_score",
+        name="Health Score",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     VServerSensorDescription(key="cpu", name="CPU", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(key="mem", name="Memory", native_unit_of_measurement=PERCENTAGE),
     VServerSensorDescription(
@@ -282,6 +313,18 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         key="disk_capacity_total",
         name="Disk Capacity Total",
         native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+    ),
+    VServerSensorDescription(
+        key="disk_io_read",
+        name="Disk I/O Read",
+        native_unit_of_measurement="B/s",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="disk_io_write",
+        name="Disk I/O Write",
+        native_unit_of_measurement="B/s",
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     VServerSensorDescription(
         key="power_w",
@@ -323,6 +366,7 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
+    _diagnostic_sensor(key="cpu_temperature_status", name="CPU Temperature Status"),
     _diagnostic_sensor(key="ram", name="RAM", native_unit_of_measurement="MB"),
     _diagnostic_sensor(key="cores", name="Cores"),
     VServerSensorDescription(key="load_1", name="Load 1"),
@@ -335,11 +379,21 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
     ),
     _diagnostic_sensor(key="os", name="OS"),
+    _diagnostic_sensor(key="last_boot", name="Last Boot"),
+    _diagnostic_sensor(key="kernel_version", name="Kernel Version"),
     VServerSensorDescription(key="pkg_count", name="Package Count"),
     _diagnostic_sensor(key="pkg_list", name="Package List"),
+    VServerSensorDescription(key="security_updates", name="Security Updates"),
     _diagnostic_sensor(key="docker", name="Docker Containers"),
     VServerSensorDescription(key="containers", name="Containers"),
+    VServerSensorDescription(key="docker_unhealthy_containers", name="Unhealthy Containers"),
+    _diagnostic_sensor(key="docker_restart_count_total", name="Docker Restart Count Total"),
     _diagnostic_sensor(key="top_processes", name="Top Processes"),
+    _diagnostic_sensor(key="failed_systemd_units", name="Failed Systemd Units"),
+    _diagnostic_sensor(key="failed_systemd_units_list", name="Failed Systemd Units List"),
+    _diagnostic_sensor(key="journal_errors", name="Journal Errors"),
+    _diagnostic_sensor(key="network_primary_mac", name="Primary MAC"),
+    _diagnostic_sensor(key="primary_ip", name="Primary IP"),
     _diagnostic_sensor(key="vnc", name="VNC Supported"),
     _diagnostic_sensor(key="web", name="Web Server"),
     _diagnostic_sensor(key="ssh", name="SSH Enabled"),
@@ -347,7 +401,18 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
 
 ACTION_STATUS_SENSORS: tuple[tuple[str, str], ...] = (
     ("update_packages", "Last Package Update Status"),
+    ("update_package_list", "Last Package List Update Status"),
+    ("upgrade_packages", "Last Package Upgrade Status"),
     ("reboot_host", "Last Reboot Status"),
+    ("refresh", "Last Manual Refresh Status"),
+    ("prune_docker", "Last Docker Prune Status"),
+    ("clear_package_cache", "Last Package Cache Cleanup Status"),
+    ("restart_service", "Last Service Restart Status"),
+    ("restart_docker_container", "Last Docker Container Restart Status"),
+    ("start_docker_container", "Last Docker Container Start Status"),
+    ("stop_docker_container", "Last Docker Container Stop Status"),
+    ("get_server_diagnostics", "Last Diagnostics Status"),
+    ("tail_logs", "Last Log Tail Status"),
 )
 
 
@@ -379,6 +444,12 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
                 self.coordinator.last_update_success,
             )
             return health["status"]
+        if self.entity_description.key == "health_score":
+            health = _build_health(
+                self.coordinator.data if isinstance(self.coordinator.data, dict) else {},
+                self.coordinator.last_update_success,
+            )
+            return health["score"]
         if not self.coordinator.data:
             return None
         return self.coordinator.data.get(self.entity_description.key)
@@ -405,6 +476,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         if self.entity_description.key == "containers":
             return {
                 "containers": self.coordinator.data.get("container_details", []),
+            }
+        if self.entity_description.key == "failed_systemd_units_list":
+            return {
+                "units": self.coordinator.data.get("failed_systemd_units_details", []),
             }
         return None
 
