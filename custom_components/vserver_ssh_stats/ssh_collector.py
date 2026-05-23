@@ -11,7 +11,7 @@ import paramiko
 
 from .net_cache import EnergyStatsCache, NetStatsCache
 from .remote_script import REMOTE_SCRIPT
-from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT
+from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, normalize_mac_addresses
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,7 +106,8 @@ WINDOWS_REMOTE_SCRIPT = (
     "os='Windows';pkg_count=$null;pkg_list='';docker=0;containers='';"
     "load_1=$null;load_5=$null;load_15=$null;cpu_freq=$null;vnc='no';web='no';"
     "ssh='yes';power_w=$null;energy_uj=$null;energy_range_uj=$null;"
-    "container_stats=@();disk_stats=@();top_processes=@();swap_usage=$null;swap_total=$null}; "
+    "container_stats=@();disk_stats=@();top_processes=@();mac_address='';"
+    "mac_addresses=@();swap_usage=$null;swap_total=$null}; "
     "$obj | ConvertTo-Json -Compress\""
 )
 
@@ -253,6 +254,12 @@ async def async_sample(
     if not containers and processed_containers:
         containers = ", ".join(container["name"] for container in processed_containers)
 
+    mac_addresses = normalize_mac_addresses(data.get("mac_addresses"))
+    primary_mac = normalize_mac_addresses(data.get("mac_address"))
+    for mac in primary_mac:
+        if mac not in mac_addresses:
+            mac_addresses.insert(0, mac)
+
     top_processes: list[Dict[str, Any]] = []
     for process in top_processes_raw[:5]:
         if not isinstance(process, dict):
@@ -287,6 +294,8 @@ async def async_sample(
         "docker": _safe_int(data.get("docker")),
         "containers": containers,
         "container_details": processed_containers,
+        "mac_address": mac_addresses[0] if mac_addresses else None,
+        "mac_addresses": mac_addresses,
         "top_processes": top_process_summary,
         "top_process_details": top_processes,
         "load_1": data.get("load_1"),

@@ -52,6 +52,8 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - Last package update and reboot status sensors with timestamp, success flag, and command output attributes.
 - Aggregated `health_status` sensor with `ok`, `warning`, `critical`, or `offline`, plus score and reason attributes.
 - Technical metadata is marked as Home Assistant diagnostics so operational sensors stay easier to scan.
+- Reports detected network MAC addresses to Home Assistant's device registry so entities can be merged with existing
+  UniFi Network devices when the MAC address matches.
 
 ## Services & Events
 

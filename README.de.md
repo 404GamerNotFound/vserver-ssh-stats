@@ -49,6 +49,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
 - Zusammenfassender `health_status`-Sensor mit `ok`, `warning`, `critical` oder `offline` sowie Score und Gründen als Attribute.
 - Technische Metadaten werden als Home-Assistant-Diagnoseentitäten markiert, damit operative Sensoren übersichtlicher bleiben.
+- Meldet erkannte Netzwerk-MAC-Adressen an die Home-Assistant-Geräteregistrierung, sodass Entitäten bei gleicher MAC
+  mit vorhandenen UniFi-Network-Geräten zusammengeführt werden können.
 
 ## Dienste & Events
 

@@ -75,6 +75,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:
             self._record_failure()
             raise UpdateFailed(f"Unable to update host {self.server['host']}: {err}") from err
+        if data.get("mac_addresses"):
+            self.server["mac_addresses"] = data["mac_addresses"]
         self._record_success()
         return data
 

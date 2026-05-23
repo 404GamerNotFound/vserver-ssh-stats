@@ -21,11 +21,12 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import Event, HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo, EntityCategory
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
+from .util import build_device_info
 
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 
@@ -367,10 +368,7 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         host = coordinator.server["host"]
         self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, host)},
-            name=server_name,
-        )
+        self._attr_device_info = build_device_info(DOMAIN, coordinator.server)
 
     @property
     def native_value(self) -> Any:
@@ -430,10 +428,7 @@ class VServerActionStatusSensor(SensorEntity):
         self._attr_unique_id = f"{self._host}_{action}_status"
         self._attr_name = f"{server['name']} {name}"
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._host)},
-            name=server["name"],
-        )
+        self._attr_device_info = build_device_info(DOMAIN, server)
 
     def _load_status_data(self) -> dict[str, Any]:
         """Return the stored status data for this host/action."""

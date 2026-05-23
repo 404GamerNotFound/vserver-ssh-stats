@@ -7,10 +7,9 @@ from typing import Any, Dict
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
 
 from . import DOMAIN
-from .util import DEFAULT_CONNECT_TIMEOUT
+from .util import DEFAULT_CONNECT_TIMEOUT, build_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,10 +33,7 @@ class VServerActionButton(ButtonEntity):
         host = server["host"]
         self._attr_unique_id = f"{host}_{action}"
         self._attr_name = f"{server['name']} {name}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, host)},
-            name=server["name"],
-        )
+        self._attr_device_info = build_device_info(DOMAIN, server)
 
     async def async_press(self) -> None:
         """Call the underlying service when the button is pressed."""

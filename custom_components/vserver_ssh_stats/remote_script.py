@@ -46,14 +46,34 @@ read_power_metrics() {
 }
 
 read_cpu_stats() {
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
+  cpu=0
+  if [ ! -r /proc/stat ]; then
+    return 0
+  fi
+  read _cpu user nice system idle iowait irq softirq steal _guest _guest_nice < /proc/stat || return 0
+  user=${user:-0}
+  nice=${nice:-0}
+  system=${system:-0}
+  idle=${idle:-0}
+  iowait=${iowait:-0}
+  irq=${irq:-0}
+  softirq=${softirq:-0}
+  steal=${steal:-0}
   prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
   prev_idle=$((idle+iowait))
   sleep 1
   if [ -n "$power_energy_file" ]; then
     power_energy_after=$(cat "$power_energy_file" 2>/dev/null || echo "")
   fi
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
+  read _cpu user nice system idle iowait irq softirq steal _guest _guest_nice < /proc/stat || return 0
+  user=${user:-0}
+  nice=${nice:-0}
+  system=${system:-0}
+  idle=${idle:-0}
+  iowait=${iowait:-0}
+  irq=${irq:-0}
+  softirq=${softirq:-0}
+  steal=${steal:-0}
   total=$((user+nice+system+idle+iowait+irq+softirq+steal))
   idle_all=$((idle+iowait))
   d_total=$((total-prev_total))
@@ -265,6 +285,51 @@ read_docker_stats() {
   container_stats_json=$container_stats
 }
 
+read_mac_addresses() {
+  mac_address=""
+  mac_entries=""
+  seen_macs=","
+  default_iface=""
+  if command -v ip >/dev/null 2>&1; then
+    default_iface=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+  fi
+
+  add_mac() {
+    candidate=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+    case "$candidate" in
+      ""|"00:00:00:00:00:00") return ;;
+    esac
+    if ! printf '%s' "$candidate" | grep -Eq '^[0-9a-f]{2}(:[0-9a-f]{2}){5}$'; then
+      return
+    fi
+    case "$seen_macs" in
+      *",$candidate,"*) return ;;
+    esac
+    seen_macs="$seen_macs$candidate,"
+    [ -z "$mac_address" ] && mac_address="$candidate"
+    mac_entries="$mac_entries\"$candidate\","
+  }
+
+  if [ -n "$default_iface" ] && [ -r "/sys/class/net/$default_iface/address" ]; then
+    add_mac "$(cat "/sys/class/net/$default_iface/address" 2>/dev/null || echo "")"
+  fi
+
+  for netdev in /sys/class/net/*; do
+    [ -e "$netdev" ] || continue
+    iface=$(basename "$netdev")
+    [ "$iface" = "lo" ] && continue
+    [ -r "$netdev/address" ] || continue
+    add_mac "$(cat "$netdev/address" 2>/dev/null || echo "")"
+  done
+
+  if [ -n "$mac_entries" ]; then
+    mac_addresses_json="[${mac_entries%,}]"
+  else
+    mac_addresses_json="[]"
+  fi
+  mac_address_json=$(json_escape "$mac_address")
+}
+
 read_top_processes() {
   top_processes_json="[]"
   if command -v ps >/dev/null 2>&1; then
@@ -387,6 +452,7 @@ read_load_and_freq
 read_os_info
 collect_pkg_updates
 read_docker_stats
+read_mac_addresses
 read_top_processes
 read_service_status
 read_temperature
@@ -397,8 +463,8 @@ prepare_numeric_json_values
 # restore permissions iff changed
 [[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
-  "$top_processes_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
+  "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
 '''
