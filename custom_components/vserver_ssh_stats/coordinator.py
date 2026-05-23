@@ -13,7 +13,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from . import DOMAIN
 from .ssh_collector import async_sample
-from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, DEFAULT_INTERVAL
+from .util import (
+    DEFAULT_BACKOFF_FAILURE_THRESHOLD,
+    DEFAULT_BACKOFF_MAX_INTERVAL,
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 COORDINATORS_KEY = "coordinators"
@@ -39,13 +45,16 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=interval),
         )
         self.server = server
+        self.base_interval = interval
         self.connect_timeout = connect_timeout
         self.command_timeout = command_timeout
+        self.consecutive_failures = 0
+        self.current_interval = interval
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the server."""
         try:
-            return await async_sample(
+            data = await async_sample(
                 self.server["host"],
                 self.server["username"],
                 self.server.get("password"),
@@ -55,8 +64,46 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.connect_timeout,
                 self.command_timeout,
             )
+            if not data:
+                raise UpdateFailed(f"No data returned from host: {self.server['host']}")
         except socket.gaierror as err:
+            self._record_failure()
             raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err
+        except UpdateFailed:
+            self._record_failure()
+            raise
+        except Exception as err:
+            self._record_failure()
+            raise UpdateFailed(f"Unable to update host {self.server['host']}: {err}") from err
+        self._record_success()
+        return data
+
+    def _record_success(self) -> None:
+        """Reset backoff after a successful update."""
+
+        self.consecutive_failures = 0
+        self._set_poll_interval(self.base_interval)
+
+    def _record_failure(self) -> None:
+        """Increase polling interval after repeated failures."""
+
+        self.consecutive_failures += 1
+        if self.consecutive_failures < DEFAULT_BACKOFF_FAILURE_THRESHOLD:
+            return
+        exponent = self.consecutive_failures - DEFAULT_BACKOFF_FAILURE_THRESHOLD + 1
+        interval = min(
+            self.base_interval * (2 ** exponent),
+            DEFAULT_BACKOFF_MAX_INTERVAL,
+        )
+        self._set_poll_interval(interval)
+
+    def _set_poll_interval(self, interval: int) -> None:
+        """Apply a runtime-only polling interval."""
+
+        if self.current_interval == interval:
+            return
+        self.current_interval = interval
+        self.update_interval = timedelta(seconds=interval)
 
 
 async def async_get_or_create_coordinators(
@@ -88,7 +135,7 @@ async def async_get_or_create_coordinators(
 
         if coordinators:
             await asyncio.gather(
-                *(coordinator.async_config_entry_first_refresh() for coordinator in coordinators)
+                *(coordinator.async_refresh() for coordinator in coordinators)
             )
 
         entry_data[COORDINATORS_KEY] = coordinators

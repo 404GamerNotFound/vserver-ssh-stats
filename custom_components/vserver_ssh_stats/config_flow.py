@@ -15,7 +15,13 @@ from homeassistant.config_entries import ConfigEntry, OptionsFlow
 
 from . import DOMAIN
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
-from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, DEFAULT_INTERVAL, resolve_private_key_path
+from .util import (
+    DEFAULT_COMMAND_ALLOWLIST,
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_INTERVAL,
+    resolve_private_key_path,
+)
 
 
 def _coerce_positive_int(value: Any, default: int) -> int:
@@ -50,6 +56,21 @@ def _password_selector() -> Any:
     password_type = getattr(text_selector_type, "PASSWORD", None)
     if text_selector and text_selector_config and password_type:
         return text_selector(text_selector_config(type=password_type))
+    return str
+
+
+def _textarea_selector() -> Any:
+    """Return a multiline text selector when supported by the Home Assistant version."""
+
+    text_selector = getattr(selector, "TextSelector", None)
+    text_selector_config = getattr(selector, "TextSelectorConfig", None)
+    text_selector_type = getattr(selector, "TextSelectorType", None)
+    text_type = getattr(text_selector_type, "TEXT", None)
+    if text_selector and text_selector_config and text_type:
+        try:
+            return text_selector(text_selector_config(type=text_type, multiline=True))
+        except TypeError:
+            return text_selector(text_selector_config(type=text_type))
     return str
 
 
@@ -121,6 +142,7 @@ def _build_options_schema(
     interval: int,
     connect_timeout: int,
     command_timeout: int,
+    command_allowlist: str,
 ) -> vol.Schema:
     """Create the top-level options schema."""
 
@@ -129,6 +151,7 @@ def _build_options_schema(
             vol.Required("interval", default=interval): _number_box(),
             vol.Required("connect_timeout", default=connect_timeout): _number_box(max_value=300),
             vol.Required("command_timeout", default=command_timeout): _number_box(max_value=300),
+            vol.Optional("command_allowlist", default=command_allowlist): _textarea_selector(),
             vol.Optional("edit_server", default=False): bool,
             vol.Optional("add_server", default=False): bool,
             vol.Optional("remove_server", default=False): bool,
@@ -209,6 +232,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "interval": self._interval,
                             "connect_timeout": DEFAULT_CONNECT_TIMEOUT,
                             "command_timeout": DEFAULT_COMMAND_TIMEOUT,
+                            "command_allowlist": DEFAULT_COMMAND_ALLOWLIST,
                             "servers_json": json.dumps(self._servers),
                         }
                         title = (
@@ -320,6 +344,9 @@ class OptionsFlowHandler(OptionsFlow):
         self._command_timeout = _coerce_positive_int(
             config_entry.data.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
         )
+        self._command_allowlist = str(
+            config_entry.data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST)
+        )
         try:
             self._existing_servers: list[dict[str, Any]] = json.loads(
                 config_entry.data.get("servers_json", "[]")
@@ -393,6 +420,7 @@ class OptionsFlowHandler(OptionsFlow):
                 self._interval,
                 self._connect_timeout,
                 self._command_timeout,
+                self._command_allowlist,
             ),
             errors=errors or {},
         )
@@ -406,6 +434,9 @@ class OptionsFlowHandler(OptionsFlow):
         )
         self._command_timeout = _coerce_positive_int(
             user_input.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
+        )
+        self._command_allowlist = str(
+            user_input.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST)
         )
 
     def _server_select_options(self) -> list[selector.SelectOptionDict]:
@@ -700,6 +731,7 @@ class OptionsFlowHandler(OptionsFlow):
             "interval": self._interval,
             "connect_timeout": self._connect_timeout,
             "command_timeout": self._command_timeout,
+            "command_allowlist": self._command_allowlist,
             "servers_json": json.dumps(servers),
         }
         title = servers[0]["name"] if len(servers) == 1 else "VServer SSH Stats"

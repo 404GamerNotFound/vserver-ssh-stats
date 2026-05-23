@@ -106,7 +106,7 @@ WINDOWS_REMOTE_SCRIPT = (
     "os='Windows';pkg_count=$null;pkg_list='';docker=0;containers='';"
     "load_1=$null;load_5=$null;load_15=$null;cpu_freq=$null;vnc='no';web='no';"
     "ssh='yes';power_w=$null;energy_uj=$null;energy_range_uj=$null;"
-    "container_stats=@();disk_stats=@();swap_usage=$null;swap_total=$null}; "
+    "container_stats=@();disk_stats=@();top_processes=@();swap_usage=$null;swap_total=$null}; "
     "$obj | ConvertTo-Json -Compress\""
 )
 
@@ -202,6 +202,7 @@ async def async_sample(
 
     cont_stats = _safe_list(data.get("container_stats"))
     disk_stats = _safe_list(data.get("disk_stats"))
+    top_processes_raw = _safe_list(data.get("top_processes"))
 
     disk_total_bytes = _safe_int(data.get("disk_capacity_total"))
     disk_total_gib = (
@@ -230,6 +231,23 @@ async def async_sample(
     else:
         containers = containers_raw
 
+    top_processes: list[Dict[str, Any]] = []
+    for process in top_processes_raw[:5]:
+        if not isinstance(process, dict):
+            continue
+        command = str(process.get("command") or "").strip()
+        if not command:
+            continue
+        top_processes.append(
+            {
+                "pid": _safe_int(process.get("pid")),
+                "command": command,
+                "cpu": _safe_float(process.get("cpu")),
+                "mem": _safe_float(process.get("mem")),
+            }
+        )
+    top_process_summary = ", ".join(process["command"] for process in top_processes)
+
     result: Dict[str, Any] = {
         "cpu": _safe_int(data.get("cpu")),
         "mem": _safe_int(data.get("mem")),
@@ -246,6 +264,8 @@ async def async_sample(
         "pkg_list": data.get("pkg_list", ""),
         "docker": _safe_int(data.get("docker")),
         "containers": containers,
+        "top_processes": top_process_summary,
+        "top_process_details": top_processes,
         "load_1": data.get("load_1"),
         "load_5": data.get("load_5"),
         "load_15": data.get("load_15"),

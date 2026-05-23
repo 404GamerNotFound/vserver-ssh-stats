@@ -23,6 +23,8 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   target OS, and polling timeouts.
 - Supports password and SSH key authentication.
 - Home Assistant services and button entities for remote commands, package updates, and reboots.
+- Optional allowlist for `run_command` to limit ad-hoc SSH commands.
+- Adaptive polling backoff after repeated connection failures.
 - Automatically discovers SSH-enabled hosts on your local network for quick setup, while still allowing manual configuration. Compatible servers announcing themselves via Zeroconf also appear under Home Assistant's **Discovered** section.
 - Collects:
   - CPU usage (%)
@@ -40,12 +42,14 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - Installed packages (count and list)
   - Docker installation, running containers, and per-container CPU/memory usage
   - Automatic creation of per-container CPU and memory sensors whenever new containers start
+  - Top CPU processes with PID, command, CPU and memory usage as sensor attributes
   - VNC support status
   - HTTP/HTTPS web server status
   - SSH enabled status
 - Configurable update interval (default: 30 seconds).
 - Configurable SSH connect timeout and collection command timeout.
 - Services to fetch the server's local IP, uptime, list active SSH connections, run commands, update packages, and reboot the host.
+- Last package update and reboot status sensors with timestamp, success flag, and command output attributes.
 
 ## Services & Events
 
@@ -58,8 +62,9 @@ The integration exposes Home Assistant services for remote actions:
 - `vserver_ssh_stats.update_packages` – Trigger OS package updates (apt/dnf/yum).
 - `vserver_ssh_stats.reboot_host` – Reboot the remote host.
 
-When `update_packages` completes, the integration fires the `vserver_ssh_stats_update_packages` event on the Home Assistant
-event bus with the command output in the payload, so you can automate notifications or post-update actions.
+When `update_packages` or `reboot_host` completes, the integration updates the matching last-action status sensor and fires
+an event with `host`, `output`, and `success` in the payload. If a command allowlist is configured in the integration
+options, `run_command` only accepts exact entries or prefix rules ending with `*`.
 
 ## Support the Project
 
@@ -112,6 +117,9 @@ For each server, the following entities will be available:
 - `sensor.<name>_pkg_list` – Pending update packages (first 10)
 - `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
 - `sensor.<name>_containers` – Running Docker containers (comma-separated list)
+- `sensor.<name>_top_processes` – Top CPU processes, with detailed process data in attributes
+- `sensor.<name>_last_package_update_status` – Last package update result (`success`, `failed`, or `never_run`)
+- `sensor.<name>_last_reboot_status` – Last reboot result (`success`, `failed`, or `never_run`)
 - `sensor.<name>_vnc` – "yes" if a VNC server is detected
 - `sensor.<name>_web` – "yes" if an HTTP or HTTPS service is listening
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening

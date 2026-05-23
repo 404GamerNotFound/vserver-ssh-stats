@@ -31,6 +31,7 @@
           "interval": "Update interval (seconds)",
           "connect_timeout": "SSH connect timeout (seconds)",
           "command_timeout": "Collection command timeout (seconds)",
+          "command_allowlist": "Allowed run_command entries (one per line, optional * suffix for prefixes)",
           "edit_server": "Edit an existing server",
           "add_server": "Add another server",
           "remove_server": "Remove a server",

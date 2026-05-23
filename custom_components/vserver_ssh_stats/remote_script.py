@@ -9,7 +9,7 @@ trim_comma() {
 }
 
 json_escape() {
-  printf '%s' "$1" | sed 's/"/\\"/g'
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
 number_or_null() {
@@ -227,6 +227,32 @@ awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f
   container_stats_json=$container_stats
 }
 
+read_top_processes() {
+  top_processes_json="[]"
+  if command -v ps >/dev/null 2>&1; then
+    set +e
+    top_process_lines=$(ps -eo pid=,comm=,pcpu=,pmem= --sort=-pcpu 2>/dev/null | head -n 5 |
+      awk '{pid=$1; cpu=$(NF-1)+0; mem=$NF+0; command=$2; printf "%s\t%s\t%.2f\t%.2f\n", pid, command, cpu, mem}')
+    top_process_status=$?
+    set -e
+    if [ $top_process_status -eq 0 ] && [ -n "$top_process_lines" ]; then
+      tab=$(echo -ne '\t')
+      oldifs=$IFS
+      IFS=$tab
+      top_process_entries=""
+      while read -r pid command cpu mem; do
+        [ -z "$pid" ] && continue
+        command_json=$(json_escape "$command")
+        top_process_entries="$top_process_entries{\"pid\":$pid,\"command\":\"$command_json\",\"cpu\":$cpu,\"mem\":$mem},"
+      done < <(echo "$top_process_lines")
+      IFS=$oldifs
+      if [ -n "$top_process_entries" ]; then
+        top_processes_json="[${top_process_entries%,}]"
+      fi
+    fi
+  fi
+}
+
 read_service_status() {
   sock_cmd=""
   if command -v ss >/dev/null 2>&1; then
@@ -323,6 +349,7 @@ read_load_and_freq
 read_os_info
 collect_pkg_updates
 read_docker_stats
+read_top_processes
 read_service_status
 read_temperature
 read_network_bytes
@@ -332,8 +359,8 @@ prepare_numeric_json_values
 # restore permissions iff changed
 [[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
-  "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
+  "$top_processes_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
 '''

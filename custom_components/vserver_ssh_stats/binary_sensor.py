@@ -37,7 +37,11 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional availability context."""
-        return {"last_seen": self._last_seen}
+        return {
+            "last_seen": self._last_seen,
+            "consecutive_failures": self.coordinator.consecutive_failures,
+            "current_poll_interval": self.coordinator.current_interval,
+        }
 
     @property
     def available(self) -> bool:

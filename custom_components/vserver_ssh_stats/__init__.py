@@ -5,6 +5,7 @@ import asyncio
 import logging
 import socket
 import json
+from datetime import UTC, datetime
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
@@ -15,9 +16,12 @@ import paramiko
 
 from .util import (
     DEFAULT_ACTION_COMMAND_TIMEOUT,
+    DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_INTERVAL,
+    is_command_allowed,
+    parse_command_allowlist,
     resolve_private_key_path,
 )
 _LOGGER = logging.getLogger(__name__)
@@ -27,6 +31,7 @@ PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
+ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 
 
 def _normalize_target_os(value: str | None) -> str:
@@ -91,6 +96,50 @@ def _exec_ssh_with_fallback(
             return output, True
         last_output = output
     return last_output, False
+
+
+def _command_allowlist_for_host(hass: HomeAssistant, host: str) -> list[str]:
+    """Return the configured run-command allowlist for *host*."""
+
+    host_rules: list[str] = []
+    fallback_rules: list[str] = []
+    matched_host = False
+    for entry_data in hass.data.get(DOMAIN, {}).values():
+        if not isinstance(entry_data, dict):
+            continue
+        rules = parse_command_allowlist(
+            entry_data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST)
+        )
+        if rules:
+            fallback_rules.extend(rules)
+        if any(server.get("host") == host for server in entry_data.get("servers", [])):
+            matched_host = True
+            host_rules.extend(rules)
+    return host_rules if matched_host else fallback_rules
+
+
+def _store_action_status(
+    hass: HomeAssistant,
+    host: str,
+    action: str,
+    output: str,
+    success: bool,
+) -> dict[str, object]:
+    """Store and announce the latest action result for sensors and automations."""
+
+    payload: dict[str, object] = {
+        "host": host,
+        "action": action,
+        "status": "success" if success else "failed",
+        "success": success,
+        "output": output,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    status_store = hass.data.setdefault(DOMAIN, {}).setdefault("action_status", {})
+    host_store = status_store.setdefault(host, {})
+    host_store[action] = payload
+    hass.bus.async_fire(ACTION_STATUS_EVENT, payload)
+    return payload
 
 
 def _get_local_ip() -> str:
@@ -175,8 +224,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def handle_run_command(call: ServiceCall) -> ServiceResponse:
         """Execute an arbitrary command on a server via SSH."""
         data = call.data
+        command = data["command"]
+        host = data["host"]
+        allowlist = _command_allowlist_for_host(hass, host)
+        if not is_command_allowed(command, allowlist):
+            output = "Command blocked by VServer SSH Stats allowlist"
+            _LOGGER.warning("Blocked disallowed SSH command for %s: %s", host, command)
+            _store_action_status(hass, host, "run_command", output, False)
+            hass.bus.async_fire(
+                f"{DOMAIN}_command",
+                {"host": host, "output": output, "success": False, "blocked": True},
+            )
+            return {"output": output, "success": False, "blocked": True}
 
-        def _exec_cmd() -> str:
+        def _exec_cmd() -> tuple[str, bool]:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
@@ -197,25 +258,28 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 connect_args["key_filename"] = key
             client.connect(**{k: v for k, v in connect_args.items() if v})
             try:
-                _, stdout, stderr = client.exec_command(data["command"], timeout=command_timeout)
+                _, stdout, stderr = client.exec_command(command, timeout=command_timeout)
                 output = stdout.read().decode() + stderr.read().decode()
-                return output
+                status = stdout.channel.recv_exit_status()
+                return output, status == 0
             finally:
                 client.close()
 
         try:
-            output = await asyncio.to_thread(_exec_cmd)
+            output, success = await asyncio.to_thread(_exec_cmd)
         except Exception as err:  # pragma: no cover - best effort
             _LOGGER.error("Command execution failed: %s", err)
             output = ""
-        hass.bus.async_fire(f"{DOMAIN}_command", {"output": output})
-        return {"output": output}
+            success = False
+        _store_action_status(hass, host, "run_command", output, success)
+        hass.bus.async_fire(f"{DOMAIN}_command", {"host": host, "output": output, "success": success})
+        return {"output": output, "success": success}
 
     async def handle_update_packages(call: ServiceCall) -> ServiceResponse:
         """Update packages on a server via SSH."""
         data = call.data
 
-        def _exec_update() -> str:
+        def _exec_update() -> tuple[str, bool]:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
@@ -238,24 +302,28 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             try:
                 target_os = _normalize_target_os(data.get("target_os"))
                 commands = _build_update_commands(target_os)
-                output, _ = _exec_ssh_with_fallback(client, commands, command_timeout)
-                return output
+                return _exec_ssh_with_fallback(client, commands, command_timeout)
             finally:
                 client.close()
 
         try:
-            output = await asyncio.to_thread(_exec_update)
+            output, success = await asyncio.to_thread(_exec_update)
         except Exception as err:  # pragma: no cover - best effort
             _LOGGER.error("Package update failed: %s", err)
             output = ""
-        hass.bus.async_fire(f"{DOMAIN}_update_packages", {"output": output})
-        return {"output": output}
+            success = False
+        _store_action_status(hass, data["host"], "update_packages", output, success)
+        hass.bus.async_fire(
+            f"{DOMAIN}_update_packages",
+            {"host": data["host"], "output": output, "success": success},
+        )
+        return {"output": output, "success": success}
 
     async def handle_reboot_host(call: ServiceCall) -> ServiceResponse:
         """Reboot a server via SSH."""
         data = call.data
 
-        def _exec_reboot() -> str:
+        def _exec_reboot() -> tuple[str, bool]:
             client = paramiko.SSHClient()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
@@ -281,15 +349,20 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 output, success = _exec_ssh_with_fallback(client, commands, command_timeout)
             finally:
                 client.close()
-            return output if success else "reboot command failed"
+            return (output if success else "reboot command failed", success)
 
         try:
-            output = await asyncio.to_thread(_exec_reboot)
+            output, success = await asyncio.to_thread(_exec_reboot)
         except Exception as err:  # pragma: no cover - best effort
             _LOGGER.error("Reboot failed: %s", err)
             output = ""
-        hass.bus.async_fire(f"{DOMAIN}_reboot", {"output": output})
-        return {"output": output}
+            success = False
+        _store_action_status(hass, data["host"], "reboot_host", output, success)
+        hass.bus.async_fire(
+            f"{DOMAIN}_reboot",
+            {"host": data["host"], "output": output, "success": success},
+        )
+        return {"output": output, "success": success}
 
     hass.services.async_register(
         DOMAIN,
@@ -395,6 +468,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "interval": data.get("interval") or DEFAULT_INTERVAL,
         "connect_timeout": data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT,
         "command_timeout": data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT,
+        "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),
         "servers": servers,
     }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

@@ -31,6 +31,7 @@
           "interval": "Intervalle de mise à jour (secondes)",
           "connect_timeout": "Délai de connexion SSH (secondes)",
           "command_timeout": "Délai de la commande de collecte (secondes)",
+          "command_allowlist": "Entrées run_command autorisées (une par ligne, suffixe * facultatif pour les préfixes)",
           "edit_server": "Modifier un serveur existant",
           "add_server": "Ajouter un autre serveur",
           "remove_server": "Supprimer un serveur",

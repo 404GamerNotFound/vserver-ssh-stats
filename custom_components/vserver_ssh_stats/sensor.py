@@ -20,12 +20,15 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
+
+ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
+
 
 def _sanitize(name: str) -> str:
     """Sanitize a container name for use in entity keys."""
@@ -201,9 +204,15 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="pkg_list", name="Package List"),
     VServerSensorDescription(key="docker", name="Docker Containers"),
     VServerSensorDescription(key="containers", name="Containers"),
+    VServerSensorDescription(key="top_processes", name="Top Processes"),
     VServerSensorDescription(key="vnc", name="VNC Supported"),
     VServerSensorDescription(key="web", name="Web Server"),
     VServerSensorDescription(key="ssh", name="SSH Enabled"),
+)
+
+ACTION_STATUS_SENSORS: tuple[tuple[str, str], ...] = (
+    ("update_packages", "Last Package Update Status"),
+    ("reboot_host", "Last Reboot Status"),
 )
 
 
@@ -236,6 +245,84 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return None
         return self.coordinator.data.get(self.entity_description.key)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional context for complex sensor values."""
+
+        if not self.coordinator.data:
+            return None
+        if self.entity_description.key == "top_processes":
+            return {
+                "processes": self.coordinator.data.get("top_process_details", []),
+            }
+        return None
+
+
+class VServerActionStatusSensor(SensorEntity):
+    """Sensor that exposes the latest remote action result for a server."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: dict[str, Any],
+        action: str,
+        name: str,
+    ) -> None:
+        """Initialize the action status sensor."""
+
+        self.hass = hass
+        self._host = server["host"]
+        self._action = action
+        self._status_data: dict[str, Any] = self._load_status_data()
+        self._attr_unique_id = f"{self._host}_{action}_status"
+        self._attr_name = f"{server['name']} {name}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, self._host)},
+            name=server["name"],
+        )
+
+    def _load_status_data(self) -> dict[str, Any]:
+        """Return the stored status data for this host/action."""
+
+        domain_data = self.hass.data.get(DOMAIN, {})
+        action_status = domain_data.get("action_status", {})
+        host_status = action_status.get(self._host, {})
+        status = host_status.get(self._action, {})
+        return dict(status) if isinstance(status, dict) else {}
+
+    @property
+    def native_value(self) -> str:
+        """Return the latest action status."""
+
+        return str(self._status_data.get("status") or "never_run")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return action output and timing attributes."""
+
+        return {
+            "success": self._status_data.get("success"),
+            "last_run": self._status_data.get("timestamp"),
+            "output": self._status_data.get("output", ""),
+        }
+
+    async def async_added_to_hass(self) -> None:
+        """Listen for action status updates."""
+
+        self.async_on_remove(
+            self.hass.bus.async_listen(ACTION_STATUS_EVENT, self._handle_action_event)
+        )
+
+    @callback
+    def _handle_action_event(self, event: Event) -> None:
+        """Update the entity when a matching action event is fired."""
+
+        data = event.data
+        if data.get("host") != self._host or data.get("action") != self._action:
+            return
+        self._status_data = dict(data)
+        self.async_write_ha_state()
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
@@ -252,6 +339,10 @@ async def async_setup_entry(
         registries.append((container_registry, disk_registry, name))
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
+        for action, action_name in ACTION_STATUS_SENSORS:
+            entities.append(
+                VServerActionStatusSensor(hass, coordinator.server, action, action_name)
+            )
     for container_registry, disk_registry, _name in registries:
         coordinator = container_registry.coordinator
         stats = coordinator.data if isinstance(coordinator.data, dict) else {}

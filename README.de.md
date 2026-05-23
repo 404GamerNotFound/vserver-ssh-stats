@@ -21,6 +21,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem und Polling-Timeouts.
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
+- Optionale Allowlist für `run_command`, um ad-hoc SSH-Befehle einzuschränken.
+- Adaptives Polling-Backoff nach wiederholten Verbindungsfehlern.
 - Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich. Kompatible Server, die sich per Zeroconf ankündigen, erscheinen außerdem im Bereich **Entdeckt** von Home Assistant.
 - Sammelt:
   - CPU-Auslastung (%)
@@ -37,12 +39,14 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - Installierte Pakete (Anzahl und Liste)
   - Docker-Installation, laufende Container und Auslastung einzelner Container (CPU und Speicher)
   - Automatische Erstellung neuer CPU- und Speichersensoren, sobald zusätzliche Container starten
+  - Top-CPU-Prozesse mit PID, Befehl, CPU- und Speicherauslastung als Sensorattribute
   - VNC-Unterstützung
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
+- Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
 
 ## Dienste & Events
 
@@ -55,8 +59,9 @@ Die Integration stellt Home-Assistant-Dienste für Remote-Aktionen bereit:
 - `vserver_ssh_stats.update_packages` – Systempakete aktualisieren (apt/dnf/yum).
 - `vserver_ssh_stats.reboot_host` – Den Remote-Host neu starten.
 
-Nach Abschluss von `update_packages` wird das Event `vserver_ssh_stats_update_packages` auf dem Home-Assistant-Event-Bus
-ausgelöst. Die Ausgabe des Befehls ist im Payload enthalten und kann z. B. für Benachrichtigungen oder Folgeaktionen genutzt werden.
+Nach Abschluss von `update_packages` oder `reboot_host` aktualisiert die Integration den passenden Statussensor und löst
+ein Event mit `host`, `output` und `success` im Payload aus. Wenn in den Integrationsoptionen eine Command-Allowlist
+konfiguriert ist, akzeptiert `run_command` nur exakte Einträge oder Präfixregeln mit abschließendem `*`.
 
 ## Unterstützung
 
@@ -107,6 +112,9 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_pkg_list` – Verfügbare Updates (erste 10)
 - `sensor.<name>_docker` – 1, wenn Docker installiert ist, sonst 0
 - `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste)
+- `sensor.<name>_top_processes` – Top-CPU-Prozesse, Details liegen in den Sensorattributen
+- `sensor.<name>_last_package_update_status` – Ergebnis des letzten Paketupdates (`success`, `failed` oder `never_run`)
+- `sensor.<name>_last_reboot_status` – Ergebnis des letzten Neustarts (`success`, `failed` oder `never_run`)
 - `sensor.<name>_vnc` – "ja", wenn ein VNC-Server erkannt wurde
 - `sensor.<name>_web` – "ja", wenn ein HTTP- oder HTTPS-Dienst lauscht
 - `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht
