@@ -255,6 +255,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return {
                 "processes": self.coordinator.data.get("top_process_details", []),
             }
+        if self.entity_description.key == "containers":
+            return {
+                "containers": self.coordinator.data.get("container_details", []),
+            }
         return None
 
 

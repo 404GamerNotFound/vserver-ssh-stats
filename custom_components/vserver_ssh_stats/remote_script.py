@@ -211,10 +211,36 @@ read_docker_stats() {
     containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
     containers=$(trim_comma "$containers")
     containers=${containers//,/, }
-    stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' |
-awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f},", $1, cpu, mem}')
-    if [ -n "$stats" ]; then
-      container_stats="[${stats%,}]"
+    stats_lines=$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g')
+    ps_lines=$(docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
+    if [ -n "$ps_lines" ]; then
+      container_entries=""
+      while IFS='|' read -r name image status ports; do
+        [ -z "$name" ] && continue
+        stats_match=$(printf '%s\n' "$stats_lines" |
+          awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
+        cpu=0
+        mem=0
+        if [ -n "$stats_match" ]; then
+          cpu=${stats_match%%|*}
+          mem=${stats_match#*|}
+        fi
+        restart_count=$(docker inspect --format '{{.RestartCount}}' "$name" 2>/dev/null || echo "")
+        restart_count=${restart_count//[^0-9]/}
+        restart_count_json=$(number_or_null "$restart_count")
+        health_state=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || echo "")
+        name_json=$(json_escape "$name")
+        image_json=$(json_escape "$image")
+        status_json=$(json_escape "$status")
+        ports_json=$(json_escape "$ports")
+        health_json=$(json_escape "$health_state")
+        container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$cpu,\"mem\":$mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+      done < <(printf '%s\n' "$ps_lines")
+      if [ -n "$container_entries" ]; then
+        container_stats="[${container_entries%,}]"
+      else
+        container_stats="[]"
+      fi
     else
       container_stats="[]"
     fi

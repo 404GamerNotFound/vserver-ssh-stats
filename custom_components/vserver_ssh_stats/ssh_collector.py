@@ -231,6 +231,28 @@ async def async_sample(
     else:
         containers = containers_raw
 
+    processed_containers: list[Dict[str, Any]] = []
+    for container in cont_stats:
+        if not isinstance(container, dict):
+            continue
+        name = str(container.get("name") or "").strip()
+        if not name:
+            continue
+        processed_containers.append(
+            {
+                "name": name,
+                "cpu": _safe_float(container.get("cpu")),
+                "mem": _safe_float(container.get("mem")),
+                "image": str(container.get("image") or ""),
+                "status": str(container.get("status") or ""),
+                "restart_count": _safe_int(container.get("restart_count")),
+                "ports": str(container.get("ports") or ""),
+                "health_state": str(container.get("health_state") or ""),
+            }
+        )
+    if not containers and processed_containers:
+        containers = ", ".join(container["name"] for container in processed_containers)
+
     top_processes: list[Dict[str, Any]] = []
     for process in top_processes_raw[:5]:
         if not isinstance(process, dict):
@@ -264,6 +286,7 @@ async def async_sample(
         "pkg_list": data.get("pkg_list", ""),
         "docker": _safe_int(data.get("docker")),
         "containers": containers,
+        "container_details": processed_containers,
         "top_processes": top_process_summary,
         "top_process_details": top_processes,
         "load_1": data.get("load_1"),
@@ -275,7 +298,7 @@ async def async_sample(
         "ssh": data.get("ssh", ""),
         "power_w": power_value,
         "energy_kwh_total": energy_total_kwh,
-        "container_stats": cont_stats,
+        "container_stats": processed_containers,
         "swap_usage": _safe_int(data.get("swap_usage")),
         "swap_total": swap_total_gib,
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
@@ -317,7 +340,7 @@ async def async_sample(
         result[f"disk_{sanitized}_free"] = free_gib
     result["disk_stats"] = processed_disks
 
-    for container in cont_stats:
+    for container in processed_containers:
         cname = _sanitize(container.get("name", ""))
         if not cname:
             continue
