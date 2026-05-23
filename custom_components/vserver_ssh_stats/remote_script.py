@@ -206,16 +206,25 @@ collect_pkg_updates() {
 }
 
 read_docker_stats() {
+  docker=0
+  containers=""
+  container_stats="[]"
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    set +e
     docker=1
     containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
     containers=$(trim_comma "$containers")
     containers=${containers//,/, }
-    stats_lines=$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g')
-    ps_lines=$(docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
+    stats_lines=$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g' || true)
+    ps_lines=$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
+    inspect_lines=""
+    if [ -n "$ps_lines" ]; then
+      container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
+      inspect_lines=$(docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null || true)
+    fi
     if [ -n "$ps_lines" ]; then
       container_entries=""
-      while IFS='|' read -r name image status ports; do
+      while IFS='|' read -r container_id name image status ports; do
         [ -z "$name" ] && continue
         stats_match=$(printf '%s\n' "$stats_lines" |
           awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
@@ -225,10 +234,16 @@ read_docker_stats() {
           cpu=${stats_match%%|*}
           mem=${stats_match#*|}
         fi
-        restart_count=$(docker inspect --format '{{.RestartCount}}' "$name" 2>/dev/null || echo "")
+        inspect_match=$(printf '%s\n' "$inspect_lines" |
+          awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
+        restart_count=""
+        health_state=""
+        if [ -n "$inspect_match" ]; then
+          restart_count=${inspect_match%%|*}
+          health_state=${inspect_match#*|}
+        fi
         restart_count=${restart_count//[^0-9]/}
         restart_count_json=$(number_or_null "$restart_count")
-        health_state=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || echo "")
         name_json=$(json_escape "$name")
         image_json=$(json_escape "$image")
         status_json=$(json_escape "$status")
@@ -244,10 +259,7 @@ read_docker_stats() {
     else
       container_stats="[]"
     fi
-  else
-    docker=0
-    containers=""
-    container_stats="[]"
+    set -e
   fi
   containers_json=$(json_escape "$containers")
   container_stats_json=$container_stats

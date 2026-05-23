@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
@@ -23,6 +23,7 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
         host = coordinator.server["host"]
         self._attr_unique_id = f"{host}_online"
         self._attr_name = f"{server_name} Online"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, host)},
             name=server_name,

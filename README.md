@@ -50,6 +50,8 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - Configurable SSH connect timeout and collection command timeout.
 - Services to fetch the server's local IP, uptime, list active SSH connections, run commands, update packages, and reboot the host.
 - Last package update and reboot status sensors with timestamp, success flag, and command output attributes.
+- Aggregated `health_status` sensor with `ok`, `warning`, `critical`, or `offline`, plus score and reason attributes.
+- Technical metadata is marked as Home Assistant diagnostics so operational sensors stay easier to scan.
 
 ## Services & Events
 
@@ -94,6 +96,7 @@ Example from HACS:
 
 For each server, the following entities will be available:
 
+- `sensor.<name>_health_status` – Aggregated server health (`ok`, `warning`, `critical`, or `offline`) with score and reasons
 - `sensor.<name>_cpu` – CPU usage (%)
 - `sensor.<name>_mem` – Memory usage (%)
 - `sensor.<name>_swap_usage` – Swap usage (%)
@@ -125,6 +128,10 @@ For each server, the following entities will be available:
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening
 - For each detected mount point: total and free space sensors in GiB
 - For each running container: `sensor.<name>_container_<container>_cpu` (CPU usage %) and `sensor.<name>_container_<container>_mem` (memory usage %)
+
+Operational sensors remain in Home Assistant's normal sensor area. Technical metadata such as OS, RAM size, CPU cores,
+timing values, package list, service capability flags, top processes, and last action status entities are marked as
+diagnostic entities.
 
 ---
 

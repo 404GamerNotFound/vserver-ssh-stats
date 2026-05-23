@@ -47,6 +47,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketen und Neustarten des Hosts.
 - Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
+- Zusammenfassender `health_status`-Sensor mit `ok`, `warning`, `critical` oder `offline` sowie Score und Gründen als Attribute.
+- Technische Metadaten werden als Home-Assistant-Diagnoseentitäten markiert, damit operative Sensoren übersichtlicher bleiben.
 
 ## Dienste & Events
 
@@ -89,6 +91,7 @@ Beispiel aus HACS:
 
 Für jeden Server sind folgende Entitäten verfügbar:
 
+- `sensor.<name>_health_status` – Zusammengefasster Serverzustand (`ok`, `warning`, `critical` oder `offline`) mit Score und Gründen
 - `sensor.<name>_cpu` – CPU-Auslastung (%)
 - `sensor.<name>_mem` – Speicherauslastung (%)
 - `sensor.<name>_swap_usage` – Swap-Auslastung (%)
@@ -120,6 +123,10 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht
 - Für jeden erkannten Mountpoint: Sensoren für Gesamt- und freien Speicher in GiB
 - Für jeden laufenden Container: `sensor.<name>_container_<container>_cpu` (CPU-Auslastung %) und `sensor.<name>_container_<container>_mem` (Speicherauslastung %)
+
+Operative Sensoren bleiben im normalen Sensorbereich von Home Assistant. Technische Metadaten wie OS, RAM-Größe,
+CPU-Kerne, Timing-Werte, Paketliste, Dienstfähigkeiten, Top-Prozesse und letzte Aktionsstatus werden als
+Diagnoseentitäten markiert.
 
 ---
 
