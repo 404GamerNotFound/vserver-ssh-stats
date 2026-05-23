@@ -40,7 +40,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - CPU frequency (MHz)
   - Operating system version
   - Installed packages (count and list)
-  - Docker installation, running containers, and per-container CPU/memory usage
+  - Docker installation, running containers, per-container CPU/memory usage, image, status, restart count, ports, and health state
   - Automatic creation of per-container CPU and memory sensors whenever new containers start
   - Top CPU processes with PID, command, CPU and memory usage as sensor attributes
   - VNC support status
@@ -116,7 +116,7 @@ For each server, the following entities will be available:
 - `sensor.<name>_pkg_count` – Pending update count
 - `sensor.<name>_pkg_list` – Pending update packages (first 10)
 - `sensor.<name>_docker` – 1 if Docker is installed, 0 otherwise
-- `sensor.<name>_containers` – Running Docker containers (comma-separated list)
+- `sensor.<name>_containers` – Running Docker containers (comma-separated list), with image, status, restart count, ports, and health state in attributes
 - `sensor.<name>_top_processes` – Top CPU processes, with detailed process data in attributes
 - `sensor.<name>_last_package_update_status` – Last package update result (`success`, `failed`, or `never_run`)
 - `sensor.<name>_last_reboot_status` – Last reboot result (`success`, `failed`, or `never_run`)

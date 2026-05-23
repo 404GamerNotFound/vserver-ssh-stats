@@ -37,7 +37,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - CPU-Frequenz (MHz)
   - Betriebssystem-Version
   - Installierte Pakete (Anzahl und Liste)
-  - Docker-Installation, laufende Container und Auslastung einzelner Container (CPU und Speicher)
+  - Docker-Installation, laufende Container, CPU-/Speicherauslastung je Container, Image, Status, Restart-Count, Ports und Health-State
   - Automatische Erstellung neuer CPU- und Speichersensoren, sobald zusätzliche Container starten
   - Top-CPU-Prozesse mit PID, Befehl, CPU- und Speicherauslastung als Sensorattribute
   - VNC-Unterstützung
@@ -111,7 +111,7 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_pkg_count` – Anzahl verfügbarer Updates
 - `sensor.<name>_pkg_list` – Verfügbare Updates (erste 10)
 - `sensor.<name>_docker` – 1, wenn Docker installiert ist, sonst 0
-- `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste)
+- `sensor.<name>_containers` – Laufende Docker-Container (kommagetrennte Liste), mit Image, Status, Restart-Count, Ports und Health-State in den Attributen
 - `sensor.<name>_top_processes` – Top-CPU-Prozesse, Details liegen in den Sensorattributen
 - `sensor.<name>_last_package_update_status` – Ergebnis des letzten Paketupdates (`success`, `failed` oder `never_run`)
 - `sensor.<name>_last_reboot_status` – Ergebnis des letzten Neustarts (`success`, `failed` oder `never_run`)
