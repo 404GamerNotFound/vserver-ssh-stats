@@ -65,7 +65,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.command_timeout,
             )
             if not data:
-                raise UpdateFailed(f"No data returned from host: {self.server['host']}")
+                data = {"collection_error": f"No data returned from host: {self.server['host']}"}
         except socket.gaierror as err:
             self._record_failure()
             raise UpdateFailed(f"Unable to resolve host: {self.server['host']}") from err
@@ -75,6 +75,15 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:
             self._record_failure()
             raise UpdateFailed(f"Unable to update host {self.server['host']}: {err}") from err
+        if data.get("collection_error"):
+            self._record_failure()
+            if isinstance(self.data, dict) and self.data:
+                preserved = dict(self.data)
+                preserved["collection_error"] = data["collection_error"]
+                preserved["last_collection_failed"] = True
+                return preserved
+            data["last_collection_failed"] = True
+            return data
         if data.get("mac_addresses"):
             self.server["mac_addresses"] = data["mac_addresses"]
         self._record_success()

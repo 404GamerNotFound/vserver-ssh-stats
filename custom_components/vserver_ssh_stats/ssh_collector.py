@@ -130,13 +130,21 @@ WINDOWS_REMOTE_SCRIPT = (
 )
 
 
+def _wrap_linux_script(script: str) -> str:
+    """Run the Linux collector through bash, independent of the user's login shell."""
+
+    delimiter = "__VSERVER_SSH_STATS_COLLECTOR__"
+    return f"bash -s <<'{delimiter}'\n{script}\n{delimiter}"
+
+
 def _build_collection_commands(target_os: Optional[str]) -> list[str]:
     """Return collection commands ordered by target OS preference."""
 
     normalized = (target_os or "auto").strip().lower()
+    linux_script = _wrap_linux_script(REMOTE_SCRIPT)
     if normalized == "windows":
-        return [WINDOWS_REMOTE_SCRIPT, REMOTE_SCRIPT]
-    return [REMOTE_SCRIPT, WINDOWS_REMOTE_SCRIPT]
+        return [WINDOWS_REMOTE_SCRIPT, linux_script]
+    return [linux_script, REMOTE_SCRIPT, WINDOWS_REMOTE_SCRIPT]
 
 
 def _parse_json_output(output: str) -> Dict[str, Any]:
@@ -205,8 +213,10 @@ async def async_sample(
             _LOGGER.debug("Collector command failed for %s: %s", host, err)
 
     if data is None:
-        _LOGGER.error("Failed to collect SSH response from %s: %s", host, last_error)
-        return {}
+        _LOGGER.debug("Failed to collect SSH response from %s: %s", host, last_error)
+        data = {
+            "collection_error": str(last_error) if last_error else "No collector output",
+        }
     now = time.time()
 
     rx = _safe_int(data.get("rx"))
@@ -374,6 +384,7 @@ async def async_sample(
         "journal_errors": _safe_int(data.get("journal_errors")),
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
         "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
+        "collection_error": data.get("collection_error"),
     }
 
     processed_disks: list[Dict[str, Any]] = []
