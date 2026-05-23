@@ -79,9 +79,13 @@ def build_device_info(domain: str, server: dict) -> DeviceInfo:
 
     host = server["host"]
     mac_addresses = normalize_mac_addresses(server.get("mac_addresses"))
+    if mac_addresses:
+        return DeviceInfo(
+            connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
+            default_name=server.get("name") or host,
+        )
     return DeviceInfo(
         identifiers={(domain, host)},
-        connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
         name=server.get("name") or host,
     )
 
