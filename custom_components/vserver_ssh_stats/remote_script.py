@@ -261,19 +261,19 @@ read_service_status() {
     sock_cmd="netstat -tuln"
   fi
 
-  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':22\\s' >/dev/null; then
+  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':22[[:space:]]' >/dev/null; then
     ssh_enabled="yes"
   else
     ssh_enabled="no"
   fi
 
-  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':(80|443)\\s' >/dev/null; then
+  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':(80|443)[[:space:]]' >/dev/null; then
     web="yes"
   else
     web="no"
   fi
 
-  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':5900\\s' >/dev/null; then
+  if [ -n "$sock_cmd" ] && $sock_cmd 2>/dev/null | grep -E ':5900[[:space:]]' >/dev/null; then
     vnc="yes"
   elif command -v vncserver >/dev/null 2>&1 || command -v x11vnc >/dev/null 2>&1; then
     vnc="yes"
