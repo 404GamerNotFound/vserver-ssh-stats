@@ -18,7 +18,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Unterstützt mehrere Server mit individueller Konfiguration.
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Bestehende Server können über die Integrationsoptionen bearbeitet, hinzugefügt oder entfernt werden, inklusive Host,
-  Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem und Polling-Timeouts.
+  Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem, überwachten TCP-Ports und Polling-Timeouts.
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
 - Optionale Allowlist für `run_command`, um ad-hoc SSH-Befehle einzuschränken.
@@ -49,6 +49,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - VNC-Unterstützung
   - HTTP/HTTPS-Webserver-Status
   - SSH aktiviert
+  - Benutzerdefinierte TCP-Port-Erreichbarkeit aus Sicht von Home Assistant
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketlisten, Upgraden von Paketen, Neustarten des Hosts, Neustarten von Diensten, Docker-Container-Aktionen, Docker-Prune, Cache-Cleanup, Diagnosereport und Log-Tail.
@@ -152,6 +153,7 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_last_reboot_status` – Ergebnis des letzten Neustarts (`success`, `failed` oder `never_run`)
 - `binary_sensor.<name>_reboot_required` – Neustart erforderlich
 - `binary_sensor.<name>_root_fs_readonly` – Root-Dateisystem ist read-only
+- `binary_sensor.<name>_port_<port>_open` – Konfigurierter TCP-Port ist aus Sicht von Home Assistant erreichbar
 - `sensor.<name>_vnc` – "ja", wenn ein VNC-Server erkannt wurde
 - `sensor.<name>_web` – "ja", wenn ein HTTP- oder HTTPS-Dienst lauscht
 - `sensor.<name>_ssh` – "ja", wenn der SSH-Dienst lauscht

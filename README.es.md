@@ -42,6 +42,7 @@ La integración también proporciona servicios de Home Assistant para ejecutar c
   - Estado de soporte VNC
   - Estado de servidor web HTTP/HTTPS
   - Estado de servicio SSH
+  - Comprobaciones de alcance de puertos TCP configurados desde Home Assistant
 - Intervalo de actualización configurable (por defecto: 30 segundos).
 - Servicios para obtener la IP local del servidor, el tiempo de actividad, listar conexiones SSH activas, ejecutar comandos, actualizar paquetes y reiniciar el host.
 
@@ -107,6 +108,7 @@ Para cada servidor estarán disponibles las siguientes entidades:
 - `sensor.<name>_vnc` – "sí" si se detecta un servidor VNC
 - `sensor.<name>_web` – "sí" si escucha un servicio HTTP o HTTPS
 - `sensor.<name>_ssh` – "sí" si el servicio SSH está activo
+- `binary_sensor.<name>_port_<port>_open` – El puerto TCP configurado es accesible desde Home Assistant
 - Para cada contenedor en ejecución: `sensor.<name>_container_<container>_cpu` (uso de CPU %) y `sensor.<name>_container_<container>_mem` (uso de memoria %)
 
 ---

@@ -63,6 +63,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.server.get("target_os", "auto"),
                 self.connect_timeout,
                 self.command_timeout,
+                self.server.get("monitored_ports"),
             )
             if not data:
                 data = {"collection_error": f"No data returned from host: {self.server['host']}"}
@@ -80,6 +81,11 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._record_failure()
             if isinstance(self.data, dict) and self.data:
                 preserved = dict(self.data)
+                for key, value in data.items():
+                    if key == "port_checks" or key.startswith(
+                        ("port_open_", "port_response_time_ms_", "port_error_")
+                    ):
+                        preserved[key] = value
                 preserved["collection_error"] = data["collection_error"]
                 preserved["last_collection_failed"] = True
                 return preserved

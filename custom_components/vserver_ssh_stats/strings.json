@@ -13,7 +13,8 @@
           "password": "Password",
           "key": "Key file",
           "add_another": "Add another server after this",
-          "target_os": "Target system"
+          "target_os": "Target system",
+          "monitored_ports": "Monitored TCP ports"
         }
       }
     },
@@ -21,7 +22,8 @@
       "auth": "Provide password or key file",
       "duplicate_host": "This host was already added",
       "host_in_use": "This host is already configured",
-      "key_missing": "SSH key file not found"
+      "key_missing": "SSH key file not found",
+      "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },
   "options": {
@@ -56,7 +58,8 @@
           "clear_password": "Remove stored password",
           "key": "Key file",
           "clear_key": "Remove stored key file",
-          "target_os": "Target system"
+          "target_os": "Target system",
+          "monitored_ports": "Monitored TCP ports"
         }
       },
       "add_server": {
@@ -70,7 +73,8 @@
           "password": "Password",
           "key": "Key file",
           "add_another": "Add another server after this",
-          "target_os": "Target system"
+          "target_os": "Target system",
+          "monitored_ports": "Monitored TCP ports"
         }
       },
       "remove_server": {
@@ -91,7 +95,8 @@
           "password": "Password",
           "key": "Key file",
           "add_another": "Add another server after this",
-          "target_os": "Target system"
+          "target_os": "Target system",
+          "monitored_ports": "Monitored TCP ports"
         }
       }
     },
@@ -103,7 +108,8 @@
       "single_action": "Choose only one server action at a time",
       "no_servers": "No configured server was found",
       "cannot_remove_last_server": "At least one server must remain configured",
-      "confirm_remove": "Confirm that the selected server should be removed"
+      "confirm_remove": "Confirm that the selected server should be removed",
+      "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },
   "services": {

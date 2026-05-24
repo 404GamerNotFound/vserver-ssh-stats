@@ -20,7 +20,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
 - Supports multiple servers with individual configuration.
 - Configurable via Home Assistant UI (config flow).
 - Existing server entries can be edited from the integration options, including host, port, username, password, SSH key,
-  target OS, and polling timeouts.
+  target OS, monitored TCP ports, and polling timeouts.
 - Supports password and SSH key authentication.
 - Home Assistant services and button entities for remote commands, package updates, and reboots.
 - Optional allowlist for `run_command` to limit ad-hoc SSH commands.
@@ -52,6 +52,7 @@ The integration also provides Home Assistant services to run ad-hoc commands on 
   - VNC support status
   - HTTP/HTTPS web server status
   - SSH enabled status
+  - User-configured TCP port reachability checks from Home Assistant
 - Configurable update interval (default: 30 seconds).
 - Configurable SSH connect timeout and collection command timeout.
 - Services to fetch the server's local IP, uptime, list active SSH connections, run commands, refresh package metadata, upgrade packages, reboot the host, restart services, control Docker containers, prune Docker, clear package caches, fetch diagnostics, and tail logs.
@@ -157,6 +158,7 @@ For each server, the following entities will be available:
 - `sensor.<name>_last_reboot_status` – Last reboot result (`success`, `failed`, or `never_run`)
 - `binary_sensor.<name>_reboot_required` – Reboot required
 - `binary_sensor.<name>_root_fs_readonly` – Root filesystem is read-only
+- `binary_sensor.<name>_port_<port>_open` – Configured TCP port is reachable from Home Assistant
 - `sensor.<name>_vnc` – "yes" if a VNC server is detected
 - `sensor.<name>_web` – "yes" if an HTTP or HTTPS service is listening
 - `sensor.<name>_ssh` – "yes" if the SSH service is listening

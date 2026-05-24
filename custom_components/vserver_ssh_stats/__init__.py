@@ -24,6 +24,7 @@ from .util import (
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_INTERVAL,
     is_command_allowed,
+    parse_monitored_ports,
     parse_command_allowlist,
     resolve_private_key_path,
 )
@@ -841,6 +842,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         key = resolve_private_key_path(hass, server.get("key"))
         if key:
             server["key"] = key
+        try:
+            server["monitored_ports"] = parse_monitored_ports(server.get("monitored_ports"))
+        except ValueError:
+            server["monitored_ports"] = []
     hass.data[DOMAIN][entry.entry_id] = {
         "interval": data.get("interval") or DEFAULT_INTERVAL,
         "connect_timeout": data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT,

@@ -13,7 +13,8 @@
           "password": "Passwort",
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
-          "target_os": "Zielsystem"
+          "target_os": "Zielsystem",
+          "monitored_ports": "Überwachte TCP-Ports"
         }
       }
     },
@@ -21,7 +22,8 @@
       "auth": "Passwort oder Schlüsseldatei angeben",
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
       "host_in_use": "Dieser Host ist bereits konfiguriert",
-      "key_missing": "SSH-Schlüsseldatei nicht gefunden"
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden",
+      "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
   "options": {
@@ -56,7 +58,8 @@
           "clear_password": "Gespeichertes Passwort entfernen",
           "key": "Schlüsseldatei",
           "clear_key": "Gespeicherte Schlüsseldatei entfernen",
-          "target_os": "Zielsystem"
+          "target_os": "Zielsystem",
+          "monitored_ports": "Überwachte TCP-Ports"
         }
       },
       "add_server": {
@@ -70,7 +73,8 @@
           "password": "Passwort",
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
-          "target_os": "Zielsystem"
+          "target_os": "Zielsystem",
+          "monitored_ports": "Überwachte TCP-Ports"
         }
       },
       "remove_server": {
@@ -91,7 +95,8 @@
           "password": "Passwort",
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
-          "target_os": "Zielsystem"
+          "target_os": "Zielsystem",
+          "monitored_ports": "Überwachte TCP-Ports"
         }
       }
     },
@@ -103,7 +108,8 @@
       "single_action": "Bitte nur eine Serveraktion gleichzeitig auswählen",
       "no_servers": "Es wurde kein konfigurierter Server gefunden",
       "cannot_remove_last_server": "Mindestens ein Server muss konfiguriert bleiben",
-      "confirm_remove": "Bitte bestätigen, dass der ausgewählte Server entfernt werden soll"
+      "confirm_remove": "Bitte bestätigen, dass der ausgewählte Server entfernt werden soll",
+      "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
   "services": {

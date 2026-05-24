@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import socket
@@ -12,13 +13,20 @@ import paramiko
 
 from .net_cache import EnergyStatsCache, NetStatsCache
 from .remote_script import REMOTE_SCRIPT
-from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, normalize_mac_addresses
+from .util import (
+    DEFAULT_COMMAND_TIMEOUT,
+    DEFAULT_CONNECT_TIMEOUT,
+    normalize_mac_addresses,
+    parse_monitored_ports,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 net_cache = NetStatsCache()
 disk_io_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
+
+DEFAULT_PORT_CHECK_TIMEOUT = 3
 
 
 def _run_ssh(
@@ -145,6 +153,70 @@ WINDOWS_REMOTE_SCRIPT = (
 CollectionCommand = tuple[str, Optional[str]]
 
 
+async def _async_check_tcp_port(host: str, port: int, timeout: int) -> dict[str, Any]:
+    """Check whether one TCP port is reachable from Home Assistant."""
+
+    started = time.monotonic()
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout,
+        )
+        writer.close()
+        with contextlib.suppress(Exception):
+            await writer.wait_closed()
+        return {
+            "port": port,
+            "protocol": "tcp",
+            "open": True,
+            "response_time_ms": round((time.monotonic() - started) * 1000, 2),
+            "error": None,
+        }
+    except Exception as err:
+        return {
+            "port": port,
+            "protocol": "tcp",
+            "open": False,
+            "response_time_ms": round((time.monotonic() - started) * 1000, 2),
+            "error": str(err) or err.__class__.__name__,
+        }
+
+
+async def _async_check_monitored_ports(
+    host: str,
+    monitored_ports: object,
+    connect_timeout: int,
+) -> list[dict[str, Any]]:
+    """Return TCP reachability results for configured ports."""
+
+    try:
+        ports = parse_monitored_ports(monitored_ports)
+    except ValueError:
+        ports = []
+    if not ports:
+        return []
+
+    timeout = max(1, min(connect_timeout, DEFAULT_PORT_CHECK_TIMEOUT))
+    results = await asyncio.gather(
+        *(_async_check_tcp_port(host, port, timeout) for port in ports)
+    )
+    return list(results)
+
+
+def _add_port_check_results(
+    result: Dict[str, Any],
+    port_checks: list[dict[str, Any]],
+) -> None:
+    """Flatten TCP port check results into coordinator data."""
+
+    result["port_checks"] = port_checks
+    for check in port_checks:
+        port = check["port"]
+        result[f"port_open_{port}"] = check["open"]
+        result[f"port_response_time_ms_{port}"] = check["response_time_ms"]
+        result[f"port_error_{port}"] = check["error"]
+
+
 def _build_collection_commands(target_os: Optional[str]) -> list[CollectionCommand]:
     """Return collection commands ordered by target OS preference."""
 
@@ -201,7 +273,11 @@ async def async_sample(
     target_os: Optional[str] = "auto",
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
+    monitored_ports: object = None,
 ) -> Dict[str, Any]:
+    port_check_task = asyncio.create_task(
+        _async_check_monitored_ports(host, monitored_ports, connect_timeout)
+    )
     data: Dict[str, Any] | None = None
     timing: Dict[str, float] = {}
     last_error: Exception | None = None
@@ -230,6 +306,7 @@ async def async_sample(
         data = {
             "collection_error": str(last_error) if last_error else "No collector output",
         }
+    port_checks = await port_check_task
     now = time.time()
 
     rx = _safe_int(data.get("rx"))
@@ -444,5 +521,7 @@ async def async_sample(
         mem_value = _safe_float(container.get("mem"))
         result[f"container_{cname}_cpu"] = cpu_value
         result[f"container_{cname}_mem"] = mem_value
+
+    _add_port_check_results(result, port_checks)
 
     return result

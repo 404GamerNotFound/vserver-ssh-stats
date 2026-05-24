@@ -4,7 +4,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
@@ -116,6 +119,51 @@ class VServerDiagnosticBinarySensor(
         return self._icon
 
 
+class VServerPortBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySensorEntity):
+    """Binary sensor representing TCP port reachability from Home Assistant."""
+
+    def __init__(self, coordinator: VServerCoordinator, server_name: str, port: int) -> None:
+        """Initialize the TCP port sensor."""
+
+        super().__init__(coordinator)
+        host = coordinator.server["host"]
+        self._port = port
+        self._attr_unique_id = f"{host}_port_{port}_open"
+        self._attr_name = f"{server_name} Port {port} Open"
+        self._attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+        self._attr_device_info = build_device_info(DOMAIN, coordinator.server)
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether the configured TCP port is reachable."""
+
+        data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
+        key = f"port_open_{self._port}"
+        if key not in data:
+            return None
+        return bool(data.get(key))
+
+    @property
+    def icon(self) -> str:
+        """Return a dynamic icon for the port state."""
+
+        return "mdi:lan-check" if self.is_on else "mdi:lan-disconnect"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return TCP port check metadata."""
+
+        data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
+        return {
+            "host": self.coordinator.server["host"],
+            "port": self._port,
+            "protocol": "tcp",
+            "checked_from": "home_assistant",
+            "response_time_ms": data.get(f"port_response_time_ms_{self._port}"),
+            "error": data.get(f"port_error_{self._port}"),
+        }
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -133,4 +181,6 @@ async def async_setup_entry(
             entities.append(
                 VServerDiagnosticBinarySensor(coordinator, name, key, binary_name, icon)
             )
+        for port in coordinator.server.get("monitored_ports") or []:
+            entities.append(VServerPortBinarySensor(coordinator, name, int(port)))
     async_add_entities(entities)

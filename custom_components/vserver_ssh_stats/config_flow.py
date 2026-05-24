@@ -20,6 +20,7 @@ from .util import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_INTERVAL,
+    parse_monitored_ports,
     resolve_private_key_path,
 )
 
@@ -74,6 +75,16 @@ def _textarea_selector() -> Any:
     return str
 
 
+def _format_monitored_ports(value: object) -> str:
+    """Return monitored ports formatted for text input."""
+
+    try:
+        ports = parse_monitored_ports(value)
+    except ValueError:
+        return str(value or "")
+    return ", ".join(str(port) for port in ports)
+
+
 def _build_server_schema(
     hosts: list[str],
     include_interval: bool,
@@ -126,6 +137,12 @@ def _build_server_schema(
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
     )
+    schema[
+        vol.Optional(
+            "monitored_ports",
+            default=_format_monitored_ports(defaults.get("monitored_ports", "")),
+        )
+    ] = _textarea_selector()
     schema[vol.Optional("password")] = _password_selector()
     if editing_existing:
         schema[vol.Optional("clear_password", default=defaults.get("clear_password", False))] = bool
@@ -198,6 +215,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "port": user_input["port"],
                         "target_os": user_input.get("target_os", "auto"),
                     }
+                    try:
+                        server["monitored_ports"] = parse_monitored_ports(
+                            user_input.get("monitored_ports")
+                        )
+                    except ValueError:
+                        errors["monitored_ports"] = "invalid_ports"
                     if user_input.get("password"):
                         server["password"] = user_input["password"]
                     key_input = user_input.get("key")
@@ -654,6 +677,12 @@ class OptionsFlowHandler(OptionsFlow):
                 "target_os": user_input.get("target_os", "auto"),
             }
         )
+        try:
+            server["monitored_ports"] = parse_monitored_ports(
+                user_input.get("monitored_ports")
+            )
+        except ValueError:
+            errors["monitored_ports"] = "invalid_ports"
 
         password = user_input.get("password")
         if user_input.get("clear_password"):

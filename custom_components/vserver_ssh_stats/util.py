@@ -22,6 +22,39 @@ DEFAULT_BACKOFF_FAILURE_THRESHOLD = 3
 DEFAULT_BACKOFF_MAX_INTERVAL = 300
 
 MAC_PATTERN = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
+PORT_SPLIT_PATTERN = re.compile(r"[\s,;]+")
+
+
+def parse_monitored_ports(value: object) -> list[int]:
+    """Return a de-duplicated list of TCP ports from user input."""
+
+    if value in (None, ""):
+        return []
+
+    if isinstance(value, str):
+        raw_ports: list[object] = [
+            part.strip() for part in PORT_SPLIT_PATTERN.split(value) if part.strip()
+        ]
+    elif isinstance(value, list):
+        raw_ports = value
+    elif isinstance(value, tuple):
+        raw_ports = list(value)
+    else:
+        raw_ports = [value]
+
+    ports: list[int] = []
+    for raw_port in raw_ports:
+        if isinstance(raw_port, bool):
+            raise ValueError("Invalid port")
+        try:
+            port = int(str(raw_port).strip())
+        except (TypeError, ValueError) as err:
+            raise ValueError("Invalid port") from err
+        if port < 1 or port > 65535:
+            raise ValueError("Port out of range")
+        if port not in ports:
+            ports.append(port)
+    return ports
 
 
 def parse_command_allowlist(value: object) -> list[str]:

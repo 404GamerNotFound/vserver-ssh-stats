@@ -13,7 +13,8 @@
           "password": "Contraseña",
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
-          "target_os": "Sistema de destino"
+          "target_os": "Sistema de destino",
+          "monitored_ports": "Puertos TCP supervisados"
         }
       }
     },
@@ -21,7 +22,8 @@
       "auth": "Proporcione contraseña o archivo de clave",
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
-      "key_missing": "Archivo de clave SSH no encontrado"
+      "key_missing": "Archivo de clave SSH no encontrado",
+      "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
   "options": {
@@ -56,7 +58,8 @@
           "clear_password": "Eliminar contraseña almacenada",
           "key": "Archivo de clave",
           "clear_key": "Eliminar archivo de clave almacenado",
-          "target_os": "Sistema de destino"
+          "target_os": "Sistema de destino",
+          "monitored_ports": "Puertos TCP supervisados"
         }
       },
       "add_server": {
@@ -70,7 +73,8 @@
           "password": "Contraseña",
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
-          "target_os": "Sistema de destino"
+          "target_os": "Sistema de destino",
+          "monitored_ports": "Puertos TCP supervisados"
         }
       },
       "remove_server": {
@@ -91,7 +95,8 @@
           "password": "Contraseña",
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
-          "target_os": "Sistema de destino"
+          "target_os": "Sistema de destino",
+          "monitored_ports": "Puertos TCP supervisados"
         }
       }
     },
@@ -103,7 +108,8 @@
       "single_action": "Elige solo una acción de servidor a la vez",
       "no_servers": "No se encontró ningún servidor configurado",
       "cannot_remove_last_server": "Debe quedar al menos un servidor configurado",
-      "confirm_remove": "Confirma que se debe eliminar el servidor seleccionado"
+      "confirm_remove": "Confirma que se debe eliminar el servidor seleccionado",
+      "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
   "services": {

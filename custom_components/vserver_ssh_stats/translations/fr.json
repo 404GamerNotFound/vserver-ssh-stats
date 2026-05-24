@@ -13,7 +13,8 @@
           "password": "Mot de passe",
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
-          "target_os": "Système cible"
+          "target_os": "Système cible",
+          "monitored_ports": "Ports TCP surveillés"
         }
       }
     },
@@ -21,7 +22,8 @@
       "auth": "Fournissez un mot de passe ou un fichier de clé",
       "duplicate_host": "Cet hôte a déjà été ajouté",
       "host_in_use": "Cet hôte est déjà configuré",
-      "key_missing": "Fichier de clé SSH introuvable"
+      "key_missing": "Fichier de clé SSH introuvable",
+      "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
     }
   },
   "options": {
@@ -56,7 +58,8 @@
           "clear_password": "Supprimer le mot de passe enregistré",
           "key": "Fichier de clé",
           "clear_key": "Supprimer le fichier de clé enregistré",
-          "target_os": "Système cible"
+          "target_os": "Système cible",
+          "monitored_ports": "Ports TCP surveillés"
         }
       },
       "add_server": {
@@ -70,7 +73,8 @@
           "password": "Mot de passe",
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
-          "target_os": "Système cible"
+          "target_os": "Système cible",
+          "monitored_ports": "Ports TCP surveillés"
         }
       },
       "remove_server": {
@@ -91,7 +95,8 @@
           "password": "Mot de passe",
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
-          "target_os": "Système cible"
+          "target_os": "Système cible",
+          "monitored_ports": "Ports TCP surveillés"
         }
       }
     },
@@ -103,7 +108,8 @@
       "single_action": "Choisissez une seule action de serveur à la fois",
       "no_servers": "Aucun serveur configuré n'a été trouvé",
       "cannot_remove_last_server": "Au moins un serveur doit rester configuré",
-      "confirm_remove": "Confirmez que le serveur sélectionné doit être supprimé"
+      "confirm_remove": "Confirmez que le serveur sélectionné doit être supprimé",
+      "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
     }
   },
   "services": {

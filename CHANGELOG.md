@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Added per-server monitored TCP ports in the UI/options flow and created `port_<port>_open` binary sensors based on reachability from Home Assistant.
+
 ## v1.3.1
 - Expanded the options flow so existing servers can be edited, added, removed, or fully replaced from the integration gear menu.
 - Added configurable SSH connect and collection command timeouts, plus timing sensors for SSH connection and collection duration.
