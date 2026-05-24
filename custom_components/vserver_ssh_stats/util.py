@@ -8,11 +8,6 @@ from typing import Optional
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 
-try:
-    from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
-except ImportError:  # pragma: no cover - compatibility with older Home Assistant versions
-    CONNECTION_NETWORK_MAC = "mac"
-
 DEFAULT_INTERVAL = 30
 DEFAULT_CONNECT_TIMEOUT = 10
 DEFAULT_COMMAND_TIMEOUT = 45
@@ -75,15 +70,11 @@ def normalize_mac_addresses(value: object) -> list[str]:
 
 
 def build_device_info(domain: str, server: dict) -> DeviceInfo:
-    """Return device info with optional MAC connections for registry merging."""
+    """Return stable device info for one configured server."""
 
     host = server["host"]
-    mac_addresses = normalize_mac_addresses(server.get("mac_addresses"))
-    if mac_addresses:
-        return DeviceInfo(
-            connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
-            default_name=server.get("name") or host,
-        )
+    # Keep the registry identity tied to the configured host. MAC addresses are
+    # discovered later, so using them here can split static and dynamic entities.
     return DeviceInfo(
         identifiers={(domain, host)},
         name=server.get("name") or host,
