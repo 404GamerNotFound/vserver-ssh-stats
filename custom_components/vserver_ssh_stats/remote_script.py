@@ -274,11 +274,11 @@ read_docker_stats() {
         [ -z "$name" ] && continue
         stats_match=$(printf '%s\n' "$stats_lines" |
           awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
-        cpu=0
-        mem=0
+        container_cpu=0
+        container_mem=0
         if [ -n "$stats_match" ]; then
-          cpu=${stats_match%%|*}
-          mem=${stats_match#*|}
+          container_cpu=${stats_match%%|*}
+          container_mem=${stats_match#*|}
         fi
         inspect_match=$(printf '%s\n' "$inspect_lines" |
           awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
@@ -295,7 +295,7 @@ read_docker_stats() {
         status_json=$(json_escape "$status")
         ports_json=$(json_escape "$ports")
         health_json=$(json_escape "$health_state")
-        container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$cpu,\"mem\":$mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+        container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
       done < <(printf '%s\n' "$ps_lines")
       if [ -n "$container_entries" ]; then
         container_stats="[${container_entries%,}]"
@@ -361,7 +361,7 @@ read_top_processes() {
   if command -v ps >/dev/null 2>&1; then
     set +e
     top_process_lines=$(ps -eo pid=,comm=,pcpu=,pmem= --sort=-pcpu 2>/dev/null | head -n 5 |
-      awk '{pid=$1; cpu=$(NF-1)+0; mem=$NF+0; command=$2; printf "%s\t%s\t%.2f\t%.2f\n", pid, command, cpu, mem}')
+      awk '{pid=$1; process_cpu=$(NF-1)+0; process_mem=$NF+0; command=$2; printf "%s\t%s\t%.2f\t%.2f\n", pid, command, process_cpu, process_mem}')
     top_process_status=$?
     set -e
     if [ $top_process_status -eq 0 ] && [ -n "$top_process_lines" ]; then
@@ -369,10 +369,10 @@ read_top_processes() {
       oldifs=$IFS
       IFS=$tab
       top_process_entries=""
-      while read -r pid command cpu mem; do
+      while read -r pid command process_cpu process_mem; do
         [ -z "$pid" ] && continue
         command_json=$(json_escape "$command")
-        top_process_entries="$top_process_entries{\"pid\":$pid,\"command\":\"$command_json\",\"cpu\":$cpu,\"mem\":$mem},"
+        top_process_entries="$top_process_entries{\"pid\":$pid,\"command\":\"$command_json\",\"cpu\":$process_cpu,\"mem\":$process_mem},"
       done < <(echo "$top_process_lines")
       IFS=$oldifs
       if [ -n "$top_process_entries" ]; then
