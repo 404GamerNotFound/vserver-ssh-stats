@@ -74,7 +74,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise
         except Exception as err:
             self._record_failure()
-            raise UpdateFailed(f"Unable to update host {self.server['host']}: {err}") from err
+            message = str(err) or err.__class__.__name__
+            raise UpdateFailed(f"Unable to update host {self.server['host']}: {message}") from err
         if data.get("collection_error"):
             self._record_failure()
             if isinstance(self.data, dict) and self.data:
@@ -135,7 +136,8 @@ async def async_get_or_create_coordinators(
 
         interval = entry_data.get("interval") or DEFAULT_INTERVAL
         connect_timeout = entry_data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
-        command_timeout = entry_data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT
+        configured_command_timeout = entry_data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT
+        command_timeout = max(configured_command_timeout, DEFAULT_COMMAND_TIMEOUT)
         coordinators = []
         for server in entry_data.get("servers", []):
             if not server.get("name"):
@@ -144,10 +146,7 @@ async def async_get_or_create_coordinators(
                 VServerCoordinator(hass, server, interval, connect_timeout, command_timeout)
             )
 
-        if coordinators:
-            await asyncio.gather(
-                *(coordinator.async_refresh() for coordinator in coordinators)
-            )
-
         entry_data[COORDINATORS_KEY] = coordinators
+        for coordinator in coordinators:
+            hass.async_create_task(coordinator.async_request_refresh())
         return coordinators

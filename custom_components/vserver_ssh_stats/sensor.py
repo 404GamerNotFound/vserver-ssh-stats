@@ -354,6 +354,8 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement="ms",
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    _diagnostic_sensor(key="collection_error", name="Collection Error"),
+    _diagnostic_sensor(key="last_collection_failed", name="Last Collection Failed"),
     _diagnostic_sensor(
         key="uptime",
         name="Uptime",
@@ -585,11 +587,11 @@ async def async_setup_entry(
                 stats = data.get("container_stats") if isinstance(data, dict) else None
                 new_containers = container_registry.create_entities_from_stats(stats)
                 if new_containers:
-                    async_add_entities(new_containers, update_before_add=True)
+                    async_add_entities(new_containers)
                 disk_stats = data.get("disk_stats") if isinstance(data, dict) else None
                 new_disks = disk_registry.create_entities_from_stats(disk_stats)
                 if new_disks:
-                    async_add_entities(new_disks, update_before_add=True)
+                    async_add_entities(new_disks)
 
             return _handle_update
 
@@ -597,4 +599,4 @@ async def async_setup_entry(
             _make_container_listener(container_registry, disk_registry)
         )
         entry.async_on_unload(remove_listener)
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)

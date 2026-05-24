@@ -37,7 +37,8 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
     @property
     def is_on(self) -> bool:
         """Return True when the host is reachable."""
-        return self.coordinator.last_update_success
+        data = self.coordinator.data if isinstance(self.coordinator.data, dict) else {}
+        return self.coordinator.last_update_success and not data.get("last_collection_failed")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -132,4 +133,4 @@ async def async_setup_entry(
             entities.append(
                 VServerDiagnosticBinarySensor(coordinator, name, key, binary_name, icon)
             )
-    async_add_entities(entities, update_before_add=True)
+    async_add_entities(entities)

@@ -20,6 +20,16 @@ number_or_null() {
   fi
 }
 
+run_limited() {
+  seconds="$1"
+  shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$seconds" "$@"
+  else
+    "$@"
+  fi
+}
+
 read_power_metrics() {
   power_energy_file=""
 
@@ -28,7 +38,7 @@ read_power_metrics() {
   for rapl in /sys/class/powercap/*/energy_uj; do
     [[ -e "$rapl" ]] || continue;
     [[ -r "$rapl" ]] && power_energy_file=$rapl && break;
-    sudo chmod o+r /sys/class/powercap/*/energy_uj && changed=1 && power_energy_file="$rapl" && break;
+    run_limited 2 sudo -n chmod o+r /sys/class/powercap/*/energy_uj 2>/dev/null && changed=1 && power_energy_file="$rapl" && break;
   done
 
   power_energy_before=""
@@ -214,19 +224,21 @@ read_os_info() {
 collect_pkg_updates() {
   pkg_count=0
   pkg_list=""
+  pkg_update_lines=""
   set +e
   if command -v apt-get >/dev/null 2>&1; then
-    updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
+    pkg_update_lines=$(run_limited 6 apt-get -s upgrade 2>/dev/null || true)
+    updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^Inst /{print $2}')
   elif command -v dnf >/dev/null 2>&1; then
-    updates=$(dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    updates=$(run_limited 6 dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
   elif command -v yum >/dev/null 2>&1; then
-    updates=$(yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    updates=$(run_limited 6 yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
   elif command -v pacman >/dev/null 2>&1; then
-    updates=$(pacman -Qu 2>/dev/null | awk '{print $1}')
+    updates=$(run_limited 6 pacman -Qu 2>/dev/null | awk '{print $1}')
   elif command -v zypper >/dev/null 2>&1; then
-    updates=$(zypper --quiet lu 2>/dev/null | awk '/^[[:alnum:]].*\|/{print $3}')
+    updates=$(run_limited 6 zypper --quiet lu 2>/dev/null | awk '/^[[:alnum:]].*\|/{print $3}')
   elif command -v apk >/dev/null 2>&1; then
-    updates=$(apk version -l '<' 2>/dev/null | awk '{print $1}')
+    updates=$(run_limited 6 apk version -l '<' 2>/dev/null | awk '{print $1}')
   else
     updates=""
   fi
@@ -243,18 +255,18 @@ read_docker_stats() {
   docker=0
   containers=""
   container_stats="[]"
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  if command -v docker >/dev/null 2>&1 && run_limited 4 docker info >/dev/null 2>&1; then
     set +e
     docker=1
-    containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
+    containers=$(run_limited 4 docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
     containers=$(trim_comma "$containers")
     containers=${containers//,/, }
-    stats_lines=$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g' || true)
-    ps_lines=$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
+    stats_lines=$(run_limited 5 docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g' || true)
+    ps_lines=$(run_limited 4 docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
     inspect_lines=""
     if [ -n "$ps_lines" ]; then
       container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
-      inspect_lines=$(docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null || true)
+      inspect_lines=$(run_limited 4 docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null || true)
     fi
     if [ -n "$ps_lines" ]; then
       container_entries=""
@@ -459,14 +471,16 @@ read_primary_ip() {
 collect_security_updates() {
   security_updates=0
   set +e
-  if command -v apt-get >/dev/null 2>&1; then
-    security_updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+  if [ -n "$pkg_update_lines" ]; then
+    security_updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+  elif command -v apt-get >/dev/null 2>&1; then
+    security_updates=$(run_limited 6 apt-get -s upgrade 2>/dev/null | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
   elif command -v dnf >/dev/null 2>&1; then
-    security_updates=$(dnf -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+    security_updates=$(run_limited 6 dnf -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
   elif command -v yum >/dev/null 2>&1; then
-    security_updates=$(yum -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+    security_updates=$(run_limited 6 yum -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
   elif command -v zypper >/dev/null 2>&1; then
-    security_updates=$(zypper --quiet lu --category security 2>/dev/null | awk '/^[[:alnum:]].*\|/ {count++} END{print count+0}')
+    security_updates=$(run_limited 6 zypper --quiet lu --category security 2>/dev/null | awk '/^[[:alnum:]].*\|/ {count++} END{print count+0}')
   fi
   set -e
   security_updates=${security_updates:-0}
@@ -477,7 +491,7 @@ read_systemd_failures() {
   failed_systemd_units_json="[]"
   if command -v systemctl >/dev/null 2>&1; then
     set +e
-    failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | head -n 20)
+    failed_units=$(run_limited 4 systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | head -n 20)
     set -e
     if [ -n "$failed_units" ]; then
       failed_systemd_units=$(printf '%s\n' "$failed_units" | grep -c . || true)
@@ -498,7 +512,7 @@ read_journal_errors() {
   journal_errors=0
   if command -v journalctl >/dev/null 2>&1; then
     set +e
-    journal_errors=$(journalctl -p err --since "15 min ago" --no-pager -q 2>/dev/null | grep -c .)
+    journal_errors=$(run_limited 4 journalctl -p err --since "15 min ago" --no-pager -q 2>/dev/null | grep -c .)
     set -e
     journal_errors=${journal_errors:-0}
   fi
@@ -607,7 +621,7 @@ compute_power
 prepare_numeric_json_values
 
 # restore permissions iff changed
-[[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
+[[ "${changed:-0}" -eq 1 ]] && run_limited 2 sudo -n chmod o-r /sys/class/powercap/*/energy_uj 2>/dev/null
 
 printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
