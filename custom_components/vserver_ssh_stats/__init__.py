@@ -11,6 +11,8 @@ from datetime import UTC, datetime
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 import voluptuous as vol
 import paramiko
@@ -41,6 +43,51 @@ def _normalize_target_os(value: str | None) -> str:
 
     normalized = (value or "auto").strip().lower()
     return normalized if normalized in SUPPORTED_TARGET_OS else "auto"
+
+
+def _cleanup_empty_device_entries(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove stale empty devices left behind by earlier registry identifiers."""
+
+    device_registry = dr.async_get(hass)
+    entity_registry = er.async_get(hass)
+    removed = 0
+    try:
+        devices = dr.async_entries_for_config_entry(device_registry, entry.entry_id)
+    except AttributeError:  # pragma: no cover - compatibility with older HA versions
+        devices = [
+            device
+            for device in device_registry.devices.values()
+            if entry.entry_id in device.config_entries
+        ]
+
+    for device in devices:
+        try:
+            entities = er.async_entries_for_device(
+                entity_registry,
+                device.id,
+                include_disabled_entities=True,
+            )
+        except TypeError:  # pragma: no cover - compatibility with older HA versions
+            entities = er.async_entries_for_device(entity_registry, device.id)
+        if entities:
+            continue
+        try:
+            device_registry.async_update_device(
+                device.id,
+                remove_config_entry_id=entry.entry_id,
+            )
+        except TypeError:  # pragma: no cover - compatibility with older HA versions
+            if device.config_entries != {entry.entry_id}:
+                continue
+            device_registry.async_remove_device(device.id)
+        removed += 1
+
+    if removed:
+        _LOGGER.info(
+            "Removed %s stale empty VServer SSH Stats device registry entr%s",
+            removed,
+            "y" if removed == 1 else "ies",
+        )
 
 
 def _positive_timeout(value: object, default: int) -> int:
@@ -801,6 +848,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),
         "servers": servers,
     }
+    _cleanup_empty_device_entries(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
