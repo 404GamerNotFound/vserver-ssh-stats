@@ -1,0 +1,21 @@
+name: Validate Release Notes
+
+on:
+  release:
+    types: [published, edited]
+
+jobs:
+  donation-link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require donation link
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+          DONATION_URL: https://www.paypal.com/paypalme/TonyBrueser
+        run: |
+          if printf '%s' "$RELEASE_BODY" | grep -Fq "$DONATION_URL"; then
+            echo "Donation link found in release notes."
+          else
+            echo "::error::Release notes must include the donation link: $DONATION_URL"
+            exit 1
+          fi
