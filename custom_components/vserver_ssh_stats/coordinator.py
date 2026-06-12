@@ -62,6 +62,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.current_interval = interval
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+        self._slow_refresh_task: asyncio.Task[None] | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the server."""
@@ -79,7 +80,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             data = self._merge_base_data(base_data)
             if not data.get("collection_error"):
-                data = await self._async_update_slow_data(data)
+                self._schedule_slow_data(data)
             if not data:
                 data = {"collection_error": f"No data returned from host: {self.server['host']}"}
         except socket.gaierror as err:
@@ -148,63 +149,77 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
 
-    async def _async_update_slow_data(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Refresh package and Docker metrics on their slower cadences."""
+    def _schedule_slow_data(self, data: dict[str, Any]) -> None:
+        """Schedule due package and Docker collectors without blocking base polling."""
 
         if data.get("os") == "Windows":
-            return data
+            return
+        if self._slow_refresh_task and not self._slow_refresh_task.done():
+            return
 
         now = time.monotonic()
         due_collectors: list[str] = []
-        if self._slow_data_due(self._last_package_attempt, self.package_interval, now):
-            self._last_package_attempt = now
-            due_collectors.append("package")
         if self._slow_data_due(self._last_docker_attempt, self.docker_interval, now):
             self._last_docker_attempt = now
             due_collectors.append("docker")
+        if self._slow_data_due(self._last_package_attempt, self.package_interval, now):
+            self._last_package_attempt = now
+            due_collectors.append("package")
         if not due_collectors:
-            return data
+            return
 
-        merged = dict(data)
-        for collector in due_collectors:
-            try:
-                if collector == "package":
-                    result = await async_sample_packages(
+        self._slow_refresh_task = self.hass.async_create_task(
+            self._async_update_slow_data(due_collectors)
+        )
+
+    async def _async_update_slow_data(self, due_collectors: list[str]) -> None:
+        """Collect and publish slow metrics independently from the base poll."""
+
+        try:
+            for collector in due_collectors:
+                try:
+                    if collector == "package":
+                        result = await async_sample_packages(
+                            self.server["host"],
+                            self.server["username"],
+                            self.server.get("password"),
+                            self.server.get("key"),
+                            self.server.get("port", 22),
+                            self.server.get("target_os", "auto"),
+                            self.connect_timeout,
+                            self.slow_command_timeout,
+                        )
+                    else:
+                        result = await async_sample_docker(
+                            self.server["host"],
+                            self.server["username"],
+                            self.server.get("password"),
+                            self.server.get("key"),
+                            self.server.get("port", 22),
+                            self.server.get("target_os", "auto"),
+                            self.connect_timeout,
+                            self.slow_command_timeout,
+                        )
+                except Exception as err:
+                    _LOGGER.debug(
+                        "%s collector failed for %s: %s",
+                        collector,
                         self.server["host"],
-                        self.server["username"],
-                        self.server.get("password"),
-                        self.server.get("key"),
-                        self.server.get("port", 22),
-                        self.server.get("target_os", "auto"),
-                        self.connect_timeout,
-                        self.slow_command_timeout,
+                        err,
                     )
-                else:
-                    result = await async_sample_docker(
-                        self.server["host"],
-                        self.server["username"],
-                        self.server.get("password"),
-                        self.server.get("key"),
-                        self.server.get("port", 22),
-                        self.server.get("target_os", "auto"),
-                        self.connect_timeout,
-                        self.slow_command_timeout,
-                    )
-            except Exception as err:
-                _LOGGER.debug(
-                    "%s collector failed for %s: %s",
-                    collector,
-                    self.server["host"],
-                    err,
-                )
-                merged[f"{collector}_collection_error"] = (
-                    str(err) or err.__class__.__name__
-                )
-                continue
-            if collector == "docker" and not result.get("docker_collection_error"):
-                self._clear_docker_data(merged)
-            merged.update(result)
-        return merged
+                    result = {
+                        f"{collector}_collection_error": (
+                            str(err) or err.__class__.__name__
+                        )
+                    }
+
+                merged = dict(self.data or {})
+                if collector == "docker" and "docker" in result:
+                    self._clear_docker_data(merged)
+                merged.update(result)
+                self.async_set_updated_data(merged)
+        finally:
+            self._slow_refresh_task = None
 
     def _record_success(self) -> None:
         """Reset backoff after a successful update."""

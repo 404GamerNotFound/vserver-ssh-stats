@@ -48,6 +48,10 @@ positive_timeout() {
 collector_mode="${VSERVER_SSH_STATS_MODE:-full}"
 pkg_timeout=$(positive_timeout "${VSERVER_SSH_STATS_PKG_TIMEOUT:-}" 6)
 docker_timeout=$(positive_timeout "${VSERVER_SSH_STATS_DOCKER_TIMEOUT:-}" 5)
+docker_quick_timeout=$docker_timeout
+if [ "$docker_quick_timeout" -gt 30 ]; then
+  docker_quick_timeout=30
+fi
 
 read_power_metrics() {
   power_energy_file=""
@@ -305,37 +309,38 @@ read_docker_stats() {
   containers=""
   container_stats="[]"
   docker_stats_complete=0
+  docker_stats_partial=0
   if ! command -v docker >/dev/null 2>&1; then
     docker=0
     docker_stats_complete=1
   else
     set +e
-    run_limited "$docker_timeout" docker info >/dev/null 2>&1
+    run_limited "$docker_quick_timeout" docker info >/dev/null 2>&1
     docker_info_status=$?
     set -e
     if [ "$docker_info_status" -eq 0 ]; then
       set +e
       docker=1
-      docker_stats_complete=1
-      container_names=$(run_limited "$docker_timeout" docker ps --format '{{.Names}}' 2>/dev/null)
-      container_names_status=$?
-      containers=$(printf '%s\n' "$container_names" | tr '\n' ',' )
+      ps_lines=$(run_limited "$docker_quick_timeout" docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
+      ps_status=$?
+      if [ "$ps_status" -eq 0 ]; then
+        docker_stats_complete=1
+      fi
+      containers=$(printf '%s\n' "$ps_lines" | awk -F'|' 'NF {print $2}' | tr '\n' ',' )
       containers=$(trim_comma "$containers")
       containers=${containers//,/, }
-      stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null)
-      stats_status=$?
-      stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
-      ps_lines=$(run_limited "$docker_timeout" docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
-      ps_status=$?
+      stats_lines=""
       inspect_lines=""
-      inspect_status=0
       if [ -n "$ps_lines" ]; then
+        stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null)
+        stats_status=$?
+        stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
         container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
-        inspect_lines=$(run_limited "$docker_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
+        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
         inspect_status=$?
-      fi
-      if [ "$container_names_status" -ne 0 ] || [ "$stats_status" -ne 0 ] || [ "$ps_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
-        docker_stats_complete=0
+        if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
+          docker_stats_partial=1
+        fi
       fi
       if [ -n "$ps_lines" ]; then
         container_entries=""
@@ -343,8 +348,8 @@ read_docker_stats() {
           [ -z "$name" ] && continue
           stats_match=$(printf '%s\n' "$stats_lines" |
             awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
-          container_cpu=0
-          container_mem=0
+          container_cpu=null
+          container_mem=null
           if [ -n "$stats_match" ]; then
             container_cpu=${stats_match%%|*}
             container_mem=${stats_match#*|}
@@ -375,12 +380,9 @@ read_docker_stats() {
         container_stats="[]"
       fi
       set -e
-    elif [ "$docker_info_status" -eq 124 ] || [ "$docker_info_status" -eq 137 ]; then
-      docker=""
-      docker_stats_complete=0
     else
-      docker=0
-      docker_stats_complete=1
+      docker=1
+      docker_stats_partial=1
     fi
   fi
   containers_json=$(json_escape "$containers")
@@ -705,8 +707,9 @@ print_package_json() {
 print_docker_json() {
   docker_json=$(number_or_null "$docker")
   docker_stats_complete_json=$(number_or_null "$docker_stats_complete")
-  printf '{"docker":%s,"containers":"%s","container_stats":%s,"docker_stats_complete":%s}\n' \
-    "$docker_json" "$containers_json" "$container_stats_json" "$docker_stats_complete_json"
+  docker_stats_partial_json=$(number_or_null "$docker_stats_partial")
+  printf '{"docker":%s,"containers":"%s","container_stats":%s,"docker_stats_complete":%s,"docker_stats_partial":%s}\n' \
+    "$docker_json" "$containers_json" "$container_stats_json" "$docker_stats_complete_json" "$docker_stats_partial_json"
 }
 
 init_package_defaults() {
@@ -723,6 +726,7 @@ init_docker_defaults() {
   containers=""
   container_stats="[]"
   docker_stats_complete=""
+  docker_stats_partial=""
   containers_json=""
   container_stats_json="[]"
 }

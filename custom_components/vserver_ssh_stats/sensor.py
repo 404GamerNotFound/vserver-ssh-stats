@@ -21,6 +21,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -237,6 +238,53 @@ class ServerContainerRegistry:
                 continue
             sanitized = _sanitize(raw_name)
             if not sanitized or sanitized in self.known_containers:
+                continue
+            self.known_containers.add(sanitized)
+            new_entities.extend(self._build_container_sensors(raw_name, sanitized))
+        return new_entities
+
+    def create_entities_from_registry(
+        self, entries: Iterable[Any]
+    ) -> list["VServerSensor"]:
+        """Recreate previously registered dynamic container sensors."""
+
+        host = self.coordinator.server["host"]
+        unique_id_prefix = f"{host}_container_"
+        container_names: dict[str, str] = {}
+        for entry in entries:
+            unique_id = str(getattr(entry, "unique_id", ""))
+            if not unique_id.startswith(unique_id_prefix):
+                continue
+            key = unique_id[len(f"{host}_") :]
+            if key.endswith("_cpu"):
+                sanitized = key[len("container_") : -len("_cpu")]
+                metric_name = " CPU"
+            elif key.endswith("_mem"):
+                sanitized = key[len("container_") : -len("_mem")]
+                metric_name = " Memory"
+            else:
+                continue
+            if not sanitized:
+                continue
+
+            registered_name = str(
+                getattr(entry, "original_name", None)
+                or getattr(entry, "name", None)
+                or ""
+            )
+            server_prefix = f"{self.server_name} "
+            if registered_name.startswith(server_prefix):
+                registered_name = registered_name[len(server_prefix) :]
+            if registered_name.endswith(metric_name):
+                registered_name = registered_name[: -len(metric_name)]
+            container_names.setdefault(
+                sanitized,
+                registered_name or sanitized.replace("_", "-"),
+            )
+
+        new_entities: list[VServerSensor] = []
+        for sanitized, raw_name in container_names.items():
+            if sanitized in self.known_containers:
                 continue
             self.known_containers.add(sanitized)
             new_entities.extend(self._build_container_sensors(raw_name, sanitized))
@@ -570,6 +618,18 @@ async def async_setup_entry(
     """Set up VServer SSH Stats sensors based on a config entry."""
     entities: list[VServerSensor] = []
     registries: list[tuple[ServerContainerRegistry, ServerDiskRegistry, str]] = []
+    entity_registry = er.async_get(hass)
+    try:
+        registry_entries = er.async_entries_for_config_entry(
+            entity_registry,
+            entry.entry_id,
+        )
+    except AttributeError:  # pragma: no cover - compatibility with older HA versions
+        registry_entries = [
+            registry_entry
+            for registry_entry in entity_registry.entities.values()
+            if registry_entry.config_entry_id == entry.entry_id
+        ]
     coordinators = await async_get_or_create_coordinators(hass, entry)
     for coordinator in coordinators:
         name = coordinator.server.get("name")
@@ -589,6 +649,9 @@ async def async_setup_entry(
         stats = coordinator.data if isinstance(coordinator.data, dict) else {}
         initial_stats = stats.get("container_stats")
         disk_initial_stats = stats.get("disk_stats")
+        entities.extend(
+            container_registry.create_entities_from_registry(registry_entries)
+        )
         entities.extend(container_registry.create_entities_from_stats(initial_stats))
         entities.extend(disk_registry.create_entities_from_stats(disk_initial_stats))
 

@@ -670,6 +670,8 @@ async def async_sample_docker(
 ) -> Dict[str, Any]:
     """Collect Docker metrics with the slow collector mode."""
 
+    quick_timeout = min(command_timeout, 30)
+    outer_timeout = command_timeout + (quick_timeout * 3) + 15
     data, timing, last_error = await _async_collect_raw(
         host,
         username,
@@ -678,7 +680,7 @@ async def async_sample_docker(
         port,
         target_os,
         connect_timeout,
-        command_timeout,
+        outer_timeout,
         "docker",
         docker_timeout=command_timeout,
     )
@@ -694,6 +696,11 @@ async def async_sample_docker(
         return {"docker_collection_error": "Docker state was not reported"}
 
     result = _process_docker_data(data)
-    result["docker_collection_error"] = None
+    if _safe_int(data.get("docker_stats_partial")) == 1:
+        result["docker_collection_error"] = (
+            "Docker container inventory was collected, but some detail metrics timed out"
+        )
+    else:
+        result["docker_collection_error"] = None
     result["docker_collection_time_ms"] = round(timing.get("collection_time_ms", 0), 2)
     return result
