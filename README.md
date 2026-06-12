@@ -87,6 +87,9 @@ In the integration options you can also configure:
 
 - SSH connect timeout. Default: `10` seconds.
 - Collection command timeout. Default: `45` seconds.
+- Package metrics interval. Default: `43200` seconds (12 hours).
+- Docker metrics interval. Default: `1800` seconds (30 minutes).
+- Slow collector timeout for package and Docker metrics. Default: `180` seconds.
 - `run_command` allowlist, one command per line.
 - Edit an existing server.
 - Add another server.
@@ -124,9 +127,13 @@ Entity IDs depend on the Home Assistant entity registry and the configured serve
 ### Diagnostic Sensors
 
 - `sensor.<name>_ssh_connect_time` - SSH connection setup time in ms.
-- `sensor.<name>_collection_time` - Full collection runtime in ms.
+- `sensor.<name>_collection_time` - Fast base collection runtime in ms.
 - `sensor.<name>_collection_error` - Last collector error text.
 - `sensor.<name>_last_collection_failed` - Whether the last collection failed.
+- `sensor.<name>_package_collection_time` - Package metrics collection runtime in ms.
+- `sensor.<name>_package_collection_error` - Last package metrics collector error text.
+- `sensor.<name>_docker_collection_time` - Docker metrics collection runtime in ms.
+- `sensor.<name>_docker_collection_error` - Last Docker metrics collector error text.
 - `sensor.<name>_cpu_temperature_status` - `ok`, `warning`, or `critical`.
 - `sensor.<name>_ram` - Total RAM in MB.
 - `sensor.<name>_cores` - CPU core count.

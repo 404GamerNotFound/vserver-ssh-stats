@@ -357,6 +357,20 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     _diagnostic_sensor(key="collection_error", name="Collection Error"),
     _diagnostic_sensor(key="last_collection_failed", name="Last Collection Failed"),
     _diagnostic_sensor(
+        key="package_collection_time_ms",
+        name="Package Collection Time",
+        native_unit_of_measurement="ms",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    _diagnostic_sensor(key="package_collection_error", name="Package Collection Error"),
+    _diagnostic_sensor(
+        key="docker_collection_time_ms",
+        name="Docker Collection Time",
+        native_unit_of_measurement="ms",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    _diagnostic_sensor(key="docker_collection_error", name="Docker Collection Error"),
+    _diagnostic_sensor(
         key="uptime",
         name="Uptime",
         native_unit_of_measurement=UnitOfTime.SECONDS,

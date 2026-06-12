@@ -52,6 +52,9 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - Benutzerdefinierte TCP-Port-Erreichbarkeit aus Sicht von Home Assistant
 - Konfigurierbares Aktualisierungsintervall (Standard: 30 Sekunden).
 - Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
+- Paketmetriken laufen in einem separaten Intervall (Standard: 43200 Sekunden / 12 Stunden).
+- Docker-Metriken laufen in einem separaten Intervall (Standard: 1800 Sekunden / 30 Minuten).
+- Langsame Paket- und Docker-Teilabfragen nutzen ein eigenes Timeout (Standard: 180 Sekunden).
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketlisten, Upgraden von Paketen, Neustarten des Hosts, Neustarten von Diensten, Docker-Container-Aktionen, Docker-Prune, Cache-Cleanup, Diagnosereport und Log-Tail.
 - Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
 - Zusammenfassender `health_status`-Sensor mit `ok`, `warning`, `critical` oder `offline` sowie Score und Gründen als Attribute.
@@ -121,7 +124,11 @@ Für jeden Server sind folgende Entitäten verfügbar:
 - `sensor.<name>_net_in` – Netzwerkeingang (Bytes/s)
 - `sensor.<name>_net_out` – Netzwerkausgang (Bytes/s)
 - `sensor.<name>_ssh_connect_time_ms` – Dauer des SSH-Verbindungsaufbaus (ms)
-- `sensor.<name>_collection_time_ms` – Laufzeit der vollständigen Datensammlung (ms)
+- `sensor.<name>_collection_time_ms` – Laufzeit der schnellen Basis-Datensammlung (ms)
+- `sensor.<name>_package_collection_time_ms` – Laufzeit der Paketmetriken-Datensammlung (ms)
+- `sensor.<name>_package_collection_error` – Letzter Fehler der Paketmetriken-Datensammlung
+- `sensor.<name>_docker_collection_time_ms` – Laufzeit der Docker-Metriken-Datensammlung (ms)
+- `sensor.<name>_docker_collection_error` – Letzter Fehler der Docker-Metriken-Datensammlung
 - `sensor.<name>_uptime` – Laufzeit (Sekunden)
 - `sensor.<name>_temp` – Temperatur (°C, falls verfügbar)
 - `sensor.<name>_cpu_temperature_status` – Temperaturbewertung (`ok`, `warning`, `critical`)

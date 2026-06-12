@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import socket
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -12,13 +13,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import DOMAIN
-from .ssh_collector import async_sample
+from .ssh_collector import async_sample, async_sample_docker, async_sample_packages
 from .util import (
     DEFAULT_BACKOFF_FAILURE_THRESHOLD,
     DEFAULT_BACKOFF_MAX_INTERVAL,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_DOCKER_INTERVAL,
     DEFAULT_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
+    DEFAULT_SLOW_COMMAND_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +40,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         interval: int,
         connect_timeout: int,
         command_timeout: int,
+        package_interval: int,
+        docker_interval: int,
+        slow_command_timeout: int,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -48,13 +55,18 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.base_interval = interval
         self.connect_timeout = connect_timeout
         self.command_timeout = command_timeout
+        self.package_interval = package_interval
+        self.docker_interval = docker_interval
+        self.slow_command_timeout = slow_command_timeout
         self.consecutive_failures = 0
         self.current_interval = interval
+        self._last_package_attempt = 0.0
+        self._last_docker_attempt = 0.0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the server."""
         try:
-            data = await async_sample(
+            base_data = await async_sample(
                 self.server["host"],
                 self.server["username"],
                 self.server.get("password"),
@@ -65,6 +77,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.command_timeout,
                 self.server.get("monitored_ports"),
             )
+            data = self._merge_base_data(base_data)
+            if not data.get("collection_error"):
+                data = await self._async_update_slow_data(data)
             if not data:
                 data = {"collection_error": f"No data returned from host: {self.server['host']}"}
         except socket.gaierror as err:
@@ -95,6 +110,101 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.server["mac_addresses"] = data["mac_addresses"]
         self._record_success()
         return data
+
+    def _merge_base_data(self, base_data: dict[str, Any]) -> dict[str, Any]:
+        """Merge fast collector data over the previous full snapshot."""
+
+        if not isinstance(self.data, dict) or not self.data:
+            return dict(base_data or {})
+        merged = dict(self.data)
+        merged.update(base_data or {})
+        return merged
+
+    def _slow_data_due(self, last_attempt: float, interval: int, now: float) -> bool:
+        """Return whether a slow collector should run now."""
+
+        return interval > 0 and (last_attempt <= 0 or now - last_attempt >= interval)
+
+    def _clear_docker_data(self, data: dict[str, Any]) -> None:
+        """Remove stale Docker-owned fields before applying a fresh Docker sample."""
+
+        docker_keys = {
+            "docker",
+            "containers",
+            "container_details",
+            "container_stats",
+            "docker_unhealthy_containers",
+            "docker_restart_count_total",
+            "docker_collection_error",
+            "docker_collection_time_ms",
+        }
+        for key in list(data):
+            if key in docker_keys or key.startswith("container_"):
+                data.pop(key, None)
+
+    def force_slow_refresh(self) -> None:
+        """Make the next refresh run slow package and Docker collectors."""
+
+        self._last_package_attempt = 0.0
+        self._last_docker_attempt = 0.0
+
+    async def _async_update_slow_data(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Refresh package and Docker metrics on their slower cadences."""
+
+        if data.get("os") == "Windows":
+            return data
+
+        now = time.monotonic()
+        due_collectors: list[str] = []
+        if self._slow_data_due(self._last_package_attempt, self.package_interval, now):
+            self._last_package_attempt = now
+            due_collectors.append("package")
+        if self._slow_data_due(self._last_docker_attempt, self.docker_interval, now):
+            self._last_docker_attempt = now
+            due_collectors.append("docker")
+        if not due_collectors:
+            return data
+
+        merged = dict(data)
+        for collector in due_collectors:
+            try:
+                if collector == "package":
+                    result = await async_sample_packages(
+                        self.server["host"],
+                        self.server["username"],
+                        self.server.get("password"),
+                        self.server.get("key"),
+                        self.server.get("port", 22),
+                        self.server.get("target_os", "auto"),
+                        self.connect_timeout,
+                        self.slow_command_timeout,
+                    )
+                else:
+                    result = await async_sample_docker(
+                        self.server["host"],
+                        self.server["username"],
+                        self.server.get("password"),
+                        self.server.get("key"),
+                        self.server.get("port", 22),
+                        self.server.get("target_os", "auto"),
+                        self.connect_timeout,
+                        self.slow_command_timeout,
+                    )
+            except Exception as err:
+                _LOGGER.debug(
+                    "%s collector failed for %s: %s",
+                    collector,
+                    self.server["host"],
+                    err,
+                )
+                merged[f"{collector}_collection_error"] = (
+                    str(err) or err.__class__.__name__
+                )
+                continue
+            if collector == "docker" and not result.get("docker_collection_error"):
+                self._clear_docker_data(merged)
+            merged.update(result)
+        return merged
 
     def _record_success(self) -> None:
         """Reset backoff after a successful update."""
@@ -144,12 +254,26 @@ async def async_get_or_create_coordinators(
         connect_timeout = entry_data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
         configured_command_timeout = entry_data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT
         command_timeout = max(configured_command_timeout, DEFAULT_COMMAND_TIMEOUT)
+        package_interval = entry_data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL
+        docker_interval = entry_data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL
+        slow_command_timeout = (
+            entry_data.get("slow_command_timeout") or DEFAULT_SLOW_COMMAND_TIMEOUT
+        )
         coordinators = []
         for server in entry_data.get("servers", []):
             if not server.get("name"):
                 continue
             coordinators.append(
-                VServerCoordinator(hass, server, interval, connect_timeout, command_timeout)
+                VServerCoordinator(
+                    hass,
+                    server,
+                    interval,
+                    connect_timeout,
+                    command_timeout,
+                    package_interval,
+                    docker_interval,
+                    slow_command_timeout,
+                )
             )
 
         entry_data[COORDINATORS_KEY] = coordinators

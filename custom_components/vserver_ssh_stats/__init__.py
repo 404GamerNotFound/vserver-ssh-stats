@@ -22,7 +22,10 @@ from .util import (
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_DOCKER_INTERVAL,
     DEFAULT_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
+    DEFAULT_SLOW_COMMAND_TIMEOUT,
     is_command_allowed,
     parse_monitored_ports,
     parse_command_allowlist,
@@ -546,6 +549,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 _store_action_status(hass, host, "refresh", output, False)
             return {"refreshed": 0, "success": False, "output": output}
 
+        for coordinator in coordinators:
+            if hasattr(coordinator, "force_slow_refresh"):
+                coordinator.force_slow_refresh()
+
         results = await asyncio.gather(
             *(coordinator.async_request_refresh() for coordinator in coordinators),
             return_exceptions=True,
@@ -850,6 +857,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "interval": data.get("interval") or DEFAULT_INTERVAL,
         "connect_timeout": data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT,
         "command_timeout": data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT,
+        "package_interval": data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL,
+        "docker_interval": data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL,
+        "slow_command_timeout": data.get("slow_command_timeout")
+        or DEFAULT_SLOW_COMMAND_TIMEOUT,
         "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),
         "servers": servers,
     }

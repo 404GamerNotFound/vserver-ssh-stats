@@ -30,6 +30,25 @@ run_limited() {
   fi
 }
 
+positive_timeout() {
+  value="$1"
+  fallback="$2"
+  case "$value" in
+    ''|*[!0-9]*) printf '%s' "$fallback" ;;
+    *)
+      if [ "$value" -gt 0 ]; then
+        printf '%s' "$value"
+      else
+        printf '%s' "$fallback"
+      fi
+      ;;
+  esac
+}
+
+collector_mode="${VSERVER_SSH_STATS_MODE:-full}"
+pkg_timeout=$(positive_timeout "${VSERVER_SSH_STATS_PKG_TIMEOUT:-}" 6)
+docker_timeout=$(positive_timeout "${VSERVER_SSH_STATS_DOCKER_TIMEOUT:-}" 5)
+
 read_power_metrics() {
   power_energy_file=""
 
@@ -222,90 +241,147 @@ read_os_info() {
 }
 
 collect_pkg_updates() {
-  pkg_count=0
+  pkg_count=""
   pkg_list=""
   pkg_update_lines=""
+  pkg_updates_complete=0
+  updates=""
+  pkg_status=1
   set +e
   if command -v apt-get >/dev/null 2>&1; then
-    pkg_update_lines=$(run_limited 6 apt-get -s upgrade 2>/dev/null || true)
-    updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^Inst /{print $2}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" apt-get -s upgrade 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^Inst /{print $2}')
+    fi
   elif command -v dnf >/dev/null 2>&1; then
-    updates=$(run_limited 6 dnf -q check-update --refresh 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" dnf -q check-update --refresh 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ] || [ "$pkg_status" -eq 100 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    fi
   elif command -v yum >/dev/null 2>&1; then
-    updates=$(run_limited 6 yum -q check-update 2>/dev/null | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" yum -q check-update 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ] || [ "$pkg_status" -eq 100 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^[[:alnum:].-]+[[:space:]]/ {print $1}')
+    fi
   elif command -v pacman >/dev/null 2>&1; then
-    updates=$(run_limited 6 pacman -Qu 2>/dev/null | awk '{print $1}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" pacman -Qu 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '{print $1}')
+    fi
   elif command -v zypper >/dev/null 2>&1; then
-    updates=$(run_limited 6 zypper --quiet lu 2>/dev/null | awk '/^[[:alnum:]].*\|/{print $3}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" zypper --quiet lu 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ] || [ "$pkg_status" -eq 100 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^[[:alnum:]].*\|/{print $3}')
+    fi
   elif command -v apk >/dev/null 2>&1; then
-    updates=$(run_limited 6 apk version -l '<' 2>/dev/null | awk '{print $1}')
+    pkg_update_lines=$(run_limited "$pkg_timeout" apk version -l '<' 2>/dev/null)
+    pkg_status=$?
+    if [ "$pkg_status" -eq 0 ]; then
+      updates=$(printf '%s\n' "$pkg_update_lines" | awk '{print $1}')
+    fi
   else
     updates=""
+    pkg_status=0
   fi
   set -e
 
-  if [ -n "$updates" ]; then
+  if [ "$pkg_status" -eq 0 ] || [ "$pkg_status" -eq 100 ]; then
+    pkg_updates_complete=1
     pkg_count=$(echo "$updates" | grep -c . || true)
-    pkg_list=$(trim_comma "$(echo "$updates" | head -n 10 | tr '\n' ',' )")
+    if [ -n "$updates" ]; then
+      pkg_list=$(trim_comma "$(echo "$updates" | head -n 10 | tr '\n' ',' )")
+    fi
   fi
   pkg_list_json=$(json_escape "$pkg_list")
 }
 
 read_docker_stats() {
-  docker=0
+  docker=""
   containers=""
   container_stats="[]"
-  if command -v docker >/dev/null 2>&1 && run_limited 4 docker info >/dev/null 2>&1; then
+  docker_stats_complete=0
+  if ! command -v docker >/dev/null 2>&1; then
+    docker=0
+    docker_stats_complete=1
+  else
     set +e
-    docker=1
-    containers=$(run_limited 4 docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
-    containers=$(trim_comma "$containers")
-    containers=${containers//,/, }
-    stats_lines=$(run_limited 5 docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g' || true)
-    ps_lines=$(run_limited 4 docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
-    inspect_lines=""
-    if [ -n "$ps_lines" ]; then
-      container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
-      inspect_lines=$(run_limited 4 docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null || true)
-    fi
-    if [ -n "$ps_lines" ]; then
-      container_entries=""
-      while IFS='|' read -r container_id name image status ports; do
-        [ -z "$name" ] && continue
-        stats_match=$(printf '%s\n' "$stats_lines" |
-          awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
-        container_cpu=0
-        container_mem=0
-        if [ -n "$stats_match" ]; then
-          container_cpu=${stats_match%%|*}
-          container_mem=${stats_match#*|}
+    run_limited "$docker_timeout" docker info >/dev/null 2>&1
+    docker_info_status=$?
+    set -e
+    if [ "$docker_info_status" -eq 0 ]; then
+      set +e
+      docker=1
+      docker_stats_complete=1
+      container_names=$(run_limited "$docker_timeout" docker ps --format '{{.Names}}' 2>/dev/null)
+      container_names_status=$?
+      containers=$(printf '%s\n' "$container_names" | tr '\n' ',' )
+      containers=$(trim_comma "$containers")
+      containers=${containers//,/, }
+      stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null)
+      stats_status=$?
+      stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
+      ps_lines=$(run_limited "$docker_timeout" docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
+      ps_status=$?
+      inspect_lines=""
+      inspect_status=0
+      if [ -n "$ps_lines" ]; then
+        container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
+        inspect_lines=$(run_limited "$docker_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
+        inspect_status=$?
+      fi
+      if [ "$container_names_status" -ne 0 ] || [ "$stats_status" -ne 0 ] || [ "$ps_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
+        docker_stats_complete=0
+      fi
+      if [ -n "$ps_lines" ]; then
+        container_entries=""
+        while IFS='|' read -r container_id name image status ports; do
+          [ -z "$name" ] && continue
+          stats_match=$(printf '%s\n' "$stats_lines" |
+            awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
+          container_cpu=0
+          container_mem=0
+          if [ -n "$stats_match" ]; then
+            container_cpu=${stats_match%%|*}
+            container_mem=${stats_match#*|}
+          fi
+          inspect_match=$(printf '%s\n' "$inspect_lines" |
+            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
+          restart_count=""
+          health_state=""
+          if [ -n "$inspect_match" ]; then
+            restart_count=${inspect_match%%|*}
+            health_state=${inspect_match#*|}
+          fi
+          restart_count=${restart_count//[^0-9]/}
+          restart_count_json=$(number_or_null "$restart_count")
+          name_json=$(json_escape "$name")
+          image_json=$(json_escape "$image")
+          status_json=$(json_escape "$status")
+          ports_json=$(json_escape "$ports")
+          health_json=$(json_escape "$health_state")
+          container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+        done < <(printf '%s\n' "$ps_lines")
+        if [ -n "$container_entries" ]; then
+          container_stats="[${container_entries%,}]"
+        else
+          container_stats="[]"
         fi
-        inspect_match=$(printf '%s\n' "$inspect_lines" |
-          awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
-        restart_count=""
-        health_state=""
-        if [ -n "$inspect_match" ]; then
-          restart_count=${inspect_match%%|*}
-          health_state=${inspect_match#*|}
-        fi
-        restart_count=${restart_count//[^0-9]/}
-        restart_count_json=$(number_or_null "$restart_count")
-        name_json=$(json_escape "$name")
-        image_json=$(json_escape "$image")
-        status_json=$(json_escape "$status")
-        ports_json=$(json_escape "$ports")
-        health_json=$(json_escape "$health_state")
-        container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
-      done < <(printf '%s\n' "$ps_lines")
-      if [ -n "$container_entries" ]; then
-        container_stats="[${container_entries%,}]"
       else
         container_stats="[]"
       fi
+      set -e
+    elif [ "$docker_info_status" -eq 124 ] || [ "$docker_info_status" -eq 137 ]; then
+      docker=""
+      docker_stats_complete=0
     else
-      container_stats="[]"
+      docker=0
+      docker_stats_complete=1
     fi
-    set -e
   fi
   containers_json=$(json_escape "$containers")
   container_stats_json=$container_stats
@@ -469,21 +545,45 @@ read_primary_ip() {
 }
 
 collect_security_updates() {
-  security_updates=0
+  security_updates=""
+  security_status=1
+  security_lines=""
   set +e
   if [ -n "$pkg_update_lines" ]; then
     security_updates=$(printf '%s\n' "$pkg_update_lines" | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+    security_status=0
   elif command -v apt-get >/dev/null 2>&1; then
-    security_updates=$(run_limited 6 apt-get -s upgrade 2>/dev/null | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+    security_lines=$(run_limited "$pkg_timeout" apt-get -s upgrade 2>/dev/null)
+    security_status=$?
+    if [ "$security_status" -eq 0 ]; then
+      security_updates=$(printf '%s\n' "$security_lines" | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+    fi
   elif command -v dnf >/dev/null 2>&1; then
-    security_updates=$(run_limited 6 dnf -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+    security_lines=$(run_limited "$pkg_timeout" dnf -q updateinfo list security 2>/dev/null)
+    security_status=$?
+    if [ "$security_status" -eq 0 ] || [ "$security_status" -eq 100 ]; then
+      security_updates=$(printf '%s\n' "$security_lines" | awk 'NF {count++} END{print count+0}')
+    fi
   elif command -v yum >/dev/null 2>&1; then
-    security_updates=$(run_limited 6 yum -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+    security_lines=$(run_limited "$pkg_timeout" yum -q updateinfo list security 2>/dev/null)
+    security_status=$?
+    if [ "$security_status" -eq 0 ] || [ "$security_status" -eq 100 ]; then
+      security_updates=$(printf '%s\n' "$security_lines" | awk 'NF {count++} END{print count+0}')
+    fi
   elif command -v zypper >/dev/null 2>&1; then
-    security_updates=$(run_limited 6 zypper --quiet lu --category security 2>/dev/null | awk '/^[[:alnum:]].*\|/ {count++} END{print count+0}')
+    security_lines=$(run_limited "$pkg_timeout" zypper --quiet lu --category security 2>/dev/null)
+    security_status=$?
+    if [ "$security_status" -eq 0 ] || [ "$security_status" -eq 100 ]; then
+      security_updates=$(printf '%s\n' "$security_lines" | awk '/^[[:alnum:]].*\|/ {count++} END{print count+0}')
+    fi
+  else
+    security_updates=0
+    security_status=0
   fi
   set -e
-  security_updates=${security_updates:-0}
+  if [ "$security_status" -ne 0 ] && [ "$security_status" -ne 100 ]; then
+    security_updates=""
+  fi
 }
 
 read_systemd_failures() {
@@ -594,6 +694,53 @@ prepare_numeric_json_values() {
   disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
 }
 
+print_package_json() {
+  pkg_count_json=$(number_or_null "$pkg_count")
+  security_updates_json=$(number_or_null "$security_updates")
+  pkg_updates_complete_json=$(number_or_null "$pkg_updates_complete")
+  printf '{"pkg_count":%s,"pkg_list":"%s","security_updates":%s,"pkg_updates_complete":%s}\n' \
+    "$pkg_count_json" "$pkg_list_json" "$security_updates_json" "$pkg_updates_complete_json"
+}
+
+print_docker_json() {
+  docker_json=$(number_or_null "$docker")
+  docker_stats_complete_json=$(number_or_null "$docker_stats_complete")
+  printf '{"docker":%s,"containers":"%s","container_stats":%s,"docker_stats_complete":%s}\n' \
+    "$docker_json" "$containers_json" "$container_stats_json" "$docker_stats_complete_json"
+}
+
+init_package_defaults() {
+  pkg_count=""
+  pkg_list=""
+  pkg_update_lines=""
+  pkg_updates_complete=""
+  pkg_list_json=""
+  security_updates=""
+}
+
+init_docker_defaults() {
+  docker=""
+  containers=""
+  container_stats="[]"
+  docker_stats_complete=""
+  containers_json=""
+  container_stats_json="[]"
+}
+
+case "$collector_mode" in
+  packages)
+    collect_pkg_updates
+    collect_security_updates
+    print_package_json
+    exit 0
+    ;;
+  docker)
+    read_docker_stats
+    print_docker_json
+    exit 0
+    ;;
+esac
+
 # Run collectors (order matters for power deltas)
 read_power_metrics
 read_cpu_stats
@@ -603,8 +750,13 @@ uptime=$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo "")
 cores=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo "")
 read_load_and_freq
 read_os_info
-collect_pkg_updates
-read_docker_stats
+if [ "$collector_mode" = "full" ]; then
+  collect_pkg_updates
+  read_docker_stats
+else
+  init_package_defaults
+  init_docker_defaults
+fi
 read_mac_addresses
 read_top_processes
 read_service_status
@@ -612,7 +764,9 @@ read_temperature
 read_network_bytes
 read_boot_and_kernel_status
 read_primary_ip
-collect_security_updates
+if [ "$collector_mode" = "full" ]; then
+  collect_security_updates
+fi
 read_systemd_failures
 read_journal_errors
 read_root_filesystem_status

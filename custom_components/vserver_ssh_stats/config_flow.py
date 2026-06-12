@@ -19,7 +19,10 @@ from .util import (
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_DOCKER_INTERVAL,
     DEFAULT_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
+    DEFAULT_SLOW_COMMAND_TIMEOUT,
     parse_monitored_ports,
     resolve_private_key_path,
 )
@@ -159,6 +162,9 @@ def _build_options_schema(
     interval: int,
     connect_timeout: int,
     command_timeout: int,
+    package_interval: int,
+    docker_interval: int,
+    slow_command_timeout: int,
     command_allowlist: str,
 ) -> vol.Schema:
     """Create the top-level options schema."""
@@ -168,6 +174,11 @@ def _build_options_schema(
             vol.Required("interval", default=interval): _number_box(),
             vol.Required("connect_timeout", default=connect_timeout): _number_box(max_value=300),
             vol.Required("command_timeout", default=command_timeout): _number_box(max_value=300),
+            vol.Required("package_interval", default=package_interval): _number_box(),
+            vol.Required("docker_interval", default=docker_interval): _number_box(),
+            vol.Required("slow_command_timeout", default=slow_command_timeout): _number_box(
+                max_value=3600
+            ),
             vol.Optional("command_allowlist", default=command_allowlist): _textarea_selector(),
             vol.Optional("edit_server", default=False): bool,
             vol.Optional("add_server", default=False): bool,
@@ -255,6 +266,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "interval": self._interval,
                             "connect_timeout": DEFAULT_CONNECT_TIMEOUT,
                             "command_timeout": DEFAULT_COMMAND_TIMEOUT,
+                            "package_interval": DEFAULT_PACKAGE_INTERVAL,
+                            "docker_interval": DEFAULT_DOCKER_INTERVAL,
+                            "slow_command_timeout": DEFAULT_SLOW_COMMAND_TIMEOUT,
                             "command_allowlist": DEFAULT_COMMAND_ALLOWLIST,
                             "servers_json": json.dumps(self._servers),
                         }
@@ -367,6 +381,15 @@ class OptionsFlowHandler(OptionsFlow):
         self._command_timeout = _coerce_positive_int(
             config_entry.data.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
         )
+        self._package_interval = _coerce_positive_int(
+            config_entry.data.get("package_interval"), DEFAULT_PACKAGE_INTERVAL
+        )
+        self._docker_interval = _coerce_positive_int(
+            config_entry.data.get("docker_interval"), DEFAULT_DOCKER_INTERVAL
+        )
+        self._slow_command_timeout = _coerce_positive_int(
+            config_entry.data.get("slow_command_timeout"), DEFAULT_SLOW_COMMAND_TIMEOUT
+        )
         self._command_allowlist = str(
             config_entry.data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST)
         )
@@ -443,6 +466,9 @@ class OptionsFlowHandler(OptionsFlow):
                 self._interval,
                 self._connect_timeout,
                 self._command_timeout,
+                self._package_interval,
+                self._docker_interval,
+                self._slow_command_timeout,
                 self._command_allowlist,
             ),
             errors=errors or {},
@@ -457,6 +483,15 @@ class OptionsFlowHandler(OptionsFlow):
         )
         self._command_timeout = _coerce_positive_int(
             user_input.get("command_timeout"), DEFAULT_COMMAND_TIMEOUT
+        )
+        self._package_interval = _coerce_positive_int(
+            user_input.get("package_interval"), DEFAULT_PACKAGE_INTERVAL
+        )
+        self._docker_interval = _coerce_positive_int(
+            user_input.get("docker_interval"), DEFAULT_DOCKER_INTERVAL
+        )
+        self._slow_command_timeout = _coerce_positive_int(
+            user_input.get("slow_command_timeout"), DEFAULT_SLOW_COMMAND_TIMEOUT
         )
         self._command_allowlist = str(
             user_input.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST)
@@ -760,6 +795,9 @@ class OptionsFlowHandler(OptionsFlow):
             "interval": self._interval,
             "connect_timeout": self._connect_timeout,
             "command_timeout": self._command_timeout,
+            "package_interval": self._package_interval,
+            "docker_interval": self._docker_interval,
+            "slow_command_timeout": self._slow_command_timeout,
             "command_allowlist": self._command_allowlist,
             "servers_json": json.dumps(servers),
         }
