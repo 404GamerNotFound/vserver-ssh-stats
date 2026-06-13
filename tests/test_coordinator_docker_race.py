@@ -103,3 +103,52 @@ def test_stop_action_discards_docker_sample_started_before_action() -> None:
         assert coordinator.data["container_lookup"]["grafana"]["running"] is False
 
     asyncio.run(run_scenario())
+
+
+def test_failed_docker_sample_preserves_last_valid_metrics() -> None:
+    """An error-only Docker result must not clear the previous snapshot."""
+
+    methods = _coordinator_methods()
+
+    async def sample_docker(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {
+            "docker_collection_error": (
+                "Docker returned only empty or zero CPU and memory samples"
+            )
+        }
+
+    methods["_async_update_slow_data"].__globals__["async_sample_docker"] = sample_docker
+
+    class FakeCoordinator:
+        server = {
+            "host": "pi5docker",
+            "username": "homeassistant",
+            "port": 22,
+        }
+        connect_timeout = 10
+        slow_command_timeout = 180
+        _docker_state_revision = 0
+        _slow_refresh_task = None
+        data = {
+            "docker": 1,
+            "container_grafana_cpu": 1.25,
+            "container_grafana_mem": 4.5,
+            "container_stats": [
+                {"name": "grafana", "running": True, "cpu": 1.25, "mem": 4.5}
+            ],
+        }
+        _clear_docker_data = methods["_clear_docker_data"]
+
+        def async_set_updated_data(self, data: dict[str, Any]) -> None:
+            self.data = data
+
+    async def run_scenario() -> None:
+        coordinator = FakeCoordinator()
+        await methods["_async_update_slow_data"](coordinator, ["docker"])
+
+        assert coordinator.data["container_grafana_cpu"] == 1.25
+        assert coordinator.data["container_grafana_mem"] == 4.5
+        assert coordinator.data["container_stats"][0]["cpu"] == 1.25
+        assert coordinator.data["docker_collection_error"].startswith("Docker returned")
+
+    asyncio.run(run_scenario())

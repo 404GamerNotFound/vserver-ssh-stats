@@ -434,6 +434,23 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _has_usable_docker_metrics(result: Dict[str, Any]) -> bool:
+    """Return whether running containers contain a credible stats sample."""
+
+    running_containers = [
+        container
+        for container in result.get("container_stats", [])
+        if isinstance(container, dict) and container.get("running") is True
+    ]
+    if not running_containers:
+        return True
+    return any(
+        (_safe_float(container.get("cpu")) or 0) > 0
+        or (_safe_float(container.get("mem")) or 0) > 0
+        for container in running_containers
+    )
+
+
 def _drop_slow_result_keys(result: Dict[str, Any]) -> Dict[str, Any]:
     """Remove fields owned by the slower package and Docker collectors."""
 
@@ -730,6 +747,12 @@ async def async_sample_docker(
         return {"docker_collection_error": "Docker state was not reported"}
 
     result = _process_docker_data(data)
+    if not _has_usable_docker_metrics(result):
+        return {
+            "docker_collection_error": (
+                "Docker returned only empty or zero CPU and memory samples"
+            )
+        }
     if _safe_int(data.get("docker_stats_partial")) == 1:
         result["docker_collection_error"] = (
             "Docker container inventory was collected, but some detail metrics timed out"

@@ -630,6 +630,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             *(coordinator.async_request_refresh() for coordinator in coordinators),
             return_exceptions=True,
         )
+        slow_results = await asyncio.gather(
+            *(coordinator.async_wait_for_slow_refresh() for coordinator in coordinators),
+            return_exceptions=True,
+        )
+        results.extend(slow_results)
         success = not any(isinstance(result, Exception) for result in results)
         output = f"Requested refresh for {len(coordinators)} coordinator(s)"
         for coordinator in coordinators:

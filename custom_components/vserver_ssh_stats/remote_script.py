@@ -310,18 +310,24 @@ read_docker_stats() {
   container_stats="[]"
   docker_stats_complete=0
   docker_stats_partial=0
+  docker_command=(docker)
   if ! command -v docker >/dev/null 2>&1; then
     docker=0
     docker_stats_complete=1
   else
     set +e
-    run_limited "$docker_quick_timeout" docker info >/dev/null 2>&1
+    run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
     docker_info_status=$?
+    if [ "$docker_info_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      docker_command=(sudo -n docker)
+      run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
+      docker_info_status=$?
+    fi
     set -e
     if [ "$docker_info_status" -eq 0 ]; then
       set +e
       docker=1
-      ps_lines=$(run_limited "$docker_quick_timeout" docker ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
+      ps_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
       ps_status=$?
       if [ "$ps_status" -eq 0 ]; then
         docker_stats_complete=1
@@ -337,11 +343,32 @@ read_docker_stats() {
           awk -F'|' '$4 ~ /^(Up|Restarting)/ {printf "%s ", $1}')
         stats_status=0
         if [ -n "$running_container_ids" ]; then
-          stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' $running_container_ids 2>/dev/null)
+          read -r -a running_container_id_args <<< "$running_container_ids"
+          stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' "${running_container_id_args[@]}" 2>/dev/null)
           stats_status=$?
+          if [ "$stats_status" -eq 0 ] && ! printf '%s\n' "$stats_raw" |
+            awk -F'|' '
+              function value(raw) {
+                gsub(/%/, "", raw)
+                gsub(/,/, ".", raw)
+                gsub(/[[:space:]]/, "", raw)
+                return raw ~ /^[0-9]+([.][0-9]+)?$/ ? raw + 0 : -1
+              }
+              value($3) > 0 || value($4) > 0 { found=1 }
+              END { exit found ? 0 : 1 }'; then
+            sleep 1
+            retry_stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' "${running_container_id_args[@]}" 2>/dev/null)
+            retry_stats_status=$?
+            if [ "$retry_stats_status" -eq 0 ] && [ -n "$retry_stats_raw" ]; then
+              stats_raw=$retry_stats_raw
+            else
+              stats_status=$retry_stats_status
+            fi
+          fi
           stats_lines=$stats_raw
         fi
-        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}' $container_ids 2>/dev/null)
+        read -r -a container_id_args <<< "$container_ids"
+        inspect_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}' "${container_id_args[@]}" 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
           docker_stats_partial=1

@@ -34,6 +34,23 @@ def _docker_processor():
     return namespace["_process_docker_data"]
 
 
+def _docker_metric_validator():
+    source = (INTEGRATION / "ssh_collector.py").read_text()
+    tree = ast.parse(source)
+    wanted = {"_safe_float", "_has_usable_docker_metrics"}
+    functions = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name in wanted
+    ]
+    namespace = {"Any": Any, "Dict": Dict, "Optional": Optional}
+    exec(
+        compile(ast.Module(body=functions, type_ignores=[]), "<docker-validator>", "exec"),
+        namespace,
+    )
+    return namespace["_has_usable_docker_metrics"]
+
+
 def test_docker_state_and_health_normalization() -> None:
     """Treat clean stops as inactive and failed exits as unhealthy."""
 
@@ -103,3 +120,25 @@ def test_explicit_inspect_state_overrides_stale_status_text() -> None:
     )
 
     assert result["container_lookup"]["grafana"]["running"] is False
+
+
+def test_all_zero_running_container_sample_is_rejected() -> None:
+    """Do not replace valid cached data with a suspicious all-zero sample."""
+
+    has_usable_docker_metrics = _docker_metric_validator()
+
+    assert not has_usable_docker_metrics(
+        {
+            "container_stats": [
+                {"name": "grafana", "running": True, "cpu": 0.0, "mem": 0.0},
+                {"name": "homeassistant", "running": True, "cpu": 0.0, "mem": 0.0},
+            ]
+        }
+    )
+    assert has_usable_docker_metrics(
+        {
+            "container_stats": [
+                {"name": "grafana", "running": True, "cpu": 0.0, "mem": 4.5}
+            ]
+        }
+    )

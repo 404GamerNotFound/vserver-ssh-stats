@@ -125,3 +125,89 @@ docker() {
     assert data["container_stats"][0]["mem"] == 4.5
     assert data["container_stats"][1]["cpu"] is None
     assert data["container_stats"][1]["mem"] is None
+
+
+def test_docker_collector_retries_an_all_zero_stats_sample(tmp_path: Path) -> None:
+    """Retry once when Docker reports zero CPU and memory for every container."""
+
+    docker_stub = r'''
+sleep() { :; }
+timeout() { shift; "$@"; }
+docker() {
+  case "$1" in
+    info) return 0 ;;
+    ps) printf '%s\n' 'abc123|running-app|repo/app:1|Up 2 hours|' ;;
+    stats)
+      count=$(cat "$STATS_COUNT" 2>/dev/null || printf 0)
+      count=$((count + 1))
+      printf '%s' "$count" > "$STATS_COUNT"
+      if [ "$count" -eq 1 ]; then
+        printf '%s\n' 'abc123|running-app|0.00%|0.00%'
+      else
+        printf '%s\n' 'abc123|running-app|2.50%|8.75%'
+      fi
+      ;;
+    inspect) printf '%s\n' 'abc123full|0|true|healthy|unless-stopped|||' ;;
+    *) return 24 ;;
+  esac
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=docker_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ
+        | {
+            "STATS_COUNT": str(tmp_path / "stats-count"),
+            "VSERVER_SSH_STATS_MODE": "docker",
+            "VSERVER_SSH_STATS_DOCKER_TIMEOUT": "5",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["container_stats"][0]["cpu"] == 2.5
+    assert data["container_stats"][0]["mem"] == 8.75
+
+
+def test_docker_collector_falls_back_to_passwordless_sudo() -> None:
+    """Use sudo for Docker metrics when the SSH user lacks socket access."""
+
+    docker_stub = r'''
+timeout() { shift; "$@"; }
+sudo() {
+  [ "$1" = "-n" ] && shift
+  DOCKER_VIA_SUDO=1 "$@"
+}
+docker() {
+  if [ "${DOCKER_VIA_SUDO:-0}" != "1" ]; then
+    return 1
+  fi
+  case "$1" in
+    info) return 0 ;;
+    ps) printf '%s\n' 'abc123|running-app|repo/app:1|Up 2 hours|' ;;
+    stats) printf '%s\n' 'abc123|running-app|3.25%|7.50%' ;;
+    inspect) printf '%s\n' 'abc123full|0|true|healthy|unless-stopped|||' ;;
+    *) return 24 ;;
+  esac
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=docker_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ
+        | {
+            "VSERVER_SSH_STATS_MODE": "docker",
+            "VSERVER_SSH_STATS_DOCKER_TIMEOUT": "5",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["container_stats"][0]["cpu"] == 3.25
+    assert data["container_stats"][0]["mem"] == 7.5

@@ -152,6 +152,13 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
 
+    async def async_wait_for_slow_refresh(self) -> None:
+        """Wait until a slow collector scheduled by the latest refresh finishes."""
+
+        task = self._slow_refresh_task
+        if task and task is not asyncio.current_task():
+            await task
+
     def apply_docker_action_state(self, container_name: str, action: str) -> None:
         """Publish the state guaranteed by a successful Docker action."""
 
