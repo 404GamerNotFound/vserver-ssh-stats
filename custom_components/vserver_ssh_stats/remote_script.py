@@ -336,7 +336,7 @@ read_docker_stats() {
         stats_status=$?
         stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
         container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
-        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
+        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
           docker_stats_partial=1
@@ -355,22 +355,29 @@ read_docker_stats() {
             container_mem=${stats_match#*|}
           fi
           inspect_match=$(printf '%s\n' "$inspect_lines" |
-            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
+            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3 "|" $4; exit}')
           restart_count=""
+          running_state=""
           health_state=""
           if [ -n "$inspect_match" ]; then
             restart_count=${inspect_match%%|*}
-            health_state=${inspect_match#*|}
+            inspect_remainder=${inspect_match#*|}
+            running_state=${inspect_remainder%%|*}
+            health_state=${inspect_remainder#*|}
           fi
           restart_count=${restart_count//[^0-9]/}
           restart_count_json=$(number_or_null "$restart_count")
+          case "$running_state" in
+            true|false) running_json=$running_state ;;
+            *) running_json=null ;;
+          esac
           container_id_json=$(json_escape "$container_id")
           name_json=$(json_escape "$name")
           image_json=$(json_escape "$image")
           status_json=$(json_escape "$status")
           ports_json=$(json_escape "$ports")
           health_json=$(json_escape "$health_state")
-          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json},"
         done < <(printf '%s\n' "$ps_lines")
         if [ -n "$container_entries" ]; then
           container_stats="[${container_entries%,}]"

@@ -17,6 +17,7 @@ def _docker_processor():
         "_sanitize",
         "_safe_int",
         "_safe_float",
+        "_safe_bool",
         "_safe_list",
         "_process_docker_data",
     }
@@ -82,3 +83,23 @@ def test_container_lookup_helpers() -> None:
 
     assert helpers["sanitize_container_name"]("Stopped-App") == "stopped_app"
     assert helpers["find_container"](data, "stopped_app")["id"] == "2"
+
+
+def test_explicit_inspect_state_overrides_stale_status_text() -> None:
+    """Prefer Docker's State.Running flag over the formatted ps status."""
+
+    result = _docker_processor()(
+        {
+            "docker": 1,
+            "container_stats": [
+                {
+                    "id": "1",
+                    "name": "grafana",
+                    "status": "Up 1 minute",
+                    "running": False,
+                }
+            ],
+        }
+    )
+
+    assert result["container_lookup"]["grafana"]["running"] is False

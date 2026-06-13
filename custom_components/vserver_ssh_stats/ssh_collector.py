@@ -107,6 +107,20 @@ def _safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def _safe_bool(value: Any) -> Optional[bool]:
+    """Return *value* as bool or ``None`` when it is not explicit."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    return None
+
+
 def _safe_list(value: Any) -> list:
     """Return *value* if it is a list, otherwise an empty list."""
 
@@ -357,6 +371,13 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
         name = str(container.get("name") or "").strip()
         if not name:
             continue
+        running = _safe_bool(container.get("running"))
+        if running is None:
+            running = (
+                str(container.get("status") or "")
+                .lower()
+                .startswith(("up ", "restarting"))
+            )
         processed_containers.append(
             {
                 "id": str(container.get("id") or ""),
@@ -368,11 +389,7 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 "restart_count": _safe_int(container.get("restart_count")),
                 "ports": str(container.get("ports") or ""),
                 "health_state": str(container.get("health_state") or ""),
-                "running": (
-                    str(container.get("status") or "")
-                    .lower()
-                    .startswith(("up ", "restarting"))
-                ),
+                "running": running,
             }
         )
     if not containers and processed_containers:

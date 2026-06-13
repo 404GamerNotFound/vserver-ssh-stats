@@ -215,12 +215,20 @@ def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
 
 
 def _build_docker_container_commands(action: str, container: str) -> list[str]:
-    """Return commands for Docker container actions."""
+    """Return Docker actions that verify the resulting running state."""
 
-    return [
-        f"docker {action} {container}",
-        f"sudo docker {action} {container}",
-    ]
+    expected_state = "false" if action == "stop" else "true"
+
+    def _command(docker_command: str) -> str:
+        return (
+            f"{docker_command} {action} {container} >/dev/null && "
+            f"state=$({docker_command} inspect --format "
+            f"'{{{{.State.Running}}}}' {container} 2>/dev/null) && "
+            f"printf 'container={container} running=%s\\n' \"$state\" && "
+            f"[ \"$state\" = \"{expected_state}\" ]"
+        )
+
+    return [_command("docker"), _command("sudo docker")]
 
 
 def _build_docker_prune_commands() -> list[str]:
