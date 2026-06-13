@@ -45,7 +45,9 @@ docker() {
         'def456|stopped-app|repo/app:2|Exited (0) 3 hours ago|'
       ;;
     stats) printf '%s\n' 'running-app|1.25%|4.50%' ;;
-    inspect) printf '%s\n' 'abc123full|2|true|healthy' 'def456full|0|false|exited' ;;
+    inspect) printf '%s\n' \
+      'abc123full|2|true|healthy|unless-stopped|monitoring|grafana|' \
+      'def456full|0|false|exited|no|monitoring|stopped-app|' ;;
     *) return 24 ;;
   esac
 }
@@ -70,6 +72,9 @@ docker() {
     assert data["container_stats"][0]["id"] == "abc123"
     assert data["container_stats"][0]["cpu"] == 1.25
     assert data["container_stats"][0]["running"] is True
+    assert data["container_stats"][0]["restart_policy"] == "unless-stopped"
+    assert data["container_stats"][0]["compose_project"] == "monitoring"
+    assert data["container_stats"][0]["compose_service"] == "grafana"
     assert data["container_stats"][1]["id"] == "def456"
     assert data["container_stats"][1]["cpu"] is None
     assert data["container_stats"][1]["running"] is False

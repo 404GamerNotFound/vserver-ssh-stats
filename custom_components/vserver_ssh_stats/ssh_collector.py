@@ -390,6 +390,10 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 "ports": str(container.get("ports") or ""),
                 "health_state": str(container.get("health_state") or ""),
                 "running": running,
+                "restart_policy": str(container.get("restart_policy") or ""),
+                "compose_project": str(container.get("compose_project") or ""),
+                "compose_service": str(container.get("compose_service") or ""),
+                "swarm_service": str(container.get("swarm_service") or ""),
             }
         )
     if not containers and processed_containers:

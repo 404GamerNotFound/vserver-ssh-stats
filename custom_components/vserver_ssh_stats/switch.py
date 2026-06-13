@@ -71,6 +71,10 @@ class VServerContainerSwitch(CoordinatorEntity[VServerCoordinator], SwitchEntity
             "status": container.get("status"),
             "health_state": container.get("health_state"),
             "restart_count": container.get("restart_count"),
+            "restart_policy": container.get("restart_policy"),
+            "compose_project": container.get("compose_project"),
+            "compose_service": container.get("compose_service"),
+            "swarm_service": container.get("swarm_service"),
         }
 
     @property

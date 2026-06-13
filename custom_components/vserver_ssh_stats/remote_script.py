@@ -336,7 +336,7 @@ read_docker_stats() {
         stats_status=$?
         stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
         container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
-        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null)
+        inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}' $container_ids 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
           docker_stats_partial=1
@@ -355,15 +355,27 @@ read_docker_stats() {
             container_mem=${stats_match#*|}
           fi
           inspect_match=$(printf '%s\n' "$inspect_lines" |
-            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3 "|" $4; exit}')
+            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8; exit}')
           restart_count=""
           running_state=""
           health_state=""
+          restart_policy=""
+          compose_project=""
+          compose_service=""
+          swarm_service=""
           if [ -n "$inspect_match" ]; then
             restart_count=${inspect_match%%|*}
             inspect_remainder=${inspect_match#*|}
             running_state=${inspect_remainder%%|*}
-            health_state=${inspect_remainder#*|}
+            inspect_remainder=${inspect_remainder#*|}
+            health_state=${inspect_remainder%%|*}
+            inspect_remainder=${inspect_remainder#*|}
+            restart_policy=${inspect_remainder%%|*}
+            inspect_remainder=${inspect_remainder#*|}
+            compose_project=${inspect_remainder%%|*}
+            inspect_remainder=${inspect_remainder#*|}
+            compose_service=${inspect_remainder%%|*}
+            swarm_service=${inspect_remainder#*|}
           fi
           restart_count=${restart_count//[^0-9]/}
           restart_count_json=$(number_or_null "$restart_count")
@@ -377,7 +389,11 @@ read_docker_stats() {
           status_json=$(json_escape "$status")
           ports_json=$(json_escape "$ports")
           health_json=$(json_escape "$health_state")
-          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json},"
+          restart_policy_json=$(json_escape "$restart_policy")
+          compose_project_json=$(json_escape "$compose_project")
+          compose_service_json=$(json_escape "$compose_service")
+          swarm_service_json=$(json_escape "$swarm_service")
+          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json,\"restart_policy\":\"$restart_policy_json\",\"compose_project\":\"$compose_project_json\",\"compose_service\":\"$compose_service_json\",\"swarm_service\":\"$swarm_service_json\"},"
         done < <(printf '%s\n' "$ps_lines")
         if [ -n "$container_entries" ]; then
           container_stats="[${container_entries%,}]"
