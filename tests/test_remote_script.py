@@ -44,7 +44,7 @@ docker() {
         'abc123|running-app|repo/app:1|Up 2 hours|8080/tcp' \
         'def456|stopped-app|repo/app:2|Exited (0) 3 hours ago|'
       ;;
-    stats) printf '%s\n' 'running-app|1.25%|4.50%' ;;
+    stats) printf '%s\n' 'abc123|running-app|1.25%|4.50%' ;;
     inspect) printf '%s\n' \
       'abc123full|2|true|healthy|unless-stopped|monitoring|grafana|' \
       'def456full|0|false|exited|no|monitoring|stopped-app|' ;;
@@ -79,3 +79,49 @@ docker() {
     assert data["container_stats"][1]["cpu"] is None
     assert data["container_stats"][1]["running"] is False
     assert data["container_stats"][1]["status"].startswith("Exited (0)")
+
+
+def test_docker_collector_does_not_turn_parse_errors_into_zero() -> None:
+    """Map stats by container ID and preserve invalid percentages as null."""
+
+    docker_stub = r'''
+timeout() { shift; "$@"; }
+docker() {
+  case "$1" in
+    info) return 0 ;;
+    ps)
+      printf '%s\n' \
+        'abc123|running-app|repo/app:1|Up 2 hours|8080/tcp' \
+        'def456|second-app|repo/app:2|Up 1 hour|'
+      ;;
+    stats) printf '%s\n' \
+      'abc123|renamed-output|1,25%|4,50%' \
+      'def456|second-app|not-a-number|unknown'
+      ;;
+    inspect) printf '%s\n' \
+      'abc123full|0|true|healthy|unless-stopped|||' \
+      'def456full|0|true|healthy|unless-stopped|||'
+      ;;
+    *) return 24 ;;
+  esac
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=docker_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ
+        | {
+            "VSERVER_SSH_STATS_MODE": "docker",
+            "VSERVER_SSH_STATS_DOCKER_TIMEOUT": "5",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["container_stats"][0]["cpu"] == 1.25
+    assert data["container_stats"][0]["mem"] == 4.5
+    assert data["container_stats"][1]["cpu"] is None
+    assert data["container_stats"][1]["mem"] is None

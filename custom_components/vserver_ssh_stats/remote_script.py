@@ -332,10 +332,15 @@ read_docker_stats() {
       stats_lines=""
       inspect_lines=""
       if [ -n "$ps_lines" ]; then
-        stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null)
-        stats_status=$?
-        stats_lines=$(printf '%s\n' "$stats_raw" | sed 's/%//g')
         container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
+        running_container_ids=$(printf '%s\n' "$ps_lines" |
+          awk -F'|' '$4 ~ /^(Up|Restarting)/ {printf "%s ", $1}')
+        stats_status=0
+        if [ -n "$running_container_ids" ]; then
+          stats_raw=$(run_limited "$docker_timeout" docker stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' $running_container_ids 2>/dev/null)
+          stats_status=$?
+          stats_lines=$stats_raw
+        fi
         inspect_lines=$(run_limited "$docker_quick_timeout" docker inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}' $container_ids 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
@@ -347,7 +352,20 @@ read_docker_stats() {
         while IFS='|' read -r container_id name image status ports; do
           [ -z "$name" ] && continue
           stats_match=$(printf '%s\n' "$stats_lines" |
-            awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
+            awk -F'|' -v id="$container_id" -v n="$name" '
+              function percentage(value) {
+                gsub(/%/, "", value)
+                gsub(/,/, ".", value)
+                gsub(/[[:space:]]/, "", value)
+                if (value ~ /^[0-9]+([.][0-9]+)?$/) {
+                  return sprintf("%.2f", value + 0)
+                }
+                return "null"
+              }
+              $1 == id || $2 == n {
+                print percentage($3) "|" percentage($4)
+                exit
+              }')
           container_cpu=null
           container_mem=null
           if [ -n "$stats_match" ]; then

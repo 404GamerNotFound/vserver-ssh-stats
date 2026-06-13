@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import ast
+import runpy
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 ROOT = Path(__file__).parents[1]
@@ -81,3 +83,44 @@ def test_all_container_entity_types_use_child_device_info() -> None:
             and node.func.id == "build_container_device_info"
             for node in ast.walk(method)
         )
+
+
+def test_container_sensors_read_canonical_container_metrics() -> None:
+    """Container sensors prefer current lookup metrics over stale flat values."""
+
+    tree = ast.parse((COMPONENT_PATH / "sensor.py").read_text())
+    sensor_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "VServerSensor"
+    )
+    native_value = next(
+        node
+        for node in sensor_class.body
+        if isinstance(node, ast.FunctionDef) and node.name == "native_value"
+    )
+    helpers = runpy.run_path(str(COMPONENT_PATH / "docker_entities.py"))
+    namespace = {
+        "_build_health": lambda *_args: {"status": "ok", "score": 100},
+        "find_container": helpers["find_container"],
+    }
+    exec(
+        compile(ast.Module(body=[native_value], type_ignores=[]), "<sensor-test>", "exec"),
+        namespace,
+    )
+    fake_sensor = SimpleNamespace(
+        entity_description=SimpleNamespace(key="container_grafana_cpu"),
+        _container_key="grafana",
+        _container_metric="cpu",
+        coordinator=SimpleNamespace(
+            data={
+                "container_grafana_cpu": 0.0,
+                "container_lookup": {
+                    "grafana": {"name": "grafana", "cpu": 1.25, "mem": 4.5}
+                },
+            },
+            last_update_success=True,
+        ),
+    )
+
+    assert namespace["native_value"].fget(fake_sensor) == 1.25

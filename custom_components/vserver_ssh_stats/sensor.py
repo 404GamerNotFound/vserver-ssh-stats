@@ -27,6 +27,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
+from .docker_entities import find_container
 from .util import build_container_device_info, build_device_info
 
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
@@ -235,12 +236,16 @@ class ServerContainerRegistry:
                 self.server_name,
                 cpu_description,
                 device_info,
+                container_key=sanitized,
+                container_metric="cpu",
             ),
             VServerSensor(
                 self.coordinator,
                 self.server_name,
                 mem_description,
                 device_info,
+                container_key=sanitized,
+                container_metric="mem",
             ),
         ]
 
@@ -510,10 +515,15 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         server_name: str,
         description: VServerSensorDescription,
         device_info: DeviceInfo | None = None,
+        *,
+        container_key: str | None = None,
+        container_metric: str | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
+        self._container_key = container_key
+        self._container_metric = container_metric
         host = coordinator.server["host"]
         self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
@@ -539,6 +549,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return health["score"]
         if not self.coordinator.data:
             return None
+        if self._container_key and self._container_metric:
+            container = find_container(self.coordinator.data, self._container_key)
+            if container is not None:
+                return container.get(self._container_metric)
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
