@@ -1,0 +1,130 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install test tools
+        run: python -m pip install --disable-pip-version-check -r requirements_test.txt
+
+      - name: Check Python syntax and imports
+        run: |
+          PYTHONPYCACHEPREFIX=/tmp/vserver-ssh-stats-pycache \
+            python -m compileall -q custom_components scripts tests
+          ruff check --output-format=github .
+
+      - name: Check YAML
+        run: yamllint --strict .github addon custom_components examples
+
+      - name: Check embedded remote shell script
+        run: |
+          python - <<'PY' > /tmp/vserver-ssh-stats-remote.sh
+          import ast
+          from pathlib import Path
+
+          print("#!/usr/bin/env bash")
+          module = ast.parse(
+              Path("custom_components/vserver_ssh_stats/remote_script.py").read_text()
+          )
+          print(ast.literal_eval(module.body[0].value))
+          PY
+          bash -n /tmp/vserver-ssh-stats-remote.sh
+          shellcheck --severity=error /tmp/vserver-ssh-stats-remote.sh
+
+      - name: Audit workflow security
+        run: zizmor .github/workflows
+
+  unit-tests:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.11"
+          - "3.14"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install test dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements_test.txt
+
+      - name: Run tests
+        run: pytest
+
+  home-assistant-import:
+    name: Current Home Assistant import
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: custom_components/vserver_ssh_stats/manifest.json
+
+      - name: Install current Home Assistant and integration requirements
+        run: |
+          python -m pip install --disable-pip-version-check homeassistant "paramiko>=3.4.0"
+
+      - name: Import every integration module
+        run: |
+          python - <<'PY'
+          import importlib
+          import pkgutil
+
+          package = importlib.import_module("custom_components.vserver_ssh_stats")
+          modules = sorted(
+              module.name
+              for module in pkgutil.iter_modules(package.__path__)
+              if not module.name.startswith("_")
+          )
+          for module in modules:
+              importlib.import_module(f"{package.__name__}.{module}")
+              print(f"Imported {module}")
+          PY

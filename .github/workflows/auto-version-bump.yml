@@ -2,7 +2,12 @@ name: Auto Version Bump
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+concurrency:
+  group: auto-version-bump
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -11,11 +16,18 @@ jobs:
   bump:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
         with:
-          python-version: '3.x'
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.14"
+
       - name: Bump version
         run: |
           python scripts/bump_version.py

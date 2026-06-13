@@ -4,9 +4,13 @@ on:
   release:
     types: [published, edited]
 
+permissions:
+  contents: read
+
 jobs:
   donation-link:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Require donation link
         env:

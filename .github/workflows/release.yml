@@ -1,0 +1,169 @@
+name: Build and publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-release:
+    name: Validate release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      asset: ${{ steps.version.outputs.asset }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Verify tag and manifest version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          tag = os.environ["RELEASE_TAG"]
+          if not tag.startswith("v"):
+              raise SystemExit(f"Release tag must start with v: {tag}")
+          version = tag[1:]
+          manifest = json.loads(
+              Path("custom_components/vserver_ssh_stats/manifest.json").read_text()
+          )
+          if manifest.get("version") != version:
+              raise SystemExit(
+                  f"Tag {tag} does not match manifest version {manifest.get('version')}"
+              )
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              output.write(f"version={version}\n")
+              output.write(f"asset=vserver_ssh_stats-{version}.zip\n")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6
+        with:
+          python-version: "3.14"
+
+      - name: Install validation dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements_test.txt
+          python -m pip install --disable-pip-version-check homeassistant "paramiko>=3.4.0"
+
+      - name: Run code and unit checks
+        run: |
+          PYTHONPYCACHEPREFIX=/tmp/vserver-ssh-stats-pycache \
+            python -m compileall -q custom_components scripts tests
+          ruff check --output-format=github .
+          pytest
+          yamllint --strict .github addon custom_components examples
+
+      - name: Import every integration module
+        run: |
+          python - <<'PY'
+          import importlib
+          import pkgutil
+
+          package = importlib.import_module("custom_components.vserver_ssh_stats")
+          modules = sorted(
+              module.name
+              for module in pkgutil.iter_modules(package.__path__)
+              if not module.name.startswith("_")
+          )
+          for module in modules:
+              importlib.import_module(f"{package.__name__}.{module}")
+          PY
+
+      - name: Run Hassfest
+        uses: home-assistant/actions/hassfest@e91ad1948e57189485b9c1ad608af0c303946f89  # master
+
+      - name: Run HACS validation
+        uses: hacs/action@1ebf01c408f29afcb6406bd431bc98fd8cbb15aa  # main
+        with:
+          category: integration
+          comment: false
+
+  package:
+    name: Package integration
+    needs: validate-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Build HACS release archive
+        env:
+          ASSET_NAME: ${{ needs.validate-release.outputs.asset }}
+        run: |
+          zip -r "$ASSET_NAME" custom_components/vserver_ssh_stats \
+            -x "*/__pycache__/*" "*.pyc" ".DS_Store"
+          unzip -l "$ASSET_NAME"
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: release-package
+          path: ${{ needs.validate-release.outputs.asset }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attest release archive
+        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661  # v3
+        with:
+          subject-path: ${{ needs.validate-release.outputs.asset }}
+
+  publish:
+    name: Publish GitHub release
+    needs:
+      - validate-release
+      - package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6
+        with:
+          persist-credentials: false
+
+      - name: Download release archive
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: release-package
+
+      - name: Prepare release notes
+        env:
+          VERSION: ${{ needs.validate-release.outputs.version }}
+        run: sed "s/<version>/$VERSION/g" .github/release_template.md > release-notes.md
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.validate-release.outputs.version }}
+          ASSET_NAME: ${{ needs.validate-release.outputs.asset }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET_NAME" --clobber
+          else
+            gh release create "$TAG" "$ASSET_NAME" \
+              --title "VServer SSH Stats $VERSION" \
+              --notes-file release-notes.md \
+              --verify-tag
+          fi

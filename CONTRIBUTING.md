@@ -17,10 +17,21 @@ Thank you for your interest in contributing to **VServer SSH Stats**! We welcome
 - Keep the Home Assistant design guidelines in mind: avoid long-running synchronous I/O in the event loop and prefer config flows for user configuration.
 
 ## Development Guidelines
-- Keep code style consistent with the existing project. Home Assistant integrations use `ruff` and `black` defaults; please run them before opening a PR if you add Python code.
+- Keep code style consistent with the existing project and run `ruff` before opening a PR if you add Python code.
 - Update translations in the `custom_components/vserver_ssh_stats/translations/` directory when introducing new strings.
 - Update documentation (README files or docs) and screenshots if user-facing behaviour changes.
 - Add or update tests under `tests/` if applicable. If tests are not available, describe manual verification steps in your PR.
+
+Install and run the repository checks with:
+
+```bash
+python -m pip install -r requirements_test.txt
+ruff check .
+pytest
+yamllint --strict .github addon custom_components examples
+```
+
+Pull requests additionally run HACS, Hassfest, CodeQL, dependency review, workflow security checks, and an import test against the current Home Assistant release.
 
 ## Commit & Pull Request Process
 1. Fork the repository and create a feature branch from `main`.

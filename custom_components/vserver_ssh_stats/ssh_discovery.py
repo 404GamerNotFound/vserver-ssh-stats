@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-from ipaddress import ip_network
 import socket
+from ipaddress import ip_network
 from typing import List
 
 DEFAULT_TIMEOUT = 1.0

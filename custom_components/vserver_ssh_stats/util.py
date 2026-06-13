@@ -1,8 +1,8 @@
 """Utility helpers for the VServer SSH Stats integration."""
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Optional
 
 from homeassistant.core import HomeAssistant

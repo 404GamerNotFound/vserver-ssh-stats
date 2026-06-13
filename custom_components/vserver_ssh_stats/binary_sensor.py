@@ -17,7 +17,6 @@ from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
 from .util import build_device_info
 
-
 BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
     ("reboot_required", "Reboot Required", "mdi:restart-alert"),
     ("root_fs_readonly", "Root Filesystem Read-only", "mdi:file-lock"),
