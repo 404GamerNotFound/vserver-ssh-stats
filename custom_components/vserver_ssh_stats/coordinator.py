@@ -64,6 +64,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
         self._slow_refresh_task: asyncio.Task[None] | None = None
+        self._docker_state_revision = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from the server."""
@@ -154,6 +155,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def apply_docker_action_state(self, container_name: str, action: str) -> None:
         """Publish the state guaranteed by a successful Docker action."""
 
+        # Invalidate Docker samples that started before this action completed.
+        self._docker_state_revision += 1
         if not isinstance(self.data, dict):
             return
         container_stats = self.data.get("container_stats")
@@ -229,6 +232,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         try:
             for collector in due_collectors:
+                docker_revision = (
+                    self._docker_state_revision if collector == "docker" else None
+                )
                 try:
                     if collector == "package":
                         result = await async_sample_packages(
@@ -264,6 +270,16 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             str(err) or err.__class__.__name__
                         )
                     }
+
+                if (
+                    collector == "docker"
+                    and docker_revision != self._docker_state_revision
+                ):
+                    _LOGGER.debug(
+                        "Discarding stale Docker sample for %s after a container action",
+                        self.server["host"],
+                    )
+                    continue
 
                 merged = dict(self.data or {})
                 if collector == "docker" and "docker" in result:
