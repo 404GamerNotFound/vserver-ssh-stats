@@ -220,6 +220,27 @@ def _build_docker_container_commands(action: str, container: str) -> list[str]:
     expected_state = "false" if action == "stop" else "true"
 
     def _command(docker_command: str) -> str:
+        if action == "stop":
+            return (
+                f"{docker_command} stop {container} >/dev/null || exit 1; "
+                "stable=0; state=true; attempt=0; "
+                "while [ \"$attempt\" -lt 4 ]; do "
+                "sleep 2; "
+                f"state=$({docker_command} inspect --format "
+                f"'{{{{.State.Running}}}}' {container} 2>/dev/null) || exit 1; "
+                "if [ \"$state\" = \"false\" ]; then "
+                "stable=$((stable + 1)); "
+                "[ \"$stable\" -ge 2 ] && break; "
+                "else "
+                "stable=0; "
+                f"{docker_command} stop {container} >/dev/null 2>&1 || exit 1; "
+                "fi; "
+                "attempt=$((attempt + 1)); "
+                "done; "
+                f"printf 'container={container} running=%s stable_checks=%s\\n' "
+                '"$state" "$stable"; '
+                '[ "$state" = "false" ] && [ "$stable" -ge 2 ]'
+            )
         return (
             f"{docker_command} {action} {container} >/dev/null && "
             f"state=$({docker_command} inspect --format "
