@@ -359,6 +359,7 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
             continue
         processed_containers.append(
             {
+                "id": str(container.get("id") or ""),
                 "name": name,
                 "cpu": _safe_float(container.get("cpu")),
                 "mem": _safe_float(container.get("mem")),
@@ -367,6 +368,11 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 "restart_count": _safe_int(container.get("restart_count")),
                 "ports": str(container.get("ports") or ""),
                 "health_state": str(container.get("health_state") or ""),
+                "running": (
+                    str(container.get("status") or "")
+                    .lower()
+                    .startswith(("up ", "restarting"))
+                ),
             }
         )
     if not containers and processed_containers:
@@ -377,7 +383,10 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
     for container in processed_containers:
         health_state = str(container.get("health_state") or "").lower()
         status = str(container.get("status") or "").lower()
-        if health_state in {"unhealthy", "dead", "exited"} or status.startswith("exited"):
+        exited_with_error = status.startswith("exited") and not status.startswith(
+            "exited (0)"
+        )
+        if health_state in {"unhealthy", "dead"} or exited_with_error:
             docker_unhealthy_containers += 1
         restart_count = _safe_int(container.get("restart_count"))
         if restart_count is not None:
@@ -387,6 +396,10 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "docker": _safe_int(data.get("docker")),
         "containers": containers,
         "container_details": processed_containers,
+        "container_lookup": {
+            _sanitize(container["name"]): container
+            for container in processed_containers
+        },
         "docker_unhealthy_containers": docker_unhealthy_containers,
         "docker_restart_count_total": docker_restart_count_total,
         "container_stats": processed_containers,

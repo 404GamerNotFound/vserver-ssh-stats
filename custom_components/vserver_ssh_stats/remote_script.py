@@ -321,7 +321,7 @@ read_docker_stats() {
     if [ "$docker_info_status" -eq 0 ]; then
       set +e
       docker=1
-      ps_lines=$(run_limited "$docker_quick_timeout" docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
+      ps_lines=$(run_limited "$docker_quick_timeout" docker ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
       ps_status=$?
       if [ "$ps_status" -eq 0 ]; then
         docker_stats_complete=1
@@ -364,12 +364,13 @@ read_docker_stats() {
           fi
           restart_count=${restart_count//[^0-9]/}
           restart_count_json=$(number_or_null "$restart_count")
+          container_id_json=$(json_escape "$container_id")
           name_json=$(json_escape "$name")
           image_json=$(json_escape "$image")
           status_json=$(json_escape "$status")
           ports_json=$(json_escape "$ports")
           health_json=$(json_escape "$health_state")
-          container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
         done < <(printf '%s\n' "$ps_lines")
         if [ -n "$container_entries" ]; then
           container_stats="[${container_entries%,}]"

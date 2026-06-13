@@ -188,7 +188,10 @@ def _build_health(data: dict[str, Any], online: bool) -> dict[str, Any]:
         health = str(container.get("health_state") or "").lower()
         status = str(container.get("status") or "").lower()
         name = str(container.get("name") or "").strip()
-        if health in {"unhealthy", "dead", "exited"} or status.startswith("exited"):
+        exited_with_error = status.startswith("exited") and not status.startswith(
+            "exited (0)"
+        )
+        if health in {"unhealthy", "dead"} or exited_with_error:
             unhealthy_containers.append(name or "unknown")
     for name in unhealthy_containers[:5]:
         add_reason(f"Container {name} is not healthy", 15)

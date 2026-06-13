@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import socket
 import time
 from datetime import timedelta
@@ -133,6 +134,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "docker",
             "containers",
             "container_details",
+            "container_lookup",
             "container_stats",
             "docker_unhealthy_containers",
             "docker_restart_count_total",
@@ -148,6 +150,56 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+
+    def apply_docker_action_state(self, container_name: str, action: str) -> None:
+        """Publish the state guaranteed by a successful Docker action."""
+
+        if not isinstance(self.data, dict):
+            return
+        container_stats = self.data.get("container_stats")
+        if not isinstance(container_stats, list):
+            return
+
+        changed = False
+        updated_stats: list[Any] = []
+        for container in container_stats:
+            if not isinstance(container, dict) or container.get("name") != container_name:
+                updated_stats.append(container)
+                continue
+            updated_container = dict(container)
+            updated_container["running"] = action != "stop"
+            updated_stats.append(updated_container)
+            changed = True
+        if not changed:
+            return
+
+        updated_data = dict(self.data)
+        updated_data["container_stats"] = updated_stats
+        updated_data["container_details"] = updated_stats
+        updated_data["container_lookup"] = {
+            self._sanitize_container_name(str(container.get("name") or "")): container
+            for container in updated_stats
+            if isinstance(container, dict) and container.get("name")
+        }
+        self.async_set_updated_data(updated_data)
+
+    @staticmethod
+    def _sanitize_container_name(name: str) -> str:
+        """Return the lookup key used for a container name."""
+
+        return re.sub(r"[^a-zA-Z0-9_]+", "_", name).lower()
+
+    async def async_request_docker_refresh(self) -> None:
+        """Refresh only Docker data without blocking the regular base poll."""
+
+        active_task = self._slow_refresh_task
+        if active_task and not active_task.done():
+            await active_task
+        self._last_docker_attempt = time.monotonic()
+        self._slow_refresh_task = self.hass.async_create_task(
+            self._async_update_slow_data(["docker"])
+        )
+        await self._slow_refresh_task
 
     def _schedule_slow_data(self, data: dict[str, Any]) -> None:
         """Schedule due package and Docker collectors without blocking base polling."""

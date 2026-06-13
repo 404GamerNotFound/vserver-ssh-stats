@@ -34,7 +34,7 @@ from .util import (
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
-PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
+PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
@@ -606,12 +606,27 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         """Run one Docker container action."""
 
         commands = _build_docker_container_commands(action, call.data["container"])
-        return await _run_remote_action(
+        response = await _run_remote_action(
             call,
             f"{action}_docker_container",
             commands,
             f"{action}_docker_container",
         )
+        if response.get("success"):
+            host = call.data["host"]
+            container_name = call.data["container"]
+            matching_coordinators = []
+            for entry_data in hass.data.get(DOMAIN, {}).values():
+                if not isinstance(entry_data, dict):
+                    continue
+                for coordinator in entry_data.get("coordinators", []) or []:
+                    if coordinator.server.get("host") != host:
+                        continue
+                    coordinator.apply_docker_action_state(container_name, action)
+                    matching_coordinators.append(coordinator)
+            for coordinator in matching_coordinators:
+                hass.async_create_task(coordinator.async_request_docker_refresh())
+        return response
 
     async def handle_start_docker_container(call: ServiceCall) -> ServiceResponse:
         """Start one Docker container."""
