@@ -122,6 +122,25 @@ def build_device_info(domain: str, server: dict) -> DeviceInfo:
     )
 
 
+def build_container_device_info(
+    domain: str,
+    server: dict,
+    container_name: str,
+    sanitized_name: str,
+) -> DeviceInfo:
+    """Return device info for one Docker container below its host."""
+
+    host = server["host"]
+    server_name = server.get("name") or host
+    return DeviceInfo(
+        identifiers={(domain, f"{host}_container_{sanitized_name}")},
+        name=f"{server_name} {container_name}",
+        manufacturer="Docker",
+        model="Container",
+        via_device=(domain, host),
+    )
+
+
 def resolve_private_key_path(hass: HomeAssistant, key: Optional[str]) -> Optional[str]:
     """Return an absolute path for an SSH private key.
 

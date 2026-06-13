@@ -22,12 +22,12 @@ from homeassistant.const import (
 )
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
-from .util import build_device_info
+from .util import build_container_device_info, build_device_info
 
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 
@@ -213,6 +213,12 @@ class ServerContainerRegistry:
 
     def _build_container_sensors(self, raw_name: str, sanitized: str) -> list["VServerSensor"]:
         """Create the sensor entities for a single container."""
+        device_info = build_container_device_info(
+            DOMAIN,
+            self.coordinator.server,
+            raw_name,
+            sanitized,
+        )
         cpu_description = VServerSensorDescription(
             key=f"container_{sanitized}_cpu",
             name=f"{raw_name} CPU",
@@ -224,8 +230,18 @@ class ServerContainerRegistry:
             native_unit_of_measurement=PERCENTAGE,
         )
         return [
-            VServerSensor(self.coordinator, self.server_name, cpu_description),
-            VServerSensor(self.coordinator, self.server_name, mem_description),
+            VServerSensor(
+                self.coordinator,
+                self.server_name,
+                cpu_description,
+                device_info,
+            ),
+            VServerSensor(
+                self.coordinator,
+                self.server_name,
+                mem_description,
+                device_info,
+            ),
         ]
 
     def create_entities_from_stats(
@@ -493,6 +509,7 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         coordinator: VServerCoordinator,
         server_name: str,
         description: VServerSensorDescription,
+        device_info: DeviceInfo | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -500,7 +517,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         host = coordinator.server["host"]
         self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
-        self._attr_device_info = build_device_info(DOMAIN, coordinator.server)
+        self._attr_device_info = device_info or build_device_info(
+            DOMAIN,
+            coordinator.server,
+        )
 
     @property
     def native_value(self) -> Any:

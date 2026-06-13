@@ -19,7 +19,11 @@ from .docker_entities import (
     container_names_from_stats,
     find_container,
 )
-from .util import DEFAULT_CONNECT_TIMEOUT, build_device_info
+from .util import (
+    DEFAULT_CONNECT_TIMEOUT,
+    build_container_device_info,
+    build_device_info,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,7 +102,12 @@ class VServerContainerRestartButton(
         server_name = coordinator.server.get("name") or host
         self._attr_unique_id = f"{host}_container_{sanitized_name}_restart"
         self._attr_name = f"{server_name} {container_name} Restart"
-        self._attr_device_info = build_device_info(DOMAIN, coordinator.server)
+        self._attr_device_info = build_container_device_info(
+            DOMAIN,
+            coordinator.server,
+            container_name,
+            sanitized_name,
+        )
 
     @property
     def available(self) -> bool:
@@ -113,6 +122,12 @@ class VServerContainerRestartButton(
         """Keep the action target aligned with fresh Docker inventory."""
 
         self._container_name = container_name
+        self._attr_device_info = build_container_device_info(
+            DOMAIN,
+            self.coordinator.server,
+            container_name,
+            self._sanitized_name,
+        )
 
     async def async_press(self) -> None:
         """Restart the container."""
