@@ -12,7 +12,7 @@ The integration connects to each configured server via SSH, runs a compact colle
 
 It is intended for vServers, VPS instances, Raspberry Pis, dedicated Linux hosts, and similar machines that can be reached from Home Assistant via SSH. A Windows target profile exists as an experimental fallback with a smaller metric set.
 
-Current integration version: **1.4.3**.
+Current integration version: **1.4.16**.
 
 ## Highlights
 
@@ -44,6 +44,11 @@ For each configured server, the integration can collect:
 - Reboot-required state and read-only root filesystem state.
 - Docker installation state, running containers, container image/status/ports/health/restart count, unhealthy container count, total restart count, and dynamic per-container CPU/memory sensors.
 - Top CPU processes with PID, command, CPU usage, and memory usage attributes.
+- Process totals, running and zombie counts, plus the highest count observed during the current boot.
+- Established/TIME-WAIT TCP connections, socket usage, and optional conntrack count/capacity utilization.
+- Linux software RAID state, degraded/rebuild warnings, rebuild progress, remaining time, and optional `mdadm` details.
+- Optional SMART/NVMe health devices with temperature, wear, media errors, sector errors, power-on hours, and explicit partial/error counters.
+- Docker memory usage/limits, limit utilization, a per-container limit-reached binary sensor, PID counts, cumulative CPU throttling, and disk usage for images, containers, volumes, and build cache.
 - Failed systemd unit count/list and journal error count from the last 15 minutes.
 - SSH, web server, and VNC capability/status checks.
 - User-configured TCP port reachability from Home Assistant, including response time and error attributes.
@@ -77,6 +82,7 @@ During setup you provide:
 - Server name.
 - Hostname or IP address.
 - SSH port. Default: `22`.
+- One or more verified OpenSSH `SHA256:` host-key fingerprints.
 - SSH username.
 - Password or SSH private-key path.
 - Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`.
@@ -89,7 +95,8 @@ In the integration options you can also configure:
 - Collection command timeout. Default: `45` seconds.
 - Package metrics interval. Default: `43200` seconds (12 hours).
 - Docker metrics interval. Default: `1800` seconds (30 minutes).
-- Slow collector timeout for package and Docker metrics. Default: `180` seconds.
+- SMART/NVMe storage metrics interval. Default: `3600` seconds; set to `0` to disable.
+- Slow collector timeout for package, Docker, and storage metrics. Default: `180` seconds; individual storage tool calls are additionally capped at `20` seconds.
 - `run_command` allowlist, one command per line.
 - Edit an existing server.
 - Add another server.
@@ -97,6 +104,19 @@ In the integration options you can also configure:
 - Replace the full server list.
 
 Private-key paths may be absolute, relative to the Home Assistant configuration directory, or use `~` for the container user's home directory. Relative paths such as `ssh/id_vserver` resolve to `/config/ssh/id_vserver` on Home Assistant OS.
+
+SSH host-key verification is mandatory. Obtain the fingerprints through a trusted channel,
+preferably directly on the monitored server:
+
+```bash
+for key in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf "$key" -E sha256; done
+```
+
+Paste the `SHA256:...` values into the setup form, one per line. A network-side
+`ssh-keyscan` can help identify offered keys, but its result must be compared with a
+trusted server-side fingerprint before it is pinned. Existing entries created before
+host-key pinning must be edited once to add fingerprints; SSH collection remains blocked
+until they are configured.
 
 ## Entities
 
@@ -232,6 +252,7 @@ These services connect to a remote host over SSH. Common fields are:
 - `username` - SSH username.
 - `password` - Optional SSH password.
 - `key` - Optional SSH private-key path.
+- `host_key_fingerprints` - OpenSSH `SHA256:` fingerprints for ad-hoc hosts. May be omitted when `host` and `port` match a configured server with stored pins.
 - `port` - SSH port. Default: `22`.
 - `connect_timeout` - SSH connect timeout. Default: `10`, maximum `300`.
 - `command_timeout` - Remote command timeout. Default: `300` for actions, maximum `3600`.
@@ -346,12 +367,17 @@ Always reference the private key file, not the `.pub` public key. For Home Assis
 ## Security Notes
 
 - Prefer SSH private-key authentication over password authentication.
+- Verify and pin each server's SSH host-key fingerprints through a trusted channel.
 - Use a dedicated monitoring account where possible.
 - The Linux collector expects `bash` or a compatible shell for the full metric set.
 - The collector reads standard system files and runs read-only inspection commands where possible.
+- The collector never changes `/proc`, `/sys`, device, or powercap permissions. Metrics that are not readable remain unavailable.
+- SMART/NVMe/mdadm fallbacks use only non-interactive `sudo -n` with fixed read-only command forms and a maximum of 20 seconds per tool invocation.
+- Docker socket access and `sudo docker` are effectively root-equivalent. Only enable them for a dedicated account when that trust level is acceptable; do not expose that account to untrusted automations.
 - Remote maintenance actions use commands such as package-manager updates, Docker operations, service restarts, and reboot. Restrict `sudo` permissions carefully.
 - `run_command` is intentionally powerful. Configure the allowlist if you expose it to automations or dashboards.
-- The integration uses Paramiko's auto-add host key policy, so protect Home Assistant's network path to monitored servers.
+- Paramiko rejects missing or changed host keys before authentication. Ad-hoc service calls
+  must provide `host_key_fingerprints` unless the host and port match a configured server.
 
 Example sudoers rules for a dedicated monitoring user:
 
@@ -361,9 +387,10 @@ Example sudoers rules for a dedicated monitoring user:
 <your-vserver-user> ALL=(root) NOPASSWD: /usr/bin/apt-get -y upgrade
 <your-vserver-user> ALL=(root) NOPASSWD: /sbin/reboot
 
-# Optional: allow temporary read access to Intel RAPL energy counters.
-<your-vserver-user> ALL=(root) NOPASSWD: /usr/bin/chmod o+r /sys/class/powercap/*/energy_uj
-<your-vserver-user> ALL=(root) NOPASSWD: /usr/bin/chmod o-r /sys/class/powercap/*/energy_uj
+# Optional read-only storage-health commands. Verify executable paths locally.
+<your-vserver-user> ALL=(root) NOPASSWD: /usr/sbin/smartctl -a /dev/*
+<your-vserver-user> ALL=(root) NOPASSWD: /usr/sbin/nvme smart-log /dev/*
+<your-vserver-user> ALL=(root) NOPASSWD: /usr/sbin/mdadm --detail --export /dev/md*
 ```
 
 Adjust paths for your distribution. For production systems, keep sudoers entries as narrow as possible and avoid broad wildcard permissions for maintenance commands.
@@ -376,17 +403,18 @@ Adjust paths for your distribution. For production systems, keep sudoers entries
 - Python dependency from the manifest: `paramiko>=3.4.0`.
 - Linux target with common tools such as `bash`, `/proc`, `df`, `awk`, `sed`, and optionally `systemctl`, `journalctl`, Docker, and package-manager tools.
 - Optional package-manager support: `apt-get`, `dnf`, `yum`, `pacman`, `zypper`, or `apk`.
+- Optional storage health support: `smartmontools` (`smartctl`), `nvme-cli`, and `mdadm`. The collector first runs these tools as the SSH user and only then tries passwordless `sudo -n`. Missing tools, inaccessible devices, and partial reads are exposed separately instead of being reported as healthy.
 
 ## Release Management
 
-- Current manifest version: **1.4.3**.
+- Current manifest version: **1.4.16**.
 - Update `custom_components/vserver_ssh_stats/manifest.json` for each release.
 - Use `scripts/bump_version.py` when preparing a version bump.
 - Add notable changes to [`CHANGELOG.md`](CHANGELOG.md).
 - Use [`.github/release_template.md`](.github/release_template.md) for manually drafted GitHub releases so every release keeps the same structure and includes the donation link.
 - If you use GitHub's generated release notes, [`.github/release.yml`](.github/release.yml) provides the category format. Keep the support section from the release template in the final release body.
 - The `Validate Release Notes` workflow checks published or edited releases and fails when the PayPal donation link is missing.
-- Create a matching Git tag and GitHub release, for example `v1.4.3`, so HACS can track updates reliably.
+- Create a matching Git tag and GitHub release, for example `v1.4.16`, so HACS can track updates reliably.
 
 ## Support the Project
 

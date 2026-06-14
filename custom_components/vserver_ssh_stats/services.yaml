@@ -37,6 +37,9 @@ run_command:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -63,6 +66,9 @@ update_package_list:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -92,6 +98,9 @@ update_packages:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -121,6 +130,9 @@ upgrade_packages:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -150,6 +162,9 @@ reboot_host:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -182,6 +197,9 @@ restart_service:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -214,6 +232,9 @@ start_docker_container:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -243,6 +264,9 @@ stop_docker_container:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -272,6 +296,9 @@ restart_docker_container:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -298,6 +325,9 @@ prune_docker:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -327,6 +357,9 @@ clear_package_cache:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -356,6 +389,9 @@ get_server_diagnostics:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     port:
       description: SSH port.
       example: 22
@@ -385,6 +421,9 @@ tail_logs:
     key:
       description: Path to SSH private key.
       example: /config/ssh/id_rsa
+    host_key_fingerprints:
+      description: OpenSSH SHA256 host-key fingerprints. Required for unconfigured hosts.
+      example: SHA256:AbCdEf1234567890AbCdEf1234567890AbCdEf12345
     service:
       description: Optional system service name.
       example: docker

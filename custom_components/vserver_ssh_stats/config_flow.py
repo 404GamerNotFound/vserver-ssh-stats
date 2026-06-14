@@ -15,6 +15,7 @@ from homeassistant.helpers import selector
 
 from . import DOMAIN
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
+from .ssh_security import parse_host_key_fingerprints
 from .util import (
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
@@ -23,6 +24,7 @@ from .util import (
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
+    DEFAULT_STORAGE_INTERVAL,
     parse_monitored_ports,
     resolve_private_key_path,
 )
@@ -36,6 +38,16 @@ def _coerce_positive_int(value: Any, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return number if number > 0 else default
+
+
+def _coerce_nonnegative_int(value: Any, default: int) -> int:
+    """Return *value* as a non-negative integer or *default* when invalid."""
+
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return default
+    return number if number >= 0 else default
 
 
 def _number_box(min_value: int = 1, max_value: int | None = None) -> selector.NumberSelector:
@@ -88,6 +100,16 @@ def _format_monitored_ports(value: object) -> str:
     return ", ".join(str(port) for port in ports)
 
 
+def _format_host_key_fingerprints(value: object) -> str:
+    """Return configured host-key fingerprints formatted for text input."""
+
+    try:
+        fingerprints = parse_host_key_fingerprints(value)
+    except ValueError:
+        return str(value or "")
+    return "\n".join(fingerprints)
+
+
 def _build_server_schema(
     hosts: list[str],
     include_interval: bool,
@@ -126,6 +148,14 @@ def _build_server_schema(
     schema[vol.Required("port", default=defaults.get("port", 22))] = vol.All(
         vol.Coerce(int), vol.Range(min=1, max=65535)
     )
+    schema[
+        vol.Required(
+            "host_key_fingerprints",
+            default=_format_host_key_fingerprints(
+                defaults.get("host_key_fingerprints", "")
+            ),
+        )
+    ] = _textarea_selector()
     schema[vol.Required("username", default=defaults.get("username", vol.UNDEFINED))] = vol.All(
         str, vol.Length(min=1)
     )
@@ -164,6 +194,7 @@ def _build_options_schema(
     command_timeout: int,
     package_interval: int,
     docker_interval: int,
+    storage_interval: int,
     slow_command_timeout: int,
     command_allowlist: str,
 ) -> vol.Schema:
@@ -176,6 +207,7 @@ def _build_options_schema(
             vol.Required("command_timeout", default=command_timeout): _number_box(max_value=300),
             vol.Required("package_interval", default=package_interval): _number_box(),
             vol.Required("docker_interval", default=docker_interval): _number_box(),
+            vol.Required("storage_interval", default=storage_interval): _number_box(min_value=0),
             vol.Required("slow_command_timeout", default=slow_command_timeout): _number_box(
                 max_value=3600
             ),
@@ -227,6 +259,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "target_os": user_input.get("target_os", "auto"),
                     }
                     try:
+                        server["host_key_fingerprints"] = parse_host_key_fingerprints(
+                            user_input.get("host_key_fingerprints")
+                        )
+                    except ValueError:
+                        errors["host_key_fingerprints"] = "invalid_host_key_fingerprints"
+                    try:
                         server["monitored_ports"] = parse_monitored_ports(
                             user_input.get("monitored_ports")
                         )
@@ -268,6 +306,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "command_timeout": DEFAULT_COMMAND_TIMEOUT,
                             "package_interval": DEFAULT_PACKAGE_INTERVAL,
                             "docker_interval": DEFAULT_DOCKER_INTERVAL,
+                            "storage_interval": DEFAULT_STORAGE_INTERVAL,
                             "slow_command_timeout": DEFAULT_SLOW_COMMAND_TIMEOUT,
                             "command_allowlist": DEFAULT_COMMAND_ALLOWLIST,
                             "servers_json": json.dumps(self._servers),
@@ -387,6 +426,9 @@ class OptionsFlowHandler(OptionsFlow):
         self._docker_interval = _coerce_positive_int(
             config_entry.data.get("docker_interval"), DEFAULT_DOCKER_INTERVAL
         )
+        self._storage_interval = _coerce_nonnegative_int(
+            config_entry.data.get("storage_interval"), DEFAULT_STORAGE_INTERVAL
+        )
         self._slow_command_timeout = _coerce_positive_int(
             config_entry.data.get("slow_command_timeout"), DEFAULT_SLOW_COMMAND_TIMEOUT
         )
@@ -468,6 +510,7 @@ class OptionsFlowHandler(OptionsFlow):
                 self._command_timeout,
                 self._package_interval,
                 self._docker_interval,
+                self._storage_interval,
                 self._slow_command_timeout,
                 self._command_allowlist,
             ),
@@ -489,6 +532,9 @@ class OptionsFlowHandler(OptionsFlow):
         )
         self._docker_interval = _coerce_positive_int(
             user_input.get("docker_interval"), DEFAULT_DOCKER_INTERVAL
+        )
+        self._storage_interval = _coerce_nonnegative_int(
+            user_input.get("storage_interval"), DEFAULT_STORAGE_INTERVAL
         )
         self._slow_command_timeout = _coerce_positive_int(
             user_input.get("slow_command_timeout"), DEFAULT_SLOW_COMMAND_TIMEOUT
@@ -713,6 +759,12 @@ class OptionsFlowHandler(OptionsFlow):
             }
         )
         try:
+            server["host_key_fingerprints"] = parse_host_key_fingerprints(
+                user_input.get("host_key_fingerprints")
+            )
+        except ValueError:
+            errors["host_key_fingerprints"] = "invalid_host_key_fingerprints"
+        try:
             server["monitored_ports"] = parse_monitored_ports(
                 user_input.get("monitored_ports")
             )
@@ -797,6 +849,7 @@ class OptionsFlowHandler(OptionsFlow):
             "command_timeout": self._command_timeout,
             "package_interval": self._package_interval,
             "docker_interval": self._docker_interval,
+            "storage_interval": self._storage_interval,
             "slow_command_timeout": self._slow_command_timeout,
             "command_allowlist": self._command_allowlist,
             "servers_json": json.dumps(servers),

@@ -9,6 +9,7 @@
           "name": "Nom du serveur",
           "host": "Hôte",
           "port": "Port SSH",
+          "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
           "key": "Fichier de clé",
@@ -23,6 +24,7 @@
       "duplicate_host": "Cet hôte a déjà été ajouté",
       "host_in_use": "Cet hôte est déjà configuré",
       "key_missing": "Fichier de clé SSH introuvable",
+      "invalid_host_key_fingerprints": "Saisissez au moins une empreinte SHA256 de clé d'hôte OpenSSH valide",
       "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
     }
   },
@@ -35,6 +37,7 @@
           "command_timeout": "Délai de la commande de collecte (secondes)",
           "package_interval": "Intervalle des métriques de paquets (secondes)",
           "docker_interval": "Intervalle des métriques Docker (secondes)",
+          "storage_interval": "Intervalle des métriques SMART/NVMe (secondes, 0 désactive)",
           "slow_command_timeout": "Délai des collecteurs lents (secondes)",
           "command_allowlist": "Entrées run_command autorisées (une par ligne, suffixe * facultatif pour les préfixes)",
           "edit_server": "Modifier un serveur existant",
@@ -56,6 +59,7 @@
           "name": "Nom du serveur",
           "host": "Hôte",
           "port": "Port SSH",
+          "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
           "username": "Nom d'utilisateur",
           "password": "Mot de passe (vide pour conserver l'actuel)",
           "clear_password": "Supprimer le mot de passe enregistré",
@@ -72,6 +76,7 @@
           "name": "Nom du serveur",
           "host": "Hôte",
           "port": "Port SSH",
+          "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
           "key": "Fichier de clé",
@@ -94,6 +99,7 @@
           "name": "Nom du serveur",
           "host": "Hôte",
           "port": "Port SSH",
+          "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
           "username": "Nom d'utilisateur",
           "password": "Mot de passe",
           "key": "Fichier de clé",
@@ -108,6 +114,7 @@
       "duplicate_host": "Cet hôte a déjà été ajouté",
       "host_in_use": "Cet hôte est déjà configuré",
       "key_missing": "Fichier de clé SSH introuvable",
+      "invalid_host_key_fingerprints": "Saisissez au moins une empreinte SHA256 de clé d'hôte OpenSSH valide",
       "single_action": "Choisissez une seule action de serveur à la fois",
       "no_servers": "Aucun serveur configuré n'a été trouvé",
       "cannot_remove_last_server": "Au moins un serveur doit rester configuré",
@@ -152,6 +159,10 @@
           "name": "Fichier de clé",
           "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
         },
+        "host_key_fingerprints": {
+          "name": "Empreintes de clé d'hôte SSH",
+          "description": "Empreintes OpenSSH SHA256 épinglées. Obligatoires pour les hôtes non configurés."
+        },
         "port": {
           "name": "Port SSH",
           "description": "Port SSH."
@@ -185,6 +196,10 @@
         "key": {
           "name": "Fichier de clé",
           "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Empreintes de clé d'hôte SSH",
+          "description": "Empreintes OpenSSH SHA256 épinglées. Obligatoires pour les hôtes non configurés."
         },
         "port": {
           "name": "Port SSH",
@@ -223,6 +238,10 @@
         "key": {
           "name": "Fichier de clé",
           "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Empreintes de clé d'hôte SSH",
+          "description": "Empreintes OpenSSH SHA256 épinglées. Obligatoires pour les hôtes non configurés."
         },
         "port": {
           "name": "Port SSH",

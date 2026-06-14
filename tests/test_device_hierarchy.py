@@ -50,6 +50,35 @@ def test_container_device_is_grouped_below_host() -> None:
     }
 
 
+def test_storage_device_is_grouped_below_host() -> None:
+    """SMART/NVMe devices use stable identifiers below the monitored host."""
+
+    build_storage_device_info = _load_function(
+        COMPONENT_PATH / "util.py",
+        "build_storage_device_info",
+        {"DeviceInfo": lambda **kwargs: kwargs},
+    )
+
+    device_info = build_storage_device_info(
+        "vserver_ssh_stats",
+        {"host": "192.0.2.10", "name": "server"},
+        {
+            "key": "nvme0n1",
+            "name": "nvme0n1",
+            "model": "Example NVMe",
+            "protocol": "nvme",
+        },
+    )
+
+    assert device_info == {
+        "identifiers": {("vserver_ssh_stats", "192.0.2.10_storage_nvme0n1")},
+        "name": "server nvme0n1",
+        "manufacturer": "NVME",
+        "model": "Example NVMe",
+        "via_device": ("vserver_ssh_stats", "192.0.2.10"),
+    }
+
+
 def test_all_container_entity_types_use_child_device_info() -> None:
     """Container sensors, switches, and buttons stay on the child device."""
 

@@ -44,6 +44,11 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   - Unhealthy-Container und aufsummierte Docker-Restarts
   - Automatische Erstellung neuer CPU- und Speichersensoren, sobald zusätzliche Container starten
   - Top-CPU-Prozesse mit PID, Befehl, CPU- und Speicherauslastung als Sensorattribute
+  - Anzahl aller, laufender und Zombie-Prozesse sowie den höchsten beobachteten Prozesswert seit dem letzten Boot
+  - Etablierte und TIME-WAIT-TCP-Verbindungen, Socket-Nutzung und optionale Conntrack-Auslastung
+  - Software-RAID-Zustand, Degraded-/Rebuild-Warnungen, Fortschritt, Restzeit und optionale `mdadm`-Details
+  - Optionale SMART-/NVMe-Untergeräte mit Temperatur, Verschleiß, Medien-/Sektorfehlern, Betriebsstunden und expliziten Teilfehler-Zählern
+  - Docker-Speicherverbrauch/-limit, Limit-Auslastung, Binary-Sensor für erreichtes Limit, PID-Anzahl, CPU-Throttling sowie Speicherbedarf von Images, Containern, Volumes und Build-Cache
   - Systemd-Fehler, fehlgeschlagene Units und Journal-Fehler der letzten 15 Minuten
   - Disk-I/O-Lese- und Schreibrate
   - VNC-Unterstützung
@@ -54,7 +59,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Konfigurierbare SSH-Verbindungs- und Sammelbefehls-Timeouts.
 - Paketmetriken laufen in einem separaten Intervall (Standard: 43200 Sekunden / 12 Stunden).
 - Docker-Metriken laufen in einem separaten Intervall (Standard: 1800 Sekunden / 30 Minuten).
-- Langsame Paket- und Docker-Teilabfragen nutzen ein eigenes Timeout (Standard: 180 Sekunden).
+- SMART-/NVMe-Metriken laufen in einem separaten Intervall (Standard: 3600 Sekunden, `0` deaktiviert die Abfrage).
+- Langsame Paket-, Docker- und Storage-Teilabfragen nutzen ein eigenes Timeout (Standard: 180 Sekunden); einzelne Storage-Werkzeugaufrufe sind zusätzlich auf 20 Sekunden begrenzt.
 - Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketlisten, Upgraden von Paketen, Neustarten des Hosts, Neustarten von Diensten, Docker-Container-Aktionen, Docker-Prune, Cache-Cleanup, Diagnosereport und Log-Tail.
 - Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
 - Zusammenfassender `health_status`-Sensor mit `ok`, `warning`, `critical` oder `offline` sowie Score und Gründen als Attribute.
@@ -208,7 +214,20 @@ cards:
 - Es wird empfohlen, einen dedizierten, eingeschränkten Benutzer für das SSH-Monitoring zu erstellen (mit nur Lesezugriff auf `/proc` und `df`).
 - Aufgrund der Syntax der abgesetzten Befehle muss /bin/bash oder ein kompatibler Shell für den User gewählt werden, /bin/sh versteht einige Ausdrücke nicht.
 - SSH-Passwortauthentifizierung wird unterstützt, aber **SSH-Schlüssel-Authentifizierung** wird für den produktiven Einsatz dringend empfohlen.
+- Die Prüfung des SSH-Host-Keys ist verpflichtend. Für jeden Server müssen ein oder mehrere verifizierte OpenSSH-`SHA256:`-Fingerprints hinterlegt werden. Paramiko bricht die Verbindung vor der Authentifizierung ab, wenn der Fingerprint fehlt oder sich geändert hat.
 - Remote-Aktionen wie Paketaktualisierungen und Neustarts nutzen `sudo`. Stellen Sie sicher, dass das entfernte Konto `apt-get`, `dnf`, `yum` und `reboot` ohne Passwortabfrage ausführen darf (z. B. durch gezielte Einträge in der `/etc/sudoers`). Dokumentieren oder härten Sie diese Rechte pro Server ab, bevor Sie die Buttons/Services einsetzen.
+- Für SMART/NVMe und ausführliche RAID-Daten werden optional `smartctl`, `nvme` und `mdadm` verwendet. Die Integration versucht die Abfrage zuerst ohne erhöhte Rechte und danach mit `sudo -n`. Erlauben Sie nur die benötigten read-only Befehle.
+- Der Collector verändert keine Rechte unter `/proc`, `/sys`, an Geräten oder an Powercap-Dateien. Nicht lesbare Messwerte bleiben unverfügbar.
+- Einzelne SMART-/NVMe-/mdadm-Aufrufe sind auf maximal 20 Sekunden begrenzt. Fehlende Werkzeuge, nicht lesbare Geräte und Teilergebnisse werden getrennt gemeldet.
+- Zugriff auf den Docker-Socket und `sudo docker` sind praktisch root-gleichwertig. Gewähren Sie diese Rechte nur einem dedizierten, vertrauenswürdigen Konto und nicht unkontrollierten Automationen.
+
+Die Fingerprints sollten über einen vertrauenswürdigen Kanal direkt auf dem Zielserver ermittelt werden:
+
+```bash
+for key in /etc/ssh/ssh_host_*_key.pub; do ssh-keygen -lf "$key" -E sha256; done
+```
+
+Die ausgegebenen `SHA256:...`-Werte werden im Konfigurationsdialog einzeln pro Zeile eingetragen. Einträge aus älteren Versionen müssen über **Geräte & Dienste > VServer SSH Stats > Konfigurieren > Bestehenden Server bearbeiten** einmal ergänzt werden. Bis dahin werden SSH-Abfragen aus Sicherheitsgründen blockiert. Bei freien Dienstaufrufen für nicht konfigurierte Hosts muss das Feld `host_key_fingerprints` mitgegeben werden.
 
 Eine Beispiel-Konfiguration für `/etc/sudoers.d/<Ihr-user-name-für-VServer-SSH-Stats>`
 ```
@@ -220,15 +239,16 @@ Eine Beispiel-Konfiguration für `/etc/sudoers.d/<Ihr-user-name-für-VServer-SSH
 <Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/apt upgrade
 <Ihr vserver-user name> ALL=(root) NOPASSWD: /sbin/reboot
 
-# Leistungswerte auf jüngeren Ubuntu / Debian Systemen und evtl. weiteren
-<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a+r /sys/class/powercap/*/energy_uj
-<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/bin/chmod a-r /sys/class/powercap/*/energy_uj
+# Optionale, ausschließlich lesende Storage-Abfragen. Pfade lokal mit command -v prüfen.
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/sbin/smartctl -a /dev/*
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/sbin/nvme smart-log /dev/*
+<Ihr vserver-user name> ALL=(root) NOPASSWD: /usr/sbin/mdadm --detail --export /dev/md*
 ```
 
 ---
 
 ## Release-Management
-- Aktuelle stabile Version: **v1.3.1** (siehe `manifest.json`).
+- Aktuelle Manifest-Version: **v1.4.16** (siehe `manifest.json`).
 - Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.3.1`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).

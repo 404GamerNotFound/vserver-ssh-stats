@@ -9,6 +9,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -23,6 +24,7 @@
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
+      "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
@@ -35,6 +37,7 @@
           "command_timeout": "Tiempo de espera del comando de recolección (segundos)",
           "package_interval": "Intervalo de métricas de paquetes (segundos)",
           "docker_interval": "Intervalo de métricas de Docker (segundos)",
+          "storage_interval": "Intervalo de métricas SMART/NVMe (segundos, 0 desactiva)",
           "slow_command_timeout": "Tiempo de espera de recolectores lentos (segundos)",
           "command_allowlist": "Entradas run_command permitidas (una por línea, sufijo * opcional para prefijos)",
           "edit_server": "Editar un servidor existente",
@@ -56,6 +59,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña (vacía para conservar la actual)",
           "clear_password": "Eliminar contraseña almacenada",
@@ -72,6 +76,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -94,6 +99,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -108,6 +114,7 @@
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
+      "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
       "single_action": "Elige solo una acción de servidor a la vez",
       "no_servers": "No se encontró ningún servidor configurado",
       "cannot_remove_last_server": "Debe quedar al menos un servidor configurado",
@@ -152,6 +159,10 @@
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
         },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
+        },
         "port": {
           "name": "Puerto SSH",
           "description": "Puerto SSH."
@@ -185,6 +196,10 @@
         "key": {
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
         },
         "port": {
           "name": "Puerto SSH",
@@ -223,6 +238,10 @@
         "key": {
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
         },
         "port": {
           "name": "Puerto SSH",

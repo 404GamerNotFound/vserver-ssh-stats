@@ -16,6 +16,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
+from .ssh_security import configure_pinned_host_keys, parse_host_key_fingerprints
 from .util import (
     DEFAULT_ACTION_COMMAND_TIMEOUT,
     DEFAULT_COMMAND_ALLOWLIST,
@@ -25,6 +26,7 @@ from .util import (
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
+    DEFAULT_STORAGE_INTERVAL,
     is_command_allowed,
     parse_command_allowlist,
     parse_monitored_ports,
@@ -375,7 +377,10 @@ def _exec_remote_commands(
     """Connect via SSH, run command fallbacks, and return output/success."""
 
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    configure_pinned_host_keys(
+        client,
+        _host_key_fingerprints_for_connection(hass, data),
+    )
     connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
     command_timeout = _positive_timeout(
         data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
@@ -417,6 +422,32 @@ def _command_allowlist_for_host(hass: HomeAssistant, host: str) -> list[str]:
             matched_host = True
             host_rules.extend(rules)
     return host_rules if matched_host else fallback_rules
+
+
+def _host_key_fingerprints_for_connection(
+    hass: HomeAssistant,
+    data: dict,
+) -> list[str]:
+    """Return explicit or configured host-key fingerprints for one connection."""
+
+    explicit = data.get("host_key_fingerprints")
+    if explicit:
+        return parse_host_key_fingerprints(explicit)
+
+    host = data.get("host")
+    port = data.get("port", 22)
+    for entry_data in hass.data.get(DOMAIN, {}).values():
+        if not isinstance(entry_data, dict):
+            continue
+        for server in entry_data.get("servers", []):
+            if server.get("host") != host or server.get("port", 22) != port:
+                continue
+            return parse_host_key_fingerprints(server.get("host_key_fingerprints"))
+
+    raise ValueError(
+        "SSH host-key verification is required. Configure this server or provide "
+        "host_key_fingerprints in the service call."
+    )
 
 
 def _store_action_status(
@@ -540,7 +571,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
         def _exec_cmd() -> tuple[str, bool]:
             client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            configure_pinned_host_keys(
+                client,
+                _host_key_fingerprints_for_connection(hass, data),
+            )
             connect_timeout = _positive_timeout(data.get("connect_timeout"), DEFAULT_CONNECT_TIMEOUT)
             command_timeout = _positive_timeout(
                 data.get("command_timeout"), DEFAULT_ACTION_COMMAND_TIMEOUT
@@ -570,7 +604,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             output, success = await asyncio.to_thread(_exec_cmd)
         except Exception as err:  # pragma: no cover - best effort
             _LOGGER.error("Command execution failed: %s", err)
-            output = ""
+            output = str(err) or err.__class__.__name__
             success = False
         _store_action_status(hass, host, "run_command", output, success)
         hass.bus.async_fire(f"{DOMAIN}_command", {"host": host, "output": output, "success": success})
@@ -790,6 +824,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         vol.Required("username"): cv.string,
         vol.Optional("password"): cv.string,
         vol.Optional("key"): cv.string,
+        vol.Optional("host_key_fingerprints"): cv.string,
         vol.Optional("port", default=22): cv.port,
         vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=300)
@@ -852,6 +887,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Required("command"): cv.string,
                 vol.Optional("password"): cv.string,
                 vol.Optional("key"): cv.string,
+                vol.Optional("host_key_fingerprints"): cv.string,
                 vol.Optional("port", default=22): cv.port,
                 vol.Optional("connect_timeout", default=DEFAULT_CONNECT_TIMEOUT): vol.All(
                     vol.Coerce(int), vol.Range(min=1, max=300)
@@ -964,6 +1000,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if key:
             server["key"] = key
         try:
+            server["host_key_fingerprints"] = parse_host_key_fingerprints(
+                server.get("host_key_fingerprints")
+            )
+        except ValueError:
+            server["host_key_fingerprints"] = []
+        try:
             server["monitored_ports"] = parse_monitored_ports(server.get("monitored_ports"))
         except ValueError:
             server["monitored_ports"] = []
@@ -973,6 +1015,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "command_timeout": data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT,
         "package_interval": data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL,
         "docker_interval": data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL,
+        "storage_interval": (
+            data.get("storage_interval")
+            if data.get("storage_interval") is not None
+            else DEFAULT_STORAGE_INTERVAL
+        ),
         "slow_command_timeout": data.get("slow_command_timeout")
         or DEFAULT_SLOW_COMMAND_TIMEOUT,
         "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),

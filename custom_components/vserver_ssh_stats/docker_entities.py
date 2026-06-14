@@ -77,6 +77,8 @@ def build_container_action_data(
         data["password"] = server["password"]
     if server.get("key"):
         data["key"] = server["key"]
+    if server.get("host_key_fingerprints"):
+        data["host_key_fingerprints"] = "\n".join(server["host_key_fingerprints"])
     return data
 
 

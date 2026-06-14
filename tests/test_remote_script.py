@@ -16,6 +16,15 @@ def _remote_script() -> str:
     return ast.literal_eval(module.body[0].value)
 
 
+def _bash_function(name: str) -> str:
+    """Extract one top-level shell function from the embedded payload."""
+
+    script = _remote_script()
+    start = script.index(f"{name}() {{")
+    end = script.index("\n}\n", start) + len("\n}\n")
+    return script[start:end]
+
+
 def test_remote_script_has_valid_bash_syntax() -> None:
     """Check the shell payload independently from the Python wrapper."""
 
@@ -44,10 +53,11 @@ docker() {
         'abc123|running-app|repo/app:1|Up 2 hours|8080/tcp' \
         'def456|stopped-app|repo/app:2|Exited (0) 3 hours ago|'
       ;;
-    stats) printf '%s\n' 'abc123|running-app|1.25%|4.50%' ;;
+    stats) printf '%s\n' 'abc123|running-app|1.25%|4.50%|128MiB / 512MiB|17' ;;
     inspect) printf '%s\n' \
-      'abc123full|2|true|healthy|unless-stopped|monitoring|grafana|' \
-      'def456full|0|false|exited|no|monitoring|stopped-app|' ;;
+      'abc123full|2|true|healthy|unless-stopped|monitoring|grafana||0|536870912' \
+      'def456full|0|false|exited|no|monitoring|stopped-app||0|0' ;;
+    system) printf '%s\n' 'Images|1.5GiB|500MiB (32%%)' 'Containers|64MiB|0B (0%%)' 'Local Volumes|2GiB|1GiB (50%%)' 'Build Cache|256MiB|128MiB (50%%)' ;;
     *) return 24 ;;
   esac
 }
@@ -71,6 +81,9 @@ docker() {
     assert data["docker_stats_complete"] == 1
     assert data["container_stats"][0]["id"] == "abc123"
     assert data["container_stats"][0]["cpu"] == 1.25
+    assert data["container_stats"][0]["memory_usage_bytes"] == 134217728
+    assert data["container_stats"][0]["memory_limit_bytes"] == 536870912
+    assert data["container_stats"][0]["pids"] == 17
     assert data["container_stats"][0]["running"] is True
     assert data["container_stats"][0]["restart_policy"] == "unless-stopped"
     assert data["container_stats"][0]["compose_project"] == "monitoring"
@@ -79,6 +92,89 @@ docker() {
     assert data["container_stats"][1]["cpu"] is None
     assert data["container_stats"][1]["running"] is False
     assert data["container_stats"][1]["status"].startswith("Exited (0)")
+    assert data["docker_images_size_bytes"] == 1610612736
+    assert data["docker_volumes_size_bytes"] == 2147483648
+
+
+def test_base_collector_reports_process_socket_and_raid_fields() -> None:
+    """The fast collector always returns the new diagnostic metric keys."""
+
+    result = subprocess.run(
+        ["bash"],
+        input=_remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert {
+        "process_total",
+        "process_running",
+        "process_zombies",
+        "tcp_established",
+        "tcp_time_wait",
+        "sockets_used",
+        "conntrack_count",
+        "software_raid_arrays",
+        "software_raid_degraded",
+        "software_raid_rebuild_active",
+        "raid_arrays",
+    }.issubset(data)
+
+
+def test_process_state_parser_handles_spaces_and_parentheses() -> None:
+    """Parse the state after the final command-name parenthesis in proc stat."""
+
+    result = subprocess.run(
+        ["bash"],
+        input=(
+            _bash_function("parse_process_state")
+            + "\nparse_process_state '123 (worker ) with spaces) Z 1 2 3'\n"
+            + "printf '%s' \"$parsed_process_state\"\n"
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "Z"
+
+
+def test_storage_collector_returns_a_stable_payload() -> None:
+    """The optional slow collector remains valid without storage tools."""
+
+    result = subprocess.run(
+        ["bash"],
+        input=_remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ
+        | {
+            "PATH": "/usr/bin:/bin",
+            "VSERVER_SSH_STATS_MODE": "storage",
+            "VSERVER_SSH_STATS_STORAGE_TIMEOUT": "1",
+        },
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert {
+        "storage_devices",
+        "storage_tools_available",
+        "storage_stats_complete",
+        "storage_stats_partial",
+        "storage_devices_seen",
+        "storage_devices_collected",
+        "storage_device_errors",
+        "raid_details",
+    }.issubset(data)
+    assert isinstance(data["storage_devices"], list)
+    assert isinstance(data["raid_details"], list)
 
 
 def test_docker_collector_does_not_turn_parse_errors_into_zero() -> None:

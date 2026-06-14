@@ -39,6 +39,7 @@ async def async_get_config_entry_diagnostics(
             "command_timeout": config_entry.data.get("command_timeout"),
             "package_interval": config_entry.data.get("package_interval"),
             "docker_interval": config_entry.data.get("docker_interval"),
+            "storage_interval": config_entry.data.get("storage_interval"),
             "slow_command_timeout": config_entry.data.get("slow_command_timeout"),
             "command_allowlist_configured": bool(config_entry.data.get("command_allowlist")),
         },

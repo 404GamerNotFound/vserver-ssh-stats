@@ -28,7 +28,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import DOMAIN
 from .coordinator import VServerCoordinator, async_get_or_create_coordinators
 from .docker_entities import find_container
-from .util import build_container_device_info, build_device_info
+from .util import build_container_device_info, build_device_info, build_storage_device_info
 
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 
@@ -189,13 +189,42 @@ def _build_health(data: dict[str, Any], online: bool) -> dict[str, Any]:
         health = str(container.get("health_state") or "").lower()
         status = str(container.get("status") or "").lower()
         name = str(container.get("name") or "").strip()
+        memory_limit_usage = _as_float(container.get("memory_limit_usage"))
         exited_with_error = status.startswith("exited") and not status.startswith(
             "exited (0)"
         )
         if health in {"unhealthy", "dead"} or exited_with_error:
             unhealthy_containers.append(name or "unknown")
+        if memory_limit_usage is not None and memory_limit_usage >= 100:
+            add_reason(
+                f"Container {name or 'unknown'} reached its memory limit",
+                20,
+            )
+        elif memory_limit_usage is not None and memory_limit_usage >= 90:
+            add_reason(
+                f"Container {name or 'unknown'} is near its memory limit",
+                10,
+            )
     for name in unhealthy_containers[:5]:
         add_reason(f"Container {name} is not healthy", 15)
+
+    zombies = _as_float(data.get("process_zombies"))
+    if zombies is not None and zombies > 0:
+        add_reason(f"{zombies:.0f} zombie processes detected", min(15, 5 + int(zombies)))
+
+    if data.get("software_raid_degraded"):
+        add_reason("Software RAID is degraded", 35)
+    if data.get("smart_failure_detected"):
+        add_reason("A storage device reports SMART failure", 40)
+    elif data.get("storage_collection_error"):
+        add_reason("Storage health data is incomplete", 10)
+
+    conntrack_usage = _as_float(data.get("conntrack_usage"))
+    if conntrack_usage is not None:
+        if conntrack_usage >= 95:
+            add_reason(f"Conntrack usage is critical at {conntrack_usage:.0f}%", 25)
+        elif conntrack_usage >= 80:
+            add_reason(f"Conntrack usage is high at {conntrack_usage:.0f}%", 10)
 
     return {
         "status": _health_level(score),
@@ -230,23 +259,66 @@ class ServerContainerRegistry:
             name=f"{raw_name} Memory",
             native_unit_of_measurement=PERCENTAGE,
         )
+        metrics = (
+            cpu_description,
+            mem_description,
+            VServerSensorDescription(
+                key=f"container_{sanitized}_memory_usage_bytes",
+                name=f"{raw_name} Memory Usage",
+                native_unit_of_measurement=UnitOfInformation.BYTES,
+                device_class=SensorDeviceClass.DATA_SIZE,
+            ),
+            VServerSensorDescription(
+                key=f"container_{sanitized}_memory_limit_bytes",
+                name=f"{raw_name} Memory Limit",
+                native_unit_of_measurement=UnitOfInformation.BYTES,
+                device_class=SensorDeviceClass.DATA_SIZE,
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ),
+            VServerSensorDescription(
+                key=f"container_{sanitized}_memory_limit_usage",
+                name=f"{raw_name} Memory Limit Usage",
+                native_unit_of_measurement=PERCENTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+            ),
+            VServerSensorDescription(
+                key=f"container_{sanitized}_pids",
+                name=f"{raw_name} PIDs",
+            ),
+            VServerSensorDescription(
+                key=f"container_{sanitized}_cpu_throttled_periods",
+                name=f"{raw_name} CPU Throttled Periods",
+                state_class=SensorStateClass.TOTAL_INCREASING,
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ),
+            VServerSensorDescription(
+                key=f"container_{sanitized}_cpu_throttled_seconds",
+                name=f"{raw_name} CPU Throttled Time",
+                native_unit_of_measurement=UnitOfTime.SECONDS,
+                state_class=SensorStateClass.TOTAL_INCREASING,
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ),
+        )
+        metric_names = (
+            "cpu",
+            "mem",
+            "memory_usage_bytes",
+            "memory_limit_bytes",
+            "memory_limit_usage",
+            "pids",
+            "cpu_throttled_periods",
+            "cpu_throttled_seconds",
+        )
         return [
             VServerSensor(
                 self.coordinator,
                 self.server_name,
-                cpu_description,
+                description,
                 device_info,
                 container_key=sanitized,
-                container_metric="cpu",
-            ),
-            VServerSensor(
-                self.coordinator,
-                self.server_name,
-                mem_description,
-                device_info,
-                container_key=sanitized,
-                container_metric="mem",
-            ),
+                container_metric=metric,
+            )
+            for description, metric in zip(metrics, metric_names, strict=True)
         ]
 
     def create_entities_from_stats(
@@ -357,6 +429,73 @@ class ServerDiskRegistry:
             label = disk.get("label") or disk.get("name") or disk.get("mount") or sanitized
             self.known_disks.add(sanitized)
             new_entities.extend(self._build_disk_sensors(label, sanitized))
+        return new_entities
+
+
+@dataclass
+class ServerStorageRegistry:
+    """Track SMART/NVMe sensors created for physical storage devices."""
+
+    coordinator: "VServerCoordinator"
+    server_name: str
+    known_devices: set[str] = field(default_factory=set)
+
+    def create_entities_from_stats(
+        self, stats: Iterable[Dict[str, Any]] | None
+    ) -> list["VServerSensor"]:
+        """Create child-device sensors for newly discovered physical drives."""
+
+        if not stats:
+            return []
+        new_entities: list[VServerSensor] = []
+        metric_descriptions = (
+            ("smart_status", "SMART Status", None, None),
+            (
+                "temperature",
+                "Temperature",
+                UnitOfTemperature.CELSIUS,
+                SensorDeviceClass.TEMPERATURE,
+            ),
+            ("wear_percent", "Wear Used", PERCENTAGE, None),
+            ("media_errors", "Media Errors", None, None),
+            ("reallocated_sectors", "Reallocated Sectors", None, None),
+            ("pending_sectors", "Pending Sectors", None, None),
+            ("uncorrectable_sectors", "Uncorrectable Sectors", None, None),
+            ("power_on_hours", "Power On Hours", UnitOfTime.HOURS, None),
+        )
+        for device in stats:
+            key = str(device.get("key") or "")
+            if not key or key in self.known_devices:
+                continue
+            self.known_devices.add(key)
+            device_info = build_storage_device_info(
+                DOMAIN,
+                self.coordinator.server,
+                device,
+            )
+            name = str(device.get("name") or key)
+            for metric, label, unit, device_class in metric_descriptions:
+                description = VServerSensorDescription(
+                    key=f"storage_{key}_{metric}",
+                    name=f"{name} {label}",
+                    native_unit_of_measurement=unit,
+                    device_class=device_class,
+                    entity_category=(
+                        EntityCategory.DIAGNOSTIC
+                        if metric not in {"temperature", "wear_percent"}
+                        else None
+                    ),
+                )
+                new_entities.append(
+                    VServerSensor(
+                        self.coordinator,
+                        self.server_name,
+                        description,
+                        device_info,
+                        storage_key=key,
+                        storage_metric=metric,
+                    )
+                )
         return new_entities
 
 
@@ -476,7 +615,72 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     VServerSensorDescription(key="containers", name="Containers"),
     VServerSensorDescription(key="docker_unhealthy_containers", name="Unhealthy Containers"),
     _diagnostic_sensor(key="docker_restart_count_total", name="Docker Restart Count Total"),
+    VServerSensorDescription(
+        key="docker_images_size_bytes",
+        name="Docker Images Disk Usage",
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        device_class=SensorDeviceClass.DATA_SIZE,
+    ),
+    VServerSensorDescription(
+        key="docker_containers_size_bytes",
+        name="Docker Containers Disk Usage",
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        device_class=SensorDeviceClass.DATA_SIZE,
+    ),
+    VServerSensorDescription(
+        key="docker_volumes_size_bytes",
+        name="Docker Volumes Disk Usage",
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        device_class=SensorDeviceClass.DATA_SIZE,
+    ),
+    VServerSensorDescription(
+        key="docker_build_cache_size_bytes",
+        name="Docker Build Cache Disk Usage",
+        native_unit_of_measurement=UnitOfInformation.BYTES,
+        device_class=SensorDeviceClass.DATA_SIZE,
+    ),
     _diagnostic_sensor(key="top_processes", name="Top Processes"),
+    _diagnostic_sensor(key="process_total", name="Process Count"),
+    _diagnostic_sensor(key="process_running", name="Running Processes"),
+    _diagnostic_sensor(key="process_zombies", name="Zombie Processes"),
+    _diagnostic_sensor(key="process_peak_since_boot", name="Peak Processes Since Boot"),
+    _diagnostic_sensor(key="tcp_established", name="Established TCP Connections"),
+    _diagnostic_sensor(key="tcp_time_wait", name="TCP TIME-WAIT Connections"),
+    _diagnostic_sensor(key="sockets_used", name="Used Sockets"),
+    _diagnostic_sensor(key="tcp_sockets_in_use", name="TCP Sockets In Use"),
+    _diagnostic_sensor(key="conntrack_count", name="Conntrack Entries"),
+    _diagnostic_sensor(key="conntrack_max", name="Conntrack Maximum"),
+    VServerSensorDescription(
+        key="conntrack_usage",
+        name="Conntrack Usage",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    _diagnostic_sensor(key="software_raid_arrays", name="Software RAID Arrays"),
+    VServerSensorDescription(
+        key="software_raid_rebuild_progress",
+        name="Software RAID Rebuild Progress",
+        native_unit_of_measurement=PERCENTAGE,
+    ),
+    _diagnostic_sensor(
+        key="software_raid_rebuild_remaining_minutes",
+        name="Software RAID Rebuild Remaining",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+    ),
+    _diagnostic_sensor(key="smart_failed_devices", name="SMART Failed Devices"),
+    _diagnostic_sensor(key="storage_tools_available", name="Storage Tools Available"),
+    _diagnostic_sensor(key="storage_devices_seen", name="Storage Devices Seen"),
+    _diagnostic_sensor(
+        key="storage_devices_collected",
+        name="Storage Devices Collected",
+    ),
+    _diagnostic_sensor(key="storage_device_errors", name="Storage Device Errors"),
+    _diagnostic_sensor(
+        key="storage_collection_time_ms",
+        name="Storage Collection Time",
+        native_unit_of_measurement="ms",
+    ),
+    _diagnostic_sensor(key="storage_collection_error", name="Storage Collection Error"),
     _diagnostic_sensor(key="failed_systemd_units", name="Failed Systemd Units"),
     _diagnostic_sensor(key="failed_systemd_units_list", name="Failed Systemd Units List"),
     _diagnostic_sensor(key="journal_errors", name="Journal Errors"),
@@ -518,12 +722,16 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
         *,
         container_key: str | None = None,
         container_metric: str | None = None,
+        storage_key: str | None = None,
+        storage_metric: str | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self.entity_description = description
         self._container_key = container_key
         self._container_metric = container_metric
+        self._storage_key = storage_key
+        self._storage_metric = storage_metric
         host = coordinator.server["host"]
         self._attr_unique_id = f"{host}_{description.key}"
         self._attr_name = f"{server_name} {description.name}"
@@ -553,6 +761,12 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             container = find_container(self.coordinator.data, self._container_key)
             if container is not None:
                 return container.get(self._container_metric)
+        if self._storage_key and self._storage_metric:
+            lookup = self.coordinator.data.get("storage_device_lookup", {})
+            device = lookup.get(self._storage_key) if isinstance(lookup, dict) else None
+            if isinstance(device, dict):
+                return device.get(self._storage_metric)
+            return None
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
@@ -582,6 +796,21 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return {
                 "units": self.coordinator.data.get("failed_systemd_units_details", []),
             }
+        if self.entity_description.key == "software_raid_arrays":
+            return {
+                "arrays": self.coordinator.data.get("raid_arrays", []),
+                "mdadm_details": self.coordinator.data.get("raid_detail_arrays", []),
+            }
+        if self._storage_key:
+            lookup = self.coordinator.data.get("storage_device_lookup", {})
+            device = lookup.get(self._storage_key) if isinstance(lookup, dict) else None
+            if isinstance(device, dict):
+                return {
+                    "path": device.get("path"),
+                    "model": device.get("model"),
+                    "serial": device.get("serial"),
+                    "protocol": device.get("protocol"),
+                }
         return None
 
 
@@ -654,7 +883,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up VServer SSH Stats sensors based on a config entry."""
     entities: list[VServerSensor] = []
-    registries: list[tuple[ServerContainerRegistry, ServerDiskRegistry, str]] = []
+    registries: list[
+        tuple[ServerContainerRegistry, ServerDiskRegistry, ServerStorageRegistry, str]
+    ] = []
     entity_registry = er.async_get(hass)
     try:
         registry_entries = er.async_entries_for_config_entry(
@@ -674,27 +905,33 @@ async def async_setup_entry(
             continue
         container_registry = ServerContainerRegistry(coordinator, name)
         disk_registry = ServerDiskRegistry(coordinator, name)
-        registries.append((container_registry, disk_registry, name))
+        storage_registry = ServerStorageRegistry(coordinator, name)
+        registries.append((container_registry, disk_registry, storage_registry, name))
         for description in SENSORS:
             entities.append(VServerSensor(coordinator, name, description))
         for action, action_name in ACTION_STATUS_SENSORS:
             entities.append(
                 VServerActionStatusSensor(hass, coordinator.server, action, action_name)
             )
-    for container_registry, disk_registry, _name in registries:
+    for container_registry, disk_registry, storage_registry, _name in registries:
         coordinator = container_registry.coordinator
         stats = coordinator.data if isinstance(coordinator.data, dict) else {}
         initial_stats = stats.get("container_stats")
         disk_initial_stats = stats.get("disk_stats")
+        storage_initial_stats = stats.get("storage_devices")
         entities.extend(
             container_registry.create_entities_from_registry(registry_entries)
         )
         entities.extend(container_registry.create_entities_from_stats(initial_stats))
         entities.extend(disk_registry.create_entities_from_stats(disk_initial_stats))
+        entities.extend(
+            storage_registry.create_entities_from_stats(storage_initial_stats)
+        )
 
         def _make_container_listener(
             container_registry: ServerContainerRegistry,
             disk_registry: ServerDiskRegistry,
+            storage_registry: ServerStorageRegistry,
         ) -> Callable[[], None]:
             def _handle_update() -> None:
                 data: Dict[str, Any] | None = container_registry.coordinator.data
@@ -706,11 +943,21 @@ async def async_setup_entry(
                 new_disks = disk_registry.create_entities_from_stats(disk_stats)
                 if new_disks:
                     async_add_entities(new_disks)
+                storage_stats = (
+                    data.get("storage_devices") if isinstance(data, dict) else None
+                )
+                new_storage = storage_registry.create_entities_from_stats(storage_stats)
+                if new_storage:
+                    async_add_entities(new_storage)
 
             return _handle_update
 
         remove_listener = coordinator.async_add_listener(
-            _make_container_listener(container_registry, disk_registry)
+            _make_container_listener(
+                container_registry,
+                disk_registry,
+                storage_registry,
+            )
         )
         entry.async_on_unload(remove_listener)
     async_add_entities(entities)

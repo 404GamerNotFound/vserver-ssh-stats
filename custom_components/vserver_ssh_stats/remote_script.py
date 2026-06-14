@@ -48,20 +48,37 @@ positive_timeout() {
 collector_mode="${VSERVER_SSH_STATS_MODE:-full}"
 pkg_timeout=$(positive_timeout "${VSERVER_SSH_STATS_PKG_TIMEOUT:-}" 6)
 docker_timeout=$(positive_timeout "${VSERVER_SSH_STATS_DOCKER_TIMEOUT:-}" 5)
+storage_timeout=$(positive_timeout "${VSERVER_SSH_STATS_STORAGE_TIMEOUT:-}" 15)
 docker_quick_timeout=$docker_timeout
 if [ "$docker_quick_timeout" -gt 30 ]; then
   docker_quick_timeout=30
 fi
 
+human_bytes() {
+  raw=${1//[[:space:]]/}
+  [[ "$raw" =~ ^([0-9]+([.][0-9]+)?)([KMGTPE]?i?B)?$ ]] || return 0
+  value=${BASH_REMATCH[1]}
+  unit=${BASH_REMATCH[3]}
+  factor=1
+  case "$unit" in
+    kB|KB) factor=1000 ;;
+    MB) factor=1000000 ;;
+    GB) factor=1000000000 ;;
+    TB) factor=1000000000000 ;;
+    KiB) factor=1024 ;;
+    MiB) factor=1048576 ;;
+    GiB) factor=1073741824 ;;
+    TiB) factor=1099511627776 ;;
+  esac
+  awk -v value="$value" -v factor="$factor" 'BEGIN {printf "%.0f", value*factor}'
+}
+
 read_power_metrics() {
   power_energy_file=""
-
-  # Check and fix read permissions on Intel RAPL powercap directories
-  changed=0
   for rapl in /sys/class/powercap/*/energy_uj; do
-    [[ -e "$rapl" ]] || continue;
-    [[ -r "$rapl" ]] && power_energy_file=$rapl && break;
-    run_limited 2 sudo -n chmod o+r /sys/class/powercap/*/energy_uj 2>/dev/null && changed=1 && power_energy_file="$rapl" && break;
+    [[ -r "$rapl" ]] || continue
+    power_energy_file=$rapl
+    break
   done
 
   power_energy_before=""
@@ -304,12 +321,34 @@ collect_pkg_updates() {
   pkg_list_json=$(json_escape "$pkg_list")
 }
 
+read_cpu_throttle() {
+  throttle_periods=""
+  throttle_usec=""
+  container_pid="$1"
+  [ -n "$container_pid" ] && [ "$container_pid" -gt 0 ] 2>/dev/null || return 0
+  cgroup_path=$(awk -F: '$1 == "0" {print $3; exit} $2 ~ /(^|,)cpu(,|$)/ {print $3; exit}' "/proc/$container_pid/cgroup" 2>/dev/null)
+  [ -n "$cgroup_path" ] || return 0
+  for cpu_stat in "/sys/fs/cgroup$cgroup_path/cpu.stat" "/sys/fs/cgroup/cpu$cgroup_path/cpu.stat" "/sys/fs/cgroup/cpu,cpuacct$cgroup_path/cpu.stat"; do
+    [ -r "$cpu_stat" ] || continue
+    throttle_periods=$(awk '$1 == "nr_throttled" {print $2; exit}' "$cpu_stat" 2>/dev/null)
+    throttle_usec=$(awk '
+      $1 == "throttled_usec" {print $2; exit}
+      $1 == "throttled_time" {printf "%.0f", $2/1000; exit}
+    ' "$cpu_stat" 2>/dev/null)
+    break
+  done
+}
+
 read_docker_stats() {
   docker=""
   containers=""
   container_stats="[]"
   docker_stats_complete=0
   docker_stats_partial=0
+  docker_images_size_bytes=""
+  docker_containers_size_bytes=""
+  docker_volumes_size_bytes=""
+  docker_build_cache_size_bytes=""
   docker_command=(docker)
   if ! command -v docker >/dev/null 2>&1; then
     docker=0
@@ -344,7 +383,7 @@ read_docker_stats() {
         stats_status=0
         if [ -n "$running_container_ids" ]; then
           read -r -a running_container_id_args <<< "$running_container_ids"
-          stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' "${running_container_id_args[@]}" 2>/dev/null)
+          stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "${running_container_id_args[@]}" 2>/dev/null)
           stats_status=$?
           if [ "$stats_status" -eq 0 ] && ! printf '%s\n' "$stats_raw" |
             awk -F'|' '
@@ -357,7 +396,7 @@ read_docker_stats() {
               value($3) > 0 || value($4) > 0 { found=1 }
               END { exit found ? 0 : 1 }'; then
             sleep 1
-            retry_stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' "${running_container_id_args[@]}" 2>/dev/null)
+            retry_stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "${running_container_id_args[@]}" 2>/dev/null)
             retry_stats_status=$?
             if [ "$retry_stats_status" -eq 0 ] && [ -n "$retry_stats_raw" ]; then
               stats_raw=$retry_stats_raw
@@ -368,7 +407,7 @@ read_docker_stats() {
           stats_lines=$stats_raw
         fi
         read -r -a container_id_args <<< "$container_ids"
-        inspect_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}' "${container_id_args[@]}" 2>/dev/null)
+        inspect_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}|{{.State.Pid}}|{{.HostConfig.Memory}}' "${container_id_args[@]}" 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
           docker_stats_partial=1
@@ -390,17 +429,20 @@ read_docker_stats() {
                 return "null"
               }
               $1 == id || $2 == n {
-                print percentage($3) "|" percentage($4)
+                print percentage($3) "|" percentage($4) "|" $5 "|" $6
                 exit
               }')
           container_cpu=null
           container_mem=null
+          container_mem_usage=""
+          container_pids=""
           if [ -n "$stats_match" ]; then
-            container_cpu=${stats_match%%|*}
-            container_mem=${stats_match#*|}
+            IFS='|' read -r container_cpu container_mem container_mem_usage_raw container_pids <<< "$stats_match"
+            container_mem_usage=${container_mem_usage_raw%%/*}
+            container_mem_usage=$(human_bytes "$container_mem_usage")
           fi
           inspect_match=$(printf '%s\n' "$inspect_lines" |
-            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8; exit}')
+            awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8 "|" $9 "|" $10; exit}')
           restart_count=""
           running_state=""
           health_state=""
@@ -408,6 +450,8 @@ read_docker_stats() {
           compose_project=""
           compose_service=""
           swarm_service=""
+          container_pid=""
+          container_memory_limit=""
           if [ -n "$inspect_match" ]; then
             restart_count=${inspect_match%%|*}
             inspect_remainder=${inspect_match#*|}
@@ -420,10 +464,18 @@ read_docker_stats() {
             compose_project=${inspect_remainder%%|*}
             inspect_remainder=${inspect_remainder#*|}
             compose_service=${inspect_remainder%%|*}
-            swarm_service=${inspect_remainder#*|}
+            inspect_remainder=${inspect_remainder#*|}
+            swarm_service=${inspect_remainder%%|*}
+            inspect_remainder=${inspect_remainder#*|}
+            container_pid=${inspect_remainder%%|*}
+            container_memory_limit=${inspect_remainder#*|}
           fi
           restart_count=${restart_count//[^0-9]/}
           restart_count_json=$(number_or_null "$restart_count")
+          container_pid=${container_pid//[^0-9]/}
+          container_memory_limit=${container_memory_limit//[^0-9]/}
+          container_pids=${container_pids//[^0-9]/}
+          read_cpu_throttle "$container_pid"
           case "$running_state" in
             true|false) running_json=$running_state ;;
             *) running_json=null ;;
@@ -438,7 +490,7 @@ read_docker_stats() {
           compose_project_json=$(json_escape "$compose_project")
           compose_service_json=$(json_escape "$compose_service")
           swarm_service_json=$(json_escape "$swarm_service")
-          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json,\"restart_policy\":\"$restart_policy_json\",\"compose_project\":\"$compose_project_json\",\"compose_service\":\"$compose_service_json\",\"swarm_service\":\"$swarm_service_json\"},"
+          container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"memory_usage_bytes\":$(number_or_null "$container_mem_usage"),\"memory_limit_bytes\":$(number_or_null "$container_memory_limit"),\"pids\":$(number_or_null "$container_pids"),\"cpu_throttled_periods\":$(number_or_null "$throttle_periods"),\"cpu_throttled_usec\":$(number_or_null "$throttle_usec"),\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json,\"restart_policy\":\"$restart_policy_json\",\"compose_project\":\"$compose_project_json\",\"compose_service\":\"$compose_service_json\",\"swarm_service\":\"$swarm_service_json\"},"
         done < <(printf '%s\n' "$ps_lines")
         if [ -n "$container_entries" ]; then
           container_stats="[${container_entries%,}]"
@@ -448,6 +500,16 @@ read_docker_stats() {
       else
         container_stats="[]"
       fi
+      docker_disk_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" system df --format '{{.Type}}|{{.Size}}|{{.Reclaimable}}' 2>/dev/null)
+      while IFS='|' read -r docker_disk_type docker_disk_size _docker_reclaimable; do
+        docker_disk_bytes=$(human_bytes "$docker_disk_size")
+        case "$docker_disk_type" in
+          Images) docker_images_size_bytes=$docker_disk_bytes ;;
+          Containers) docker_containers_size_bytes=$docker_disk_bytes ;;
+          "Local Volumes") docker_volumes_size_bytes=$docker_disk_bytes ;;
+          "Build Cache") docker_build_cache_size_bytes=$docker_disk_bytes ;;
+        esac
+      done < <(printf '%s\n' "$docker_disk_lines")
       set -e
     else
       docker=1
@@ -527,6 +589,273 @@ read_top_processes() {
       fi
     fi
   fi
+}
+
+parse_process_state() {
+  local stat_line="$1"
+  local stat_remainder
+  parsed_process_state=""
+  case "$stat_line" in
+    *") "*)
+      stat_remainder=${stat_line##*) }
+      parsed_process_state=${stat_remainder%% *}
+      ;;
+  esac
+}
+
+read_process_state() {
+  process_total=0
+  process_running=0
+  process_zombies=0
+  for stat_path in /proc/[0-9]*/stat; do
+    [ -r "$stat_path" ] || continue
+    stat_line=$(cat "$stat_path" 2>/dev/null || echo "")
+    [ -n "$stat_line" ] || continue
+    parse_process_state "$stat_line"
+    process_state=$parsed_process_state
+    case "$process_state" in
+      R|S|D|Z|T|t|X|x|K|W|P|I) ;;
+      *) continue ;;
+    esac
+    process_total=$((process_total + 1))
+    [ "$process_state" = "R" ] && process_running=$((process_running + 1))
+    [ "$process_state" = "Z" ] && process_zombies=$((process_zombies + 1))
+  done
+  return 0
+}
+
+read_connection_metrics() {
+  tcp_established=0
+  tcp_time_wait=0
+  for tcp_file in /proc/net/tcp /proc/net/tcp6; do
+    [ -r "$tcp_file" ] || continue
+    established=$(awk 'NR > 1 && $4 == "01" {count++} END {print count+0}' "$tcp_file" 2>/dev/null || echo 0)
+    time_wait=$(awk 'NR > 1 && $4 == "06" {count++} END {print count+0}' "$tcp_file" 2>/dev/null || echo 0)
+    tcp_established=$((tcp_established + established))
+    tcp_time_wait=$((tcp_time_wait + time_wait))
+  done
+
+  sockets_used=""
+  tcp_sockets_in_use=""
+  if [ -r /proc/net/sockstat ]; then
+    sockets_used=$(awk '$1 == "sockets:" {for(i=2;i<=NF;i++) if($i=="used") print $(i+1)}' /proc/net/sockstat 2>/dev/null)
+    tcp_sockets_in_use=$(awk '$1 == "TCP:" {for(i=2;i<=NF;i++) if($i=="inuse") print $(i+1)}' /proc/net/sockstat 2>/dev/null)
+  fi
+  if [ -r /proc/net/sockstat6 ]; then
+    tcp6_sockets_in_use=$(awk '$1 == "TCP6:" {for(i=2;i<=NF;i++) if($i=="inuse") print $(i+1)}' /proc/net/sockstat6 2>/dev/null)
+    if [ -n "$tcp6_sockets_in_use" ]; then
+      tcp_sockets_in_use=$((${tcp_sockets_in_use:-0} + tcp6_sockets_in_use))
+    fi
+  fi
+
+  conntrack_count=""
+  conntrack_max=""
+  [ -r /proc/sys/net/netfilter/nf_conntrack_count ] && conntrack_count=$(cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null || echo "")
+  [ -r /proc/sys/net/netfilter/nf_conntrack_max ] && conntrack_max=$(cat /proc/sys/net/netfilter/nf_conntrack_max 2>/dev/null || echo "")
+  return 0
+}
+
+read_software_raid() {
+  software_raid_arrays=0
+  software_raid_degraded=0
+  software_raid_rebuild_active=0
+  software_raid_rebuild_progress=""
+  software_raid_rebuild_remaining_minutes=""
+  raid_arrays_json="[]"
+  [ -r /proc/mdstat ] || return 0
+
+  raid_lines=$(awk '
+    function emit() {
+      if (name != "") print name "\t" state "\t" level "\t" members "\t" degraded "\t" rebuild "\t" progress "\t" finish
+    }
+    /^md[^[:space:]]+[[:space:]]*:/ {
+      emit(); name=$1; state=$3; level=$4; members=""; degraded=(state=="active" || state=="read-auto" ? 0 : 1); rebuild=0; progress=""; finish=""; if ($0 ~ /\(F\)/) degraded=1; next
+    }
+    name != "" {
+      if (match($0, /\[[U_]+\]/)) {
+        members=substr($0, RSTART, RLENGTH)
+        if (index(members, "_") > 0) degraded=1
+      }
+      if ($0 ~ /(recovery|resync|reshape)[[:space:]]*=/) {
+        rebuild=1
+        if (match($0, /[0-9]+([.][0-9]+)?%/)) progress=substr($0, RSTART, RLENGTH-1)
+        if (match($0, /finish=[0-9]+([.][0-9]+)?min/)) finish=substr($0, RSTART+7, RLENGTH-10)
+      }
+    }
+    END {emit()}
+  ' /proc/mdstat 2>/dev/null)
+
+  raid_entries=""
+  tab=$(echo -ne '\t')
+  while IFS="$tab" read -r raid_name raid_state raid_level raid_members raid_degraded raid_rebuild raid_progress raid_finish; do
+    [ -n "$raid_name" ] || continue
+    software_raid_arrays=$((software_raid_arrays + 1))
+    [ "$raid_degraded" = "1" ] && software_raid_degraded=1
+    if [ "$raid_rebuild" = "1" ]; then
+      software_raid_rebuild_active=1
+      [ -z "$software_raid_rebuild_progress" ] && software_raid_rebuild_progress=$raid_progress
+      [ -z "$software_raid_rebuild_remaining_minutes" ] && software_raid_rebuild_remaining_minutes=$raid_finish
+    fi
+    raid_name_json=$(json_escape "$raid_name")
+    raid_state_json=$(json_escape "$raid_state")
+    raid_level_json=$(json_escape "$raid_level")
+    raid_members_json=$(json_escape "$raid_members")
+    raid_progress_json=$(number_or_null "$raid_progress")
+    raid_finish_json=$(number_or_null "$raid_finish")
+    raid_entries="$raid_entries{\"name\":\"$raid_name_json\",\"state\":\"$raid_state_json\",\"level\":\"$raid_level_json\",\"members\":\"$raid_members_json\",\"degraded\":$raid_degraded,\"rebuild_active\":$raid_rebuild,\"rebuild_progress\":$raid_progress_json,\"rebuild_remaining_minutes\":$raid_finish_json},"
+  done < <(printf '%s\n' "$raid_lines")
+  [ -n "$raid_entries" ] && raid_arrays_json="[${raid_entries%,}]"
+  return 0
+}
+
+read_storage_health() {
+  storage_devices_json="[]"
+  raid_details_json="[]"
+  storage_tools_available=0
+  storage_stats_complete=1
+  storage_stats_partial=0
+  storage_devices_seen=0
+  storage_devices_collected=0
+  storage_device_errors=0
+  storage_entries=""
+
+  for block_path in /sys/block/*; do
+    [ -e "$block_path" ] || continue
+    device_name=$(basename "$block_path")
+    case "$device_name" in
+      loop*|ram*|zram*|md*|dm-*) continue ;;
+    esac
+    storage_devices_seen=$((storage_devices_seen + 1))
+    device_path="/dev/$device_name"
+    model=$(cat "$block_path/device/model" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || echo "")
+    serial=$(cat "$block_path/device/serial" 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || echo "")
+    protocol="smart"
+    smart_output=""
+    smart_command_status=127
+
+    if command -v smartctl >/dev/null 2>&1; then
+      storage_tools_available=1
+      set +e
+      smart_output=$(run_limited "$storage_timeout" smartctl -a "$device_path" 2>&1)
+      smart_command_status=$?
+      if ! printf '%s\n' "$smart_output" | grep -Eq 'SMART support is|SMART overall-health|SMART Health Status|SMART Attributes Data Structure|NVMe|Critical Warning|Temperature:|Device Model:|Model Number:'; then
+        if command -v sudo >/dev/null 2>&1; then
+          smart_output=$(run_limited "$storage_timeout" sudo -n smartctl -a "$device_path" 2>&1)
+          smart_command_status=$?
+        fi
+      fi
+      set -e
+    elif [[ "$device_name" == nvme* ]] && command -v nvme >/dev/null 2>&1; then
+      storage_tools_available=1
+      protocol="nvme"
+      set +e
+      smart_output=$(run_limited "$storage_timeout" nvme smart-log "$device_path" 2>&1)
+      smart_command_status=$?
+      if [ "$smart_command_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+        smart_output=$(run_limited "$storage_timeout" sudo -n nvme smart-log "$device_path" 2>&1)
+        smart_command_status=$?
+      fi
+      set -e
+    fi
+
+    if ! printf '%s\n' "$smart_output" | grep -Eq 'SMART support is|SMART overall-health|SMART Health Status|SMART Attributes Data Structure|NVMe|Critical Warning|critical_warning|Temperature:|temperature[[:space:]]*:|percentage_used|media_errors|Device Model:|Model Number:'; then
+      if [ "$smart_command_status" -ne 127 ]; then
+        storage_device_errors=$((storage_device_errors + 1))
+        storage_stats_partial=1
+      fi
+      continue
+    fi
+    storage_devices_collected=$((storage_devices_collected + 1))
+    smart_status="unknown"
+    temperature=""
+    wear_percent=""
+    media_errors=""
+    reallocated_sectors=""
+    pending_sectors=""
+    uncorrectable_sectors=""
+    power_on_hours=""
+    if [ -n "$smart_output" ]; then
+      smart_health=$(printf '%s\n' "$smart_output" | awk -F: '/SMART overall-health self-assessment test result|SMART Health Status/ {sub(/^[[:space:]]*/, "", $2); print $2; exit}')
+      critical_warning=$(printf '%s\n' "$smart_output" | awk -F: '/^critical_warning|^Critical Warning/ {gsub(/[[:space:]]/, "", $2); print $2; exit}')
+      case "$smart_health" in
+        *PASSED*|*Passed*|*OK*) smart_status="passed" ;;
+        *FAILED*|*Failed*|*BAD*) smart_status="failed" ;;
+      esac
+      case "$critical_warning" in
+        0|0x0|0x00) [ "$smart_status" = "unknown" ] && smart_status="passed" ;;
+        "") ;;
+        *) smart_status="failed" ;;
+      esac
+      temperature=$(printf '%s\n' "$smart_output" | awk '
+        /Temperature_Celsius|Airflow_Temperature_Cel/ {print $NF; exit}
+        /^Temperature:|^temperature[[:space:]]*:/ {for(i=2;i<=NF;i++) if($i ~ /^[0-9]+([.][0-9]+)?$/) {print $i; exit}}
+        /^Current Drive Temperature:/ {for(i=4;i<=NF;i++) if($i ~ /^[0-9]+$/) {print $i; exit}}
+      ' | head -n 1)
+      wear_percent=$(printf '%s\n' "$smart_output" | awk -F: '/^Percentage Used|^percentage_used/ {gsub(/[^0-9.]/, "", $2); print $2; exit}')
+      if [ -z "$wear_percent" ]; then
+        wear_percent=$(printf '%s\n' "$smart_output" | awk '
+          $2 ~ /^(Media_Wearout_Indicator|Percent_Lifetime_Remain|SSD_Life_Left)$/ && $4 ~ /^[0-9]+$/ {
+            used=100-$4
+            if (used < 0) used=0
+            if (used > 100) used=100
+            print used
+            exit
+          }
+        ')
+      fi
+      media_errors=$(printf '%s\n' "$smart_output" | awk -F: '/^Media and Data Integrity Errors|^media_errors/ {gsub(/[^0-9]/, "", $2); print $2; exit}')
+      reallocated_sectors=$(printf '%s\n' "$smart_output" | awk '/Reallocated_Sector_Ct/ {print $NF; exit}')
+      pending_sectors=$(printf '%s\n' "$smart_output" | awk '/Current_Pending_Sector/ {print $NF; exit}')
+      uncorrectable_sectors=$(printf '%s\n' "$smart_output" | awk '/Offline_Uncorrectable/ {print $NF; exit}')
+      power_on_hours=$(printf '%s\n' "$smart_output" | awk '
+        /Power_On_Hours/ {print $NF; exit}
+        /^Power On Hours:|^power_on_hours[[:space:]]*:/ {for(i=NF;i>=2;i--) if($i ~ /^[0-9]+$/) {print $i; exit}}
+      ' | head -n 1)
+      [ -z "$model" ] && model=$(printf '%s\n' "$smart_output" | awk -F: '/^(Device Model|Model Number):/ {sub(/^[[:space:]]*/, "", $2); print $2; exit}')
+      [ -z "$serial" ] && serial=$(printf '%s\n' "$smart_output" | awk -F: '/^Serial Number:/ {sub(/^[[:space:]]*/, "", $2); print $2; exit}')
+    fi
+
+    temperature=${temperature//[^0-9.]/}
+    wear_percent=${wear_percent//[^0-9.]/}
+    media_errors=${media_errors//[^0-9]/}
+    reallocated_sectors=${reallocated_sectors//[^0-9]/}
+    pending_sectors=${pending_sectors//[^0-9]/}
+    uncorrectable_sectors=${uncorrectable_sectors//[^0-9]/}
+    power_on_hours=${power_on_hours//[^0-9]/}
+    device_name_json=$(json_escape "$device_name")
+    device_path_json=$(json_escape "$device_path")
+    model_json=$(json_escape "$model")
+    serial_json=$(json_escape "$serial")
+    protocol_json=$(json_escape "$protocol")
+    smart_status_json=$(json_escape "$smart_status")
+    storage_entries="$storage_entries{\"name\":\"$device_name_json\",\"path\":\"$device_path_json\",\"model\":\"$model_json\",\"serial\":\"$serial_json\",\"protocol\":\"$protocol_json\",\"smart_status\":\"$smart_status_json\",\"temperature\":$(number_or_null "$temperature"),\"wear_percent\":$(number_or_null "$wear_percent"),\"media_errors\":$(number_or_null "$media_errors"),\"reallocated_sectors\":$(number_or_null "$reallocated_sectors"),\"pending_sectors\":$(number_or_null "$pending_sectors"),\"uncorrectable_sectors\":$(number_or_null "$uncorrectable_sectors"),\"power_on_hours\":$(number_or_null "$power_on_hours")},"
+  done
+  [ -n "$storage_entries" ] && storage_devices_json="[${storage_entries%,}]"
+
+  if command -v mdadm >/dev/null 2>&1; then
+    raid_detail_entries=""
+    for md_sys_path in /sys/block/md*; do
+      [ -e "$md_sys_path" ] || continue
+      md_name=$(basename "$md_sys_path")
+      md_path="/dev/$md_name"
+      [ -e "$md_path" ] || continue
+      set +e
+      md_detail=$(run_limited "$storage_timeout" mdadm --detail --export "$md_path" 2>/dev/null)
+      if [ -z "$md_detail" ] && command -v sudo >/dev/null 2>&1; then
+        md_detail=$(run_limited "$storage_timeout" sudo -n mdadm --detail --export "$md_path" 2>/dev/null)
+      fi
+      set -e
+      [ -n "$md_detail" ] || continue
+      md_state=$(printf '%s\n' "$md_detail" | awk -F= '$1=="MD_STATE" {print $2; exit}')
+      md_level=$(printf '%s\n' "$md_detail" | awk -F= '$1=="MD_LEVEL" {print $2; exit}')
+      md_devices=$(printf '%s\n' "$md_detail" | awk -F= '$1=="MD_DEVICES" {print $2; exit}')
+      md_active=$(printf '%s\n' "$md_detail" | awk -F= '$1=="MD_ACTIVE_DEVICES" {print $2; exit}')
+      md_failed=$(printf '%s\n' "$md_detail" | awk -F= '$1=="MD_FAILED_DEVICES" {print $2; exit}')
+      raid_detail_entries="$raid_detail_entries{\"name\":\"$(json_escape "$md_name")\",\"state\":\"$(json_escape "$md_state")\",\"level\":\"$(json_escape "$md_level")\",\"devices\":$(number_or_null "$md_devices"),\"active_devices\":$(number_or_null "$md_active"),\"failed_devices\":$(number_or_null "$md_failed")},"
+    done
+    [ -n "$raid_detail_entries" ] && raid_details_json="[${raid_detail_entries%,}]"
+  fi
+  return 0
 }
 
 read_service_status() {
@@ -763,6 +1092,20 @@ prepare_numeric_json_values() {
   root_fs_readonly_json=$(number_or_null "$root_fs_readonly")
   disk_read_bytes_json=$(number_or_null "$disk_read_bytes")
   disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
+  process_total_json=$(number_or_null "$process_total")
+  process_running_json=$(number_or_null "$process_running")
+  process_zombies_json=$(number_or_null "$process_zombies")
+  tcp_established_json=$(number_or_null "$tcp_established")
+  tcp_time_wait_json=$(number_or_null "$tcp_time_wait")
+  sockets_used_json=$(number_or_null "$sockets_used")
+  tcp_sockets_in_use_json=$(number_or_null "$tcp_sockets_in_use")
+  conntrack_count_json=$(number_or_null "$conntrack_count")
+  conntrack_max_json=$(number_or_null "$conntrack_max")
+  software_raid_arrays_json=$(number_or_null "$software_raid_arrays")
+  software_raid_degraded_json=$(number_or_null "$software_raid_degraded")
+  software_raid_rebuild_active_json=$(number_or_null "$software_raid_rebuild_active")
+  software_raid_rebuild_progress_json=$(number_or_null "$software_raid_rebuild_progress")
+  software_raid_rebuild_remaining_minutes_json=$(number_or_null "$software_raid_rebuild_remaining_minutes")
 }
 
 print_package_json() {
@@ -777,8 +1120,15 @@ print_docker_json() {
   docker_json=$(number_or_null "$docker")
   docker_stats_complete_json=$(number_or_null "$docker_stats_complete")
   docker_stats_partial_json=$(number_or_null "$docker_stats_partial")
-  printf '{"docker":%s,"containers":"%s","container_stats":%s,"docker_stats_complete":%s,"docker_stats_partial":%s}\n' \
-    "$docker_json" "$containers_json" "$container_stats_json" "$docker_stats_complete_json" "$docker_stats_partial_json"
+  printf '{"docker":%s,"containers":"%s","container_stats":%s,"docker_stats_complete":%s,"docker_stats_partial":%s,"docker_images_size_bytes":%s,"docker_containers_size_bytes":%s,"docker_volumes_size_bytes":%s,"docker_build_cache_size_bytes":%s}\n' \
+    "$docker_json" "$containers_json" "$container_stats_json" "$docker_stats_complete_json" "$docker_stats_partial_json" \
+    "$(number_or_null "$docker_images_size_bytes")" "$(number_or_null "$docker_containers_size_bytes")" "$(number_or_null "$docker_volumes_size_bytes")" "$(number_or_null "$docker_build_cache_size_bytes")"
+}
+
+print_storage_json() {
+  printf '{"storage_devices":%s,"raid_details":%s,"storage_tools_available":%s,"storage_stats_complete":%s,"storage_stats_partial":%s,"storage_devices_seen":%s,"storage_devices_collected":%s,"storage_device_errors":%s}\n' \
+    "$storage_devices_json" "$raid_details_json" "$storage_tools_available" "$storage_stats_complete" "$storage_stats_partial" \
+    "$storage_devices_seen" "$storage_devices_collected" "$storage_device_errors"
 }
 
 init_package_defaults() {
@@ -796,6 +1146,10 @@ init_docker_defaults() {
   container_stats="[]"
   docker_stats_complete=""
   docker_stats_partial=""
+  docker_images_size_bytes=""
+  docker_containers_size_bytes=""
+  docker_volumes_size_bytes=""
+  docker_build_cache_size_bytes=""
   containers_json=""
   container_stats_json="[]"
 }
@@ -810,6 +1164,11 @@ case "$collector_mode" in
   docker)
     read_docker_stats
     print_docker_json
+    exit 0
+    ;;
+  storage)
+    read_storage_health
+    print_storage_json
     exit 0
     ;;
 esac
@@ -832,6 +1191,9 @@ else
 fi
 read_mac_addresses
 read_top_processes
+read_process_state
+read_connection_metrics
+read_software_raid
 read_service_status
 read_temperature
 read_network_bytes
@@ -847,13 +1209,13 @@ read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-# restore permissions iff changed
-[[ "${changed:-0}" -eq 1 ]] && run_limited 2 sudo -n chmod o-r /sys/class/powercap/*/energy_uj 2>/dev/null
-
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
-  "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
+  "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
+  "$tcp_established_json" "$tcp_time_wait_json" "$sockets_used_json" "$tcp_sockets_in_use_json" "$conntrack_count_json" "$conntrack_max_json" \
+  "$software_raid_arrays_json" "$software_raid_degraded_json" "$software_raid_rebuild_active_json" "$software_raid_rebuild_progress_json" "$software_raid_rebuild_remaining_minutes_json" "$raid_arrays_json" \
+  "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
   "$journal_errors_json" "$root_fs_readonly_json" "$disk_read_bytes_json" "$disk_write_bytes_json"
 '''

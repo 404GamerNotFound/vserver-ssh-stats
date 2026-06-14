@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import DOMAIN
-from .ssh_collector import async_sample, async_sample_docker, async_sample_packages
+from .ssh_collector import (
+    async_sample,
+    async_sample_docker,
+    async_sample_packages,
+    async_sample_storage,
+)
 from .util import (
     DEFAULT_BACKOFF_FAILURE_THRESHOLD,
     DEFAULT_BACKOFF_MAX_INTERVAL,
@@ -24,6 +29,7 @@ from .util import (
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
+    DEFAULT_STORAGE_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,6 +49,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         command_timeout: int,
         package_interval: int,
         docker_interval: int,
+        storage_interval: int,
         slow_command_timeout: int,
     ) -> None:
         """Initialize the coordinator."""
@@ -58,11 +65,13 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.command_timeout = command_timeout
         self.package_interval = package_interval
         self.docker_interval = docker_interval
+        self.storage_interval = storage_interval
         self.slow_command_timeout = slow_command_timeout
         self.consecutive_failures = 0
         self.current_interval = interval
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+        self._last_storage_attempt = 0.0
         self._slow_refresh_task: asyncio.Task[None] | None = None
         self._docker_state_revision = 0
 
@@ -79,6 +88,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.connect_timeout,
                 self.command_timeout,
                 self.server.get("monitored_ports"),
+                self.server.get("host_key_fingerprints"),
             )
             data = self._merge_base_data(base_data)
             if not data.get("collection_error"):
@@ -141,16 +151,40 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "docker_restart_count_total",
             "docker_collection_error",
             "docker_collection_time_ms",
+            "docker_images_size_bytes",
+            "docker_containers_size_bytes",
+            "docker_volumes_size_bytes",
+            "docker_build_cache_size_bytes",
         }
         for key in list(data):
             if key in docker_keys or key.startswith("container_"):
                 data.pop(key, None)
 
+    def _clear_storage_data(self, data: dict[str, Any]) -> None:
+        """Remove stale SMART/NVMe fields before applying a fresh sample."""
+
+        for key in (
+            "storage_devices",
+            "storage_device_lookup",
+            "smart_failed_devices",
+            "smart_failure_detected",
+            "storage_tools_available",
+            "storage_stats_partial",
+            "storage_devices_seen",
+            "storage_devices_collected",
+            "storage_device_errors",
+            "raid_detail_arrays",
+            "storage_collection_error",
+            "storage_collection_time_ms",
+        ):
+            data.pop(key, None)
+
     def force_slow_refresh(self) -> None:
-        """Make the next refresh run slow package and Docker collectors."""
+        """Make the next refresh run all slow collectors."""
 
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+        self._last_storage_attempt = 0.0
 
     async def async_wait_for_slow_refresh(self) -> None:
         """Wait until a slow collector scheduled by the latest refresh finishes."""
@@ -227,6 +261,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._slow_data_due(self._last_package_attempt, self.package_interval, now):
             self._last_package_attempt = now
             due_collectors.append("package")
+        if self._slow_data_due(self._last_storage_attempt, self.storage_interval, now):
+            self._last_storage_attempt = now
+            due_collectors.append("storage")
         if not due_collectors:
             return
 
@@ -253,8 +290,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.server.get("target_os", "auto"),
                             self.connect_timeout,
                             self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
                         )
-                    else:
+                    elif collector == "docker":
                         result = await async_sample_docker(
                             self.server["host"],
                             self.server["username"],
@@ -264,7 +302,22 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.server.get("target_os", "auto"),
                             self.connect_timeout,
                             self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
                         )
+                    elif collector == "storage":
+                        result = await async_sample_storage(
+                            self.server["host"],
+                            self.server["username"],
+                            self.server.get("password"),
+                            self.server.get("key"),
+                            self.server.get("port", 22),
+                            self.server.get("target_os", "auto"),
+                            self.connect_timeout,
+                            self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
+                        )
+                    else:
+                        continue
                 except Exception as err:
                     _LOGGER.debug(
                         "%s collector failed for %s: %s",
@@ -291,6 +344,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 merged = dict(self.data or {})
                 if collector == "docker" and "docker" in result:
                     self._clear_docker_data(merged)
+                if collector == "storage" and "storage_devices" in result:
+                    self._clear_storage_data(merged)
                 merged.update(result)
                 self.async_set_updated_data(merged)
         finally:
@@ -346,6 +401,9 @@ async def async_get_or_create_coordinators(
         command_timeout = max(configured_command_timeout, DEFAULT_COMMAND_TIMEOUT)
         package_interval = entry_data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL
         docker_interval = entry_data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL
+        storage_interval = entry_data.get("storage_interval")
+        if storage_interval is None:
+            storage_interval = DEFAULT_STORAGE_INTERVAL
         slow_command_timeout = (
             entry_data.get("slow_command_timeout") or DEFAULT_SLOW_COMMAND_TIMEOUT
         )
@@ -362,6 +420,7 @@ async def async_get_or_create_coordinators(
                     command_timeout,
                     package_interval,
                     docker_interval,
+                    storage_interval,
                     slow_command_timeout,
                 )
             )

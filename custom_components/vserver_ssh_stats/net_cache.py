@@ -68,3 +68,23 @@ class EnergyStatsCache:
         self._offset_kwh[key] = offset
 
         return total
+
+
+class ProcessPeakCache:
+    """Track the highest observed process count until the host reboots."""
+
+    def __init__(self) -> None:
+        self._peaks: Dict[str, int] = {}
+        self._uptimes: Dict[str, int] = {}
+
+    def compute(self, key: str, process_count: int, uptime: int) -> int:
+        """Return the highest observed process count for the current boot."""
+
+        previous_uptime = self._uptimes.get(key)
+        if previous_uptime is None or uptime < previous_uptime:
+            peak = process_count
+        else:
+            peak = max(process_count, self._peaks.get(key, process_count))
+        self._peaks[key] = peak
+        self._uptimes[key] = uptime
+        return peak

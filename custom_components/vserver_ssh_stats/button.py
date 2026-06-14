@@ -75,6 +75,10 @@ class VServerActionButton(ButtonEntity):
                 data["password"] = self._server["password"]
             if self._server.get("key"):
                 data["key"] = self._server["key"]
+            if self._server.get("host_key_fingerprints"):
+                data["host_key_fingerprints"] = "\n".join(
+                    self._server["host_key_fingerprints"]
+                )
         await self.hass.services.async_call(DOMAIN, self._action, data, blocking=True)
 
 

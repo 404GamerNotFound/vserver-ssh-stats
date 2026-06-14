@@ -9,6 +9,7 @@
           "name": "Server name",
           "host": "Host",
           "port": "SSH port",
+          "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
           "username": "Username",
           "password": "Password",
           "key": "Key file",
@@ -23,6 +24,7 @@
       "duplicate_host": "This host was already added",
       "host_in_use": "This host is already configured",
       "key_missing": "SSH key file not found",
+      "invalid_host_key_fingerprints": "Enter at least one valid OpenSSH SHA256 host-key fingerprint",
       "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },
@@ -35,6 +37,7 @@
           "command_timeout": "Collection command timeout (seconds)",
           "package_interval": "Package metrics interval (seconds)",
           "docker_interval": "Docker metrics interval (seconds)",
+          "storage_interval": "SMART/NVMe metrics interval (seconds, 0 disables)",
           "slow_command_timeout": "Slow collector timeout (seconds)",
           "command_allowlist": "Allowed run_command entries (one per line, optional * suffix for prefixes)",
           "edit_server": "Edit an existing server",
@@ -56,6 +59,7 @@
           "name": "Server name",
           "host": "Host",
           "port": "SSH port",
+          "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
           "username": "Username",
           "password": "Password (leave empty to keep current)",
           "clear_password": "Remove stored password",
@@ -72,6 +76,7 @@
           "name": "Server name",
           "host": "Host",
           "port": "SSH port",
+          "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
           "username": "Username",
           "password": "Password",
           "key": "Key file",
@@ -94,6 +99,7 @@
           "name": "Server name",
           "host": "Host",
           "port": "SSH port",
+          "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
           "username": "Username",
           "password": "Password",
           "key": "Key file",
@@ -108,6 +114,7 @@
       "duplicate_host": "This host was already added",
       "host_in_use": "This host is already configured",
       "key_missing": "SSH key file not found",
+      "invalid_host_key_fingerprints": "Enter at least one valid OpenSSH SHA256 host-key fingerprint",
       "single_action": "Choose only one server action at a time",
       "no_servers": "No configured server was found",
       "cannot_remove_last_server": "At least one server must remain configured",
@@ -152,6 +159,10 @@
           "name": "Key file",
           "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
         },
+        "host_key_fingerprints": {
+          "name": "SSH host-key fingerprints",
+          "description": "Pinned OpenSSH SHA256 fingerprints. Required when the host is not configured in the integration."
+        },
         "port": {
           "name": "SSH port",
           "description": "SSH port."
@@ -185,6 +196,10 @@
         "key": {
           "name": "Key file",
           "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH host-key fingerprints",
+          "description": "Pinned OpenSSH SHA256 fingerprints. Required when the host is not configured in the integration."
         },
         "port": {
           "name": "SSH port",
@@ -223,6 +238,10 @@
         "key": {
           "name": "Key file",
           "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH host-key fingerprints",
+          "description": "Pinned OpenSSH SHA256 fingerprints. Required when the host is not configured in the integration."
         },
         "port": {
           "name": "SSH port",

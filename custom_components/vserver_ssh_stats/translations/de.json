@@ -9,6 +9,7 @@
           "name": "Servername",
           "host": "Host",
           "port": "SSH-Port",
+          "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
           "username": "Benutzername",
           "password": "Passwort",
           "key": "Schlüsseldatei",
@@ -23,6 +24,7 @@
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
       "host_in_use": "Dieser Host ist bereits konfiguriert",
       "key_missing": "SSH-Schlüsseldatei nicht gefunden",
+      "invalid_host_key_fingerprints": "Mindestens einen gültigen OpenSSH-SHA256-Host-Key-Fingerprint eingeben",
       "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
@@ -35,6 +37,7 @@
           "command_timeout": "Timeout für Sammelbefehl (Sekunden)",
           "package_interval": "Intervall für Paketmetriken (Sekunden)",
           "docker_interval": "Intervall für Docker-Metriken (Sekunden)",
+          "storage_interval": "Intervall für SMART-/NVMe-Metriken (Sekunden, 0 deaktiviert)",
           "slow_command_timeout": "Timeout für langsame Teilabfragen (Sekunden)",
           "command_allowlist": "Erlaubte run_command-Einträge (einer pro Zeile, optionales * für Präfixe)",
           "edit_server": "Bestehenden Server bearbeiten",
@@ -56,6 +59,7 @@
           "name": "Servername",
           "host": "Host",
           "port": "SSH-Port",
+          "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
           "username": "Benutzername",
           "password": "Passwort (leer lassen = beibehalten)",
           "clear_password": "Gespeichertes Passwort entfernen",
@@ -72,6 +76,7 @@
           "name": "Servername",
           "host": "Host",
           "port": "SSH-Port",
+          "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
           "username": "Benutzername",
           "password": "Passwort",
           "key": "Schlüsseldatei",
@@ -94,6 +99,7 @@
           "name": "Servername",
           "host": "Host",
           "port": "SSH-Port",
+          "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
           "username": "Benutzername",
           "password": "Passwort",
           "key": "Schlüsseldatei",
@@ -108,6 +114,7 @@
       "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
       "host_in_use": "Dieser Host ist bereits konfiguriert",
       "key_missing": "SSH-Schlüsseldatei nicht gefunden",
+      "invalid_host_key_fingerprints": "Mindestens einen gültigen OpenSSH-SHA256-Host-Key-Fingerprint eingeben",
       "single_action": "Bitte nur eine Serveraktion gleichzeitig auswählen",
       "no_servers": "Es wurde kein konfigurierter Server gefunden",
       "cannot_remove_last_server": "Mindestens ein Server muss konfiguriert bleiben",
@@ -152,6 +159,10 @@
           "name": "Schlüsseldatei",
           "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
         },
+        "host_key_fingerprints": {
+          "name": "SSH-Host-Key-Fingerprints",
+          "description": "Fest hinterlegte OpenSSH-SHA256-Fingerprints. Für nicht konfigurierte Hosts erforderlich."
+        },
         "port": {
           "name": "SSH-Port",
           "description": "SSH-Port."
@@ -185,6 +196,10 @@
         "key": {
           "name": "Schlüsseldatei",
           "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH-Host-Key-Fingerprints",
+          "description": "Fest hinterlegte OpenSSH-SHA256-Fingerprints. Für nicht konfigurierte Hosts erforderlich."
         },
         "port": {
           "name": "SSH-Port",
@@ -223,6 +238,10 @@
         "key": {
           "name": "Schlüsseldatei",
           "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH-Host-Key-Fingerprints",
+          "description": "Fest hinterlegte OpenSSH-SHA256-Fingerprints. Für nicht konfigurierte Hosts erforderlich."
         },
         "port": {
           "name": "SSH-Port",

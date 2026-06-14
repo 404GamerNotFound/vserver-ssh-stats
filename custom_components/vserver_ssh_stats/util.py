@@ -18,6 +18,7 @@ DEFAULT_CONNECT_TIMEOUT = 10
 DEFAULT_COMMAND_TIMEOUT = 45
 DEFAULT_PACKAGE_INTERVAL = 12 * 60 * 60
 DEFAULT_DOCKER_INTERVAL = 30 * 60
+DEFAULT_STORAGE_INTERVAL = 60 * 60
 DEFAULT_SLOW_COMMAND_TIMEOUT = 180
 DEFAULT_ACTION_COMMAND_TIMEOUT = 300
 DEFAULT_COMMAND_ALLOWLIST = ""
@@ -137,6 +138,27 @@ def build_container_device_info(
         name=f"{server_name} {container_name}",
         manufacturer="Docker",
         model="Container",
+        via_device=(domain, host),
+    )
+
+
+def build_storage_device_info(
+    domain: str,
+    server: dict,
+    device: dict,
+) -> DeviceInfo:
+    """Return device info for one physical storage device below its host."""
+
+    host = server["host"]
+    server_name = server.get("name") or host
+    key = device["key"]
+    model = device.get("model") or "Storage device"
+    protocol = str(device.get("protocol") or "storage").upper()
+    return DeviceInfo(
+        identifiers={(domain, f"{host}_storage_{key}")},
+        name=f"{server_name} {device.get('name') or key}",
+        manufacturer=protocol,
+        model=model,
         via_device=(domain, host),
     )
 
