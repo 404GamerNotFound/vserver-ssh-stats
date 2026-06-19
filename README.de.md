@@ -21,6 +21,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
   Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem, überwachten TCP-Ports und Polling-Timeouts.
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
+- Benutzerdefinierte Befehlssensoren mit eigenem Abfrageintervall und Timeout je Sensor.
 - Optionale Allowlist für `run_command`, um ad-hoc SSH-Befehle einzuschränken.
 - Adaptives Polling-Backoff nach wiederholten Verbindungsfehlern.
 - Automatische Erkennung von SSH-fähigen Hosts im lokalen Netzwerk zur schnellen Einrichtung, manuelle Konfiguration bleibt weiterhin möglich. Kompatible Server, die sich per Zeroconf ankündigen, erscheinen außerdem im Bereich **Entdeckt** von Home Assistant.
@@ -67,6 +68,35 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Technische Metadaten werden als Home-Assistant-Diagnoseentitäten markiert, damit operative Sensoren übersichtlicher bleiben.
 - Meldet erkannte Netzwerk-MAC-Adressen an die Home-Assistant-Geräteregistrierung, sodass Entitäten bei gleicher MAC
   mit vorhandenen UniFi-Network-Geräten zusammengeführt werden können.
+
+## Benutzerdefinierte Befehlssensoren
+
+Unter **Geräte & Dienste > VServer SSH Stats > Konfigurieren** können benutzerdefinierte
+Befehlssensoren hinzugefügt, bearbeitet und entfernt werden. Pro Sensor werden ein Name, ein
+bereits konfigurierter Server, der Shell-Befehl, das Abfrageintervall in Sekunden und ein
+Befehls-Timeout festgelegt. Das Standardintervall beträgt `3600` Sekunden, das Mindestintervall
+`5` Sekunden. Der Standard-Timeout beträgt `30` Sekunden und kann maximal `3600` Sekunden
+betragen. Cron-Ausdrücke werden nicht unterstützt.
+
+Technisch erhält jeder benutzerdefinierte Sensor einen eigenen Update-Coordinator. Lang laufende
+oder selten ausgeführte Befehle blockieren dadurch weder die normale Serverabfrage noch andere
+Befehlssensoren. Verwendet werden SSH-Zugangsdaten, Port, Verbindungs-Timeout und die gepinnten
+Host-Key-Fingerprints des ausgewählten Servers. Eine stabile interne ID sorgt dafür, dass die
+Home-Assistant-Entität beim Umbenennen erhalten bleibt. Wird die Hostadresse eines Servers
+geändert, werden zugehörige Sensorzuordnungen aktualisiert; beim Entfernen eines Servers werden
+seine Befehlssensoren mit entfernt.
+
+Rein numerische Ausgaben wie `632` werden als numerischer Sensorzustand veröffentlicht. Text und
+mehrzeilige Ergebnisse werden bis zum Home-Assistant-Limit von 255 Zeichen als Zustand verwendet;
+die vollständige gespeicherte Ausgabe steht zusätzlich im Attribut `output`. Pro Ausführung
+werden maximal 16 KiB Ausgabe gespeichert. SSH-Fehler, Timeouts und Exit-Codes ungleich null
+setzen ausschließlich den betroffenen Sensor bis zur nächsten erfolgreichen Ausführung auf
+`unavailable`.
+
+Die Befehle sind explizit vertrauenswürdige Konfiguration und unterliegen nicht der Allowlist des
+Ad-hoc-Dienstes `run_command`. Sie laufen mit den Rechten des ausgewählten SSH-Benutzers. Empfohlen
+wird ein eigener, eingeschränkter Monitoring-Benutzer; benötigte erhöhte Leserechte sollten nur
+über eng begrenzte, nicht-interaktive `sudo -n`-Regeln vergeben werden.
 
 ## Dienste & Events
 

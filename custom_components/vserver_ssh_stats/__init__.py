@@ -995,6 +995,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         servers = json.loads(data.get("servers_json", "[]"))
     except ValueError:  # pragma: no cover - validation handled in flow
         servers = []
+    try:
+        custom_sensors = json.loads(data.get("custom_sensors_json", "[]"))
+    except ValueError:  # pragma: no cover - validation handled in flow
+        custom_sensors = []
     for server in servers:
         key = resolve_private_key_path(hass, server.get("key"))
         if key:
@@ -1024,6 +1028,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         or DEFAULT_SLOW_COMMAND_TIMEOUT,
         "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),
         "servers": servers,
+        "custom_sensors": custom_sensors if isinstance(custom_sensors, list) else [],
     }
     _cleanup_empty_device_entries(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

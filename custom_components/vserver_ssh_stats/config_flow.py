@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -20,11 +21,14 @@ from .util import (
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_CUSTOM_SENSOR_INTERVAL,
+    DEFAULT_CUSTOM_SENSOR_TIMEOUT,
     DEFAULT_DOCKER_INTERVAL,
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
     DEFAULT_STORAGE_INTERVAL,
+    MIN_CUSTOM_SENSOR_INTERVAL,
     parse_monitored_ports,
     resolve_private_key_path,
 )
@@ -216,6 +220,9 @@ def _build_options_schema(
             vol.Optional("add_server", default=False): bool,
             vol.Optional("remove_server", default=False): bool,
             vol.Optional("reconfigure_servers", default=False): bool,
+            vol.Optional("add_custom_sensor", default=False): bool,
+            vol.Optional("edit_custom_sensor", default=False): bool,
+            vol.Optional("remove_custom_sensor", default=False): bool,
         }
     )
 
@@ -441,8 +448,18 @@ class OptionsFlowHandler(OptionsFlow):
             )
         except ValueError:
             self._existing_servers = []
+        try:
+            custom_sensors = json.loads(
+                config_entry.data.get("custom_sensors_json", "[]")
+            )
+            self._custom_sensors: list[dict[str, Any]] = (
+                custom_sensors if isinstance(custom_sensors, list) else []
+            )
+        except ValueError:
+            self._custom_sensors = []
         self._pending_servers: list[dict[str, Any]] = []
         self._selected_server_index: int | None = None
+        self._selected_custom_sensor_index: int | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage the initial options step."""
@@ -457,6 +474,9 @@ class OptionsFlowHandler(OptionsFlow):
                     "add_server",
                     "remove_server",
                     "reconfigure_servers",
+                    "add_custom_sensor",
+                    "edit_custom_sensor",
+                    "remove_custom_sensor",
                 )
                 if user_input.get(action)
             ]
@@ -493,6 +513,24 @@ class OptionsFlowHandler(OptionsFlow):
                         default_name=vol.UNDEFINED,
                     ),
                 )
+            elif actions == ["add_custom_sensor"]:
+                return await self.async_step_add_custom_sensor()
+            elif actions == ["edit_custom_sensor"]:
+                if not self._custom_sensors:
+                    errors["base"] = "no_custom_sensors"
+                else:
+                    return self.async_show_form(
+                        step_id="select_custom_sensor",
+                        data_schema=self._build_custom_sensor_selector_schema(),
+                    )
+            elif actions == ["remove_custom_sensor"]:
+                if not self._custom_sensors:
+                    errors["base"] = "no_custom_sensors"
+                else:
+                    return self.async_show_form(
+                        step_id="remove_custom_sensor",
+                        data_schema=self._remove_custom_sensor_form_schema(),
+                    )
             else:
                 self._update_entry(self._existing_servers)
                 return self.async_create_entry(title="", data={})
@@ -564,6 +602,97 @@ class OptionsFlowHandler(OptionsFlow):
             )
         )
 
+    def _server_host_select_selector(self) -> selector.SelectSelector:
+        """Return a selector whose values are stable server hosts."""
+
+        return selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[
+                    selector.SelectOptionDict(
+                        value=str(server["host"]),
+                        label=f"{server.get('name') or server['host']} ({server['host']})",
+                    )
+                    for server in self._existing_servers
+                ],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        )
+
+    def _custom_sensor_select_options(self) -> list[selector.SelectOptionDict]:
+        """Return selector options for all custom sensors."""
+
+        server_names = {
+            server.get("host"): server.get("name") or server.get("host")
+            for server in self._existing_servers
+        }
+        return [
+            selector.SelectOptionDict(
+                value=str(index),
+                label=(
+                    f"{definition.get('name')} "
+                    f"({server_names.get(definition.get('server_host'), definition.get('server_host'))})"
+                ),
+            )
+            for index, definition in enumerate(self._custom_sensors)
+        ]
+
+    def _build_custom_sensor_selector_schema(self) -> vol.Schema:
+        """Create a schema for selecting one custom sensor."""
+
+        options = self._custom_sensor_select_options()
+        return vol.Schema(
+            {
+                vol.Required(
+                    "custom_sensor",
+                    default=options[0]["value"] if options else vol.UNDEFINED,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            }
+        )
+
+    def _remove_custom_sensor_form_schema(self) -> vol.Schema:
+        """Create a form for selecting and confirming custom sensor removal."""
+
+        schema = dict(self._build_custom_sensor_selector_schema().schema)
+        schema[vol.Optional("confirm_remove", default=False)] = bool
+        return vol.Schema(schema)
+
+    def _custom_sensor_form_schema(
+        self,
+        defaults: dict[str, Any] | None = None,
+    ) -> vol.Schema:
+        """Create the add/edit form for one custom command sensor."""
+
+        defaults = defaults or {}
+        first_host = (
+            self._existing_servers[0]["host"] if self._existing_servers else vol.UNDEFINED
+        )
+        return vol.Schema(
+            {
+                vol.Required("name", default=defaults.get("name", vol.UNDEFINED)): vol.All(
+                    str, vol.Strip(), vol.Length(min=1, max=100)
+                ),
+                vol.Required(
+                    "server_host", default=defaults.get("server_host", first_host)
+                ): self._server_host_select_selector(),
+                vol.Required(
+                    "command", default=defaults.get("command", vol.UNDEFINED)
+                ): vol.All(str, vol.Strip(), vol.Length(min=1, max=4096)),
+                vol.Required(
+                    "interval",
+                    default=defaults.get("interval", DEFAULT_CUSTOM_SENSOR_INTERVAL),
+                ): _number_box(min_value=MIN_CUSTOM_SENSOR_INTERVAL),
+                vol.Required(
+                    "timeout",
+                    default=defaults.get("timeout", DEFAULT_CUSTOM_SENSOR_TIMEOUT),
+                ): _number_box(max_value=3600),
+            }
+        )
+
     def _build_server_selector_schema(self) -> vol.Schema:
         """Create a schema for selecting one configured server."""
 
@@ -631,6 +760,11 @@ class OptionsFlowHandler(OptionsFlow):
                 ignore_index=self._selected_server_index,
             )
             if server is not None and not errors:
+                old_host = current.get("host")
+                if old_host != server.get("host"):
+                    for definition in self._custom_sensors:
+                        if definition.get("server_host") == old_host:
+                            definition["server_host"] = server["host"]
                 self._existing_servers[self._selected_server_index] = server
                 self._update_entry(self._existing_servers)
                 return self.async_create_entry(title="", data={})
@@ -649,6 +783,135 @@ class OptionsFlowHandler(OptionsFlow):
             ),
             errors=errors,
         )
+
+    async def async_step_select_custom_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Select one custom sensor to edit."""
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                self._selected_custom_sensor_index = int(user_input["custom_sensor"])
+                self._custom_sensors[self._selected_custom_sensor_index]
+                return await self.async_step_edit_custom_sensor()
+            except (KeyError, TypeError, ValueError, IndexError):
+                errors["base"] = "no_custom_sensors"
+        return self.async_show_form(
+            step_id="select_custom_sensor",
+            data_schema=self._build_custom_sensor_selector_schema(),
+            errors=errors,
+        )
+
+    async def async_step_add_custom_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Add one scheduled custom command sensor."""
+
+        errors: dict[str, str] = {}
+        defaults = user_input or {}
+        if user_input is not None:
+            definition = self._custom_sensor_from_input(user_input, errors)
+            if definition is not None:
+                definition["id"] = uuid.uuid4().hex
+                self._custom_sensors.append(definition)
+                self._update_entry(self._existing_servers)
+                return self.async_create_entry(title="", data={})
+        return self.async_show_form(
+            step_id="add_custom_sensor",
+            data_schema=self._custom_sensor_form_schema(defaults),
+            errors=errors,
+        )
+
+    async def async_step_edit_custom_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Edit one scheduled custom command sensor."""
+
+        if self._selected_custom_sensor_index is None:
+            return await self.async_step_select_custom_sensor()
+        try:
+            current = self._custom_sensors[self._selected_custom_sensor_index]
+        except IndexError:
+            self._selected_custom_sensor_index = None
+            return await self.async_step_select_custom_sensor()
+
+        errors: dict[str, str] = {}
+        defaults = dict(current)
+        if user_input is not None:
+            defaults.update(user_input)
+            definition = self._custom_sensor_from_input(
+                user_input,
+                errors,
+                existing=current,
+                ignore_index=self._selected_custom_sensor_index,
+            )
+            if definition is not None:
+                self._custom_sensors[self._selected_custom_sensor_index] = definition
+                self._update_entry(self._existing_servers)
+                return self.async_create_entry(title="", data={})
+        return self.async_show_form(
+            step_id="edit_custom_sensor",
+            data_schema=self._custom_sensor_form_schema(defaults),
+            errors=errors,
+        )
+
+    async def async_step_remove_custom_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ):
+        """Remove one configured custom command sensor."""
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                index = int(user_input["custom_sensor"])
+                self._custom_sensors[index]
+            except (KeyError, TypeError, ValueError, IndexError):
+                errors["base"] = "no_custom_sensors"
+            else:
+                if not user_input.get("confirm_remove"):
+                    errors["base"] = "confirm_remove"
+                else:
+                    self._custom_sensors.pop(index)
+                    self._update_entry(self._existing_servers)
+                    return self.async_create_entry(title="", data={})
+        return self.async_show_form(
+            step_id="remove_custom_sensor",
+            data_schema=self._remove_custom_sensor_form_schema(),
+            errors=errors,
+        )
+
+    def _custom_sensor_from_input(
+        self,
+        user_input: dict[str, Any],
+        errors: dict[str, str],
+        *,
+        existing: dict[str, Any] | None = None,
+        ignore_index: int | None = None,
+    ) -> dict[str, Any] | None:
+        """Validate and normalize one custom command sensor definition."""
+
+        name = str(user_input["name"]).strip()
+        server_host = str(user_input["server_host"])
+        if server_host not in {server.get("host") for server in self._existing_servers}:
+            errors["server_host"] = "no_servers"
+        if any(
+            index != ignore_index
+            and definition.get("server_host") == server_host
+            and str(definition.get("name", "")).casefold() == name.casefold()
+            for index, definition in enumerate(self._custom_sensors)
+        ):
+            errors["name"] = "duplicate_custom_sensor"
+        if errors:
+            return None
+        return {
+            "id": (existing or {}).get("id"),
+            "name": name,
+            "server_host": server_host,
+            "command": str(user_input["command"]).strip(),
+            "interval": max(MIN_CUSTOM_SENSOR_INTERVAL, int(user_input["interval"])),
+            "timeout": max(1, min(3600, int(user_input["timeout"]))),
+        }
 
     async def async_step_add_server(self, user_input: dict[str, Any] | None = None):
         """Append one or more servers to the current entry."""
@@ -843,6 +1106,12 @@ class OptionsFlowHandler(OptionsFlow):
     def _update_entry(self, servers: list[dict[str, Any]]) -> None:
         """Persist updated configuration back to the config entry."""
 
+        valid_hosts = {server.get("host") for server in servers}
+        self._custom_sensors = [
+            definition
+            for definition in self._custom_sensors
+            if definition.get("server_host") in valid_hosts
+        ]
         data = {
             "interval": self._interval,
             "connect_timeout": self._connect_timeout,
@@ -853,6 +1122,7 @@ class OptionsFlowHandler(OptionsFlow):
             "slow_command_timeout": self._slow_command_timeout,
             "command_allowlist": self._command_allowlist,
             "servers_json": json.dumps(servers),
+            "custom_sensors_json": json.dumps(self._custom_sensors),
         }
         title = servers[0]["name"] if len(servers) == 1 else "VServer SSH Stats"
         self.hass.config_entries.async_update_entry(self._config_entry, title=title, data=data)

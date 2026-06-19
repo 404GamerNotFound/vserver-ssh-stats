@@ -43,7 +43,10 @@
           "edit_server": "Modifier un serveur existant",
           "add_server": "Ajouter un autre serveur",
           "remove_server": "Supprimer un serveur",
-          "reconfigure_servers": "Remplacer toute la liste des serveurs"
+          "reconfigure_servers": "Remplacer toute la liste des serveurs",
+          "add_custom_sensor": "Ajouter un capteur de commande personnalisé",
+          "edit_custom_sensor": "Modifier un capteur de commande personnalisé",
+          "remove_custom_sensor": "Supprimer un capteur de commande personnalisé"
         }
       },
       "select_server": {
@@ -92,6 +95,41 @@
           "confirm_remove": "Confirmer la suppression"
         }
       },
+      "select_custom_sensor": {
+        "title": "Sélectionner un capteur personnalisé",
+        "data": {
+          "custom_sensor": "Capteur personnalisé"
+        }
+      },
+      "add_custom_sensor": {
+        "title": "Ajouter un capteur de commande personnalisé",
+        "description": "La commande s'exécute avec les identifiants SSH du serveur sélectionné. Configurez uniquement des commandes fiables.",
+        "data": {
+          "name": "Nom du capteur",
+          "server_host": "Serveur",
+          "command": "Commande",
+          "interval": "Intervalle de collecte (secondes)",
+          "timeout": "Délai de la commande (secondes)"
+        }
+      },
+      "edit_custom_sensor": {
+        "title": "Modifier un capteur de commande personnalisé",
+        "description": "La commande s'exécute avec les identifiants SSH du serveur sélectionné. Configurez uniquement des commandes fiables.",
+        "data": {
+          "name": "Nom du capteur",
+          "server_host": "Serveur",
+          "command": "Commande",
+          "interval": "Intervalle de collecte (secondes)",
+          "timeout": "Délai de la commande (secondes)"
+        }
+      },
+      "remove_custom_sensor": {
+        "title": "Supprimer un capteur de commande personnalisé",
+        "data": {
+          "custom_sensor": "Capteur personnalisé",
+          "confirm_remove": "Confirmer la suppression"
+        }
+      },
       "servers": {
         "title": "VServer SSH Stats",
         "description": "Ajoutez les serveurs un par un. Choisissez 'Ajouter un autre serveur après celui-ci' pour continuer.",
@@ -115,10 +153,12 @@
       "host_in_use": "Cet hôte est déjà configuré",
       "key_missing": "Fichier de clé SSH introuvable",
       "invalid_host_key_fingerprints": "Saisissez au moins une empreinte SHA256 de clé d'hôte OpenSSH valide",
-      "single_action": "Choisissez une seule action de serveur à la fois",
+      "single_action": "Choisissez une seule action de configuration à la fois",
       "no_servers": "Aucun serveur configuré n'a été trouvé",
+      "no_custom_sensors": "Aucun capteur de commande personnalisé n'a été trouvé",
+      "duplicate_custom_sensor": "Un capteur personnalisé portant ce nom existe déjà pour le serveur sélectionné",
       "cannot_remove_last_server": "Au moins un serveur doit rester configuré",
-      "confirm_remove": "Confirmez que le serveur sélectionné doit être supprimé",
+      "confirm_remove": "Confirmez la suppression de l'élément sélectionné",
       "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
     }
   },

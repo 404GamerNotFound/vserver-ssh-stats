@@ -6,7 +6,7 @@ import logging
 import re
 import socket
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from . import DOMAIN
 from .ssh_collector import (
+    async_run_custom_command,
     async_sample,
     async_sample_docker,
     async_sample_packages,
@@ -35,6 +36,8 @@ from .util import (
 _LOGGER = logging.getLogger(__name__)
 COORDINATORS_KEY = "coordinators"
 COORDINATOR_LOCK_KEY = "coordinators_lock"
+CUSTOM_COORDINATORS_KEY = "custom_sensor_coordinators"
+CUSTOM_COORDINATOR_LOCK_KEY = "custom_sensor_coordinators_lock"
 
 
 class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -379,6 +382,58 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.update_interval = timedelta(seconds=interval)
 
 
+class CustomCommandCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Coordinator that runs one user-configured SSH command."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: dict[str, Any],
+        definition: dict[str, Any],
+        connect_timeout: int,
+    ) -> None:
+        """Initialize a custom command coordinator."""
+
+        interval = max(5, int(definition["interval"]))
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{server['name']} custom sensor {definition['name']}",
+            update_interval=timedelta(seconds=interval),
+        )
+        self.server = server
+        self.definition = definition
+        self.connect_timeout = connect_timeout
+        self.command_timeout = max(1, min(3600, int(definition["timeout"])))
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Execute the configured command and publish its output."""
+
+        try:
+            output, timing = await async_run_custom_command(
+                self.server["host"],
+                self.server["username"],
+                self.server.get("password"),
+                self.server.get("key"),
+                self.server.get("port", 22),
+                self.definition["command"],
+                self.connect_timeout,
+                self.command_timeout,
+                self.server.get("host_key_fingerprints"),
+            )
+        except Exception as err:
+            message = str(err) or err.__class__.__name__
+            raise UpdateFailed(
+                f"Custom sensor {self.definition['name']} failed on "
+                f"{self.server['host']}: {message}"
+            ) from err
+        return {
+            "output": output.strip(),
+            "updated_at": datetime.now(UTC).isoformat(),
+            **timing,
+        }
+
+
 async def async_get_or_create_coordinators(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -426,6 +481,55 @@ async def async_get_or_create_coordinators(
             )
 
         entry_data[COORDINATORS_KEY] = coordinators
+        for coordinator in coordinators:
+            hass.async_create_task(coordinator.async_request_refresh())
+        return coordinators
+
+
+async def async_get_or_create_custom_sensor_coordinators(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> list[CustomCommandCoordinator]:
+    """Return one independent coordinator per configured custom sensor."""
+
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    coordinators = entry_data.get(CUSTOM_COORDINATORS_KEY)
+    if coordinators is not None:
+        return coordinators
+
+    lock = entry_data.setdefault(CUSTOM_COORDINATOR_LOCK_KEY, asyncio.Lock())
+    async with lock:
+        coordinators = entry_data.get(CUSTOM_COORDINATORS_KEY)
+        if coordinators is not None:
+            return coordinators
+
+        servers = {
+            server.get("host"): server
+            for server in entry_data.get("servers", [])
+            if server.get("host") and server.get("name")
+        }
+        connect_timeout = entry_data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
+        coordinators = []
+        for definition in entry_data.get("custom_sensors", []):
+            if not isinstance(definition, dict):
+                continue
+            server = servers.get(definition.get("server_host"))
+            if not server or not all(
+                definition.get(key)
+                for key in ("id", "name", "command", "interval", "timeout")
+            ):
+                continue
+            try:
+                coordinators.append(
+                    CustomCommandCoordinator(hass, server, definition, connect_timeout)
+                )
+            except (KeyError, TypeError, ValueError):
+                _LOGGER.warning(
+                    "Ignoring invalid custom sensor definition %s",
+                    definition.get("id"),
+                )
+
+        entry_data[CUSTOM_COORDINATORS_KEY] = coordinators
         for coordinator in coordinators:
             hass.async_create_task(coordinator.async_request_refresh())
         return coordinators

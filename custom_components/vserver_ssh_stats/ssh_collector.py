@@ -29,6 +29,53 @@ energy_cache = EnergyStatsCache()
 process_peak_cache = ProcessPeakCache()
 
 DEFAULT_PORT_CHECK_TIMEOUT = 3
+MAX_CUSTOM_COMMAND_OUTPUT = 16 * 1024
+
+
+def _read_custom_command_channel(
+    channel: Any,
+    command_timeout: int,
+) -> tuple[str, str, int, bool]:
+    """Drain stdout and stderr concurrently with bounded retained output."""
+
+    stdout_data = bytearray()
+    stderr_data = bytearray()
+    output_truncated = False
+    deadline = time.monotonic() + command_timeout
+    while True:
+        read_data = False
+        while channel.recv_ready():
+            chunk = channel.recv(4096)
+            read_data = True
+            remaining = MAX_CUSTOM_COMMAND_OUTPUT - len(stdout_data)
+            if remaining > 0:
+                stdout_data.extend(chunk[:remaining])
+            output_truncated |= len(chunk) > max(remaining, 0)
+        while channel.recv_stderr_ready():
+            chunk = channel.recv_stderr(4096)
+            read_data = True
+            remaining = MAX_CUSTOM_COMMAND_OUTPUT - len(stderr_data)
+            if remaining > 0:
+                stderr_data.extend(chunk[:remaining])
+        if channel.exit_status_ready() and not (
+            channel.recv_ready() or channel.recv_stderr_ready()
+        ):
+            break
+        if time.monotonic() >= deadline:
+            channel.close()
+            raise TimeoutError(
+                f"Custom command timed out after {command_timeout} seconds"
+            )
+        if not read_data:
+            time.sleep(0.01)
+
+    status = channel.recv_exit_status()
+    return (
+        stdout_data.decode("utf-8", "replace"),
+        stderr_data.decode("utf-8", "replace"),
+        status,
+        output_truncated,
+    )
 
 
 def _run_ssh(
@@ -80,6 +127,81 @@ def _run_ssh(
         }
     finally:
         ssh.close()
+
+
+def _run_custom_command(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    command: str,
+    connect_timeout: int,
+    command_timeout: int,
+    host_key_fingerprints: object,
+) -> tuple[str, Dict[str, Any]]:
+    """Run one configured command and return its stdout and timing data."""
+
+    ssh = paramiko.SSHClient()
+    configure_pinned_host_keys(ssh, host_key_fingerprints)
+    started = time.monotonic()
+    ssh.connect(
+        hostname=host,
+        port=port,
+        username=username,
+        password=password,
+        key_filename=key,
+        timeout=connect_timeout,
+        banner_timeout=connect_timeout,
+        auth_timeout=connect_timeout,
+    )
+    connected = time.monotonic()
+    try:
+        _, stdout, _ = ssh.exec_command(command, timeout=command_timeout)
+        output, error_output, status, output_truncated = _read_custom_command_channel(
+            stdout.channel,
+            command_timeout,
+        )
+        if status != 0:
+            detail = error_output.strip() or output.strip()
+            if len(detail) > MAX_CUSTOM_COMMAND_OUTPUT:
+                detail = detail[:MAX_CUSTOM_COMMAND_OUTPUT]
+            raise RuntimeError(detail or f"Custom command exited with status {status}")
+        finished = time.monotonic()
+        return output[:MAX_CUSTOM_COMMAND_OUTPUT], {
+            "connect_time_ms": (connected - started) * 1000,
+            "collection_time_ms": (finished - started) * 1000,
+            "output_truncated": output_truncated,
+        }
+    finally:
+        ssh.close()
+
+
+async def async_run_custom_command(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    command: str,
+    connect_timeout: int,
+    command_timeout: int,
+    host_key_fingerprints: object,
+) -> tuple[str, Dict[str, Any]]:
+    """Run one configured custom sensor command outside the event loop."""
+
+    return await asyncio.to_thread(
+        _run_custom_command,
+        host,
+        username,
+        password,
+        key,
+        port,
+        command,
+        connect_timeout,
+        command_timeout,
+        host_key_fingerprints,
+    )
 
 
 def _sanitize(name: str) -> str:

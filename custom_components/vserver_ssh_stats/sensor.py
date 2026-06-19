@@ -26,11 +26,17 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
-from .coordinator import VServerCoordinator, async_get_or_create_coordinators
+from .coordinator import (
+    CustomCommandCoordinator,
+    VServerCoordinator,
+    async_get_or_create_coordinators,
+    async_get_or_create_custom_sensor_coordinators,
+)
 from .docker_entities import find_container
 from .util import build_container_device_info, build_device_info, build_storage_device_info
 
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
+MAX_SENSOR_STATE_LENGTH = 255
 
 
 def _sanitize(name: str) -> str:
@@ -878,11 +884,62 @@ class VServerActionStatusSensor(SensorEntity):
         self.async_write_ha_state()
 
 
+class VServerCustomCommandSensor(
+    CoordinatorEntity[CustomCommandCoordinator], SensorEntity
+):
+    """Sensor backed by one user-configured SSH command."""
+
+    def __init__(self, coordinator: CustomCommandCoordinator) -> None:
+        """Initialize a custom command sensor."""
+
+        super().__init__(coordinator)
+        definition = coordinator.definition
+        server = coordinator.server
+        self._attr_unique_id = f"custom_{definition['id']}"
+        self._attr_name = f"{server['name']} {definition['name']}"
+        self._attr_icon = "mdi:console-line"
+        self._attr_device_info = build_device_info(DOMAIN, server)
+
+    @property
+    def native_value(self) -> int | float | str | None:
+        """Return numeric command output as a number and other output as text."""
+
+        if not isinstance(self.coordinator.data, dict):
+            return None
+        output = str(self.coordinator.data.get("output") or "").strip()
+        if not output:
+            return None
+        if re.fullmatch(r"[-+]?\d+", output):
+            return int(output)
+        if re.fullmatch(
+            r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?", output
+        ):
+            return float(output)
+        if len(output) > MAX_SENSOR_STATE_LENGTH:
+            return f"{output[: MAX_SENSOR_STATE_LENGTH - 3]}..."
+        return output
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose full output and execution metadata without persisting the command."""
+
+        if not isinstance(self.coordinator.data, dict):
+            return None
+        return {
+            "output": self.coordinator.data.get("output", ""),
+            "output_truncated": self.coordinator.data.get("output_truncated", False),
+            "last_updated": self.coordinator.data.get("updated_at"),
+            "collection_time_ms": self.coordinator.data.get("collection_time_ms"),
+            "interval_seconds": int(self.coordinator.definition["interval"]),
+            "timeout_seconds": int(self.coordinator.definition["timeout"]),
+        }
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities
 ) -> None:
     """Set up VServer SSH Stats sensors based on a config entry."""
-    entities: list[VServerSensor] = []
+    entities: list[SensorEntity] = []
     registries: list[
         tuple[ServerContainerRegistry, ServerDiskRegistry, ServerStorageRegistry, str]
     ] = []
@@ -913,6 +970,10 @@ async def async_setup_entry(
             entities.append(
                 VServerActionStatusSensor(hass, coordinator.server, action, action_name)
             )
+    custom_coordinators = await async_get_or_create_custom_sensor_coordinators(hass, entry)
+    entities.extend(
+        VServerCustomCommandSensor(coordinator) for coordinator in custom_coordinators
+    )
     for container_registry, disk_registry, storage_registry, _name in registries:
         coordinator = container_registry.coordinator
         stats = coordinator.data if isinstance(coordinator.data, dict) else {}

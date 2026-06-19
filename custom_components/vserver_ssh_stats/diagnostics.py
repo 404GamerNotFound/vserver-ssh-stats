@@ -29,6 +29,10 @@ async def async_get_config_entry_diagnostics(
 
     servers = _load_servers(config_entry)
     redacted_servers = [async_redact_data(server, TO_REDACT) for server in servers]
+    try:
+        custom_sensors = json.loads(config_entry.data.get("custom_sensors_json", "[]"))
+    except ValueError:
+        custom_sensors = []
     return {
         "entry": {
             "title": config_entry.title,
@@ -42,6 +46,7 @@ async def async_get_config_entry_diagnostics(
             "storage_interval": config_entry.data.get("storage_interval"),
             "slow_command_timeout": config_entry.data.get("slow_command_timeout"),
             "command_allowlist_configured": bool(config_entry.data.get("command_allowlist")),
+            "custom_sensor_count": len(custom_sensors) if isinstance(custom_sensors, list) else 0,
         },
         "servers": redacted_servers,
         "options": config_entry.options,

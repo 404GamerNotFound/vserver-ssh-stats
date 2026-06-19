@@ -43,7 +43,10 @@
           "edit_server": "Editar un servidor existente",
           "add_server": "Agregar otro servidor",
           "remove_server": "Eliminar un servidor",
-          "reconfigure_servers": "Reemplazar toda la lista de servidores"
+          "reconfigure_servers": "Reemplazar toda la lista de servidores",
+          "add_custom_sensor": "Añadir un sensor de comando personalizado",
+          "edit_custom_sensor": "Editar un sensor de comando personalizado",
+          "remove_custom_sensor": "Eliminar un sensor de comando personalizado"
         }
       },
       "select_server": {
@@ -92,6 +95,41 @@
           "confirm_remove": "Confirmar eliminación"
         }
       },
+      "select_custom_sensor": {
+        "title": "Seleccionar sensor personalizado",
+        "data": {
+          "custom_sensor": "Sensor personalizado"
+        }
+      },
+      "add_custom_sensor": {
+        "title": "Añadir sensor de comando personalizado",
+        "description": "El comando se ejecuta con las credenciales SSH del servidor seleccionado. Configura solo comandos de confianza.",
+        "data": {
+          "name": "Nombre del sensor",
+          "server_host": "Servidor",
+          "command": "Comando",
+          "interval": "Intervalo de recolección (segundos)",
+          "timeout": "Tiempo de espera del comando (segundos)"
+        }
+      },
+      "edit_custom_sensor": {
+        "title": "Editar sensor de comando personalizado",
+        "description": "El comando se ejecuta con las credenciales SSH del servidor seleccionado. Configura solo comandos de confianza.",
+        "data": {
+          "name": "Nombre del sensor",
+          "server_host": "Servidor",
+          "command": "Comando",
+          "interval": "Intervalo de recolección (segundos)",
+          "timeout": "Tiempo de espera del comando (segundos)"
+        }
+      },
+      "remove_custom_sensor": {
+        "title": "Eliminar sensor de comando personalizado",
+        "data": {
+          "custom_sensor": "Sensor personalizado",
+          "confirm_remove": "Confirmar eliminación"
+        }
+      },
       "servers": {
         "title": "VServer SSH Stats",
         "description": "Agrega servidores uno a uno. Selecciona 'Agregar otro servidor después de este' para seguir introduciendo hosts.",
@@ -115,10 +153,12 @@
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
       "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
-      "single_action": "Elige solo una acción de servidor a la vez",
+      "single_action": "Elige solo una acción de configuración a la vez",
       "no_servers": "No se encontró ningún servidor configurado",
+      "no_custom_sensors": "No se encontró ningún sensor de comando personalizado",
+      "duplicate_custom_sensor": "Ya existe un sensor personalizado con este nombre para el servidor seleccionado",
       "cannot_remove_last_server": "Debe quedar al menos un servidor configurado",
-      "confirm_remove": "Confirma que se debe eliminar el servidor seleccionado",
+      "confirm_remove": "Confirma la eliminación del elemento seleccionado",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },

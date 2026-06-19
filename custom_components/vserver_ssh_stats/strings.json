@@ -43,7 +43,10 @@
           "edit_server": "Edit an existing server",
           "add_server": "Add another server",
           "remove_server": "Remove a server",
-          "reconfigure_servers": "Replace the full server list"
+          "reconfigure_servers": "Replace the full server list",
+          "add_custom_sensor": "Add a custom command sensor",
+          "edit_custom_sensor": "Edit a custom command sensor",
+          "remove_custom_sensor": "Remove a custom command sensor"
         }
       },
       "select_server": {
@@ -92,6 +95,41 @@
           "confirm_remove": "Confirm removal"
         }
       },
+      "select_custom_sensor": {
+        "title": "Select custom sensor",
+        "data": {
+          "custom_sensor": "Custom sensor"
+        }
+      },
+      "add_custom_sensor": {
+        "title": "Add custom command sensor",
+        "description": "The command runs with the selected server's SSH credentials. Only configure commands you trust.",
+        "data": {
+          "name": "Sensor name",
+          "server_host": "Server",
+          "command": "Command",
+          "interval": "Collection interval (seconds)",
+          "timeout": "Command timeout (seconds)"
+        }
+      },
+      "edit_custom_sensor": {
+        "title": "Edit custom command sensor",
+        "description": "The command runs with the selected server's SSH credentials. Only configure commands you trust.",
+        "data": {
+          "name": "Sensor name",
+          "server_host": "Server",
+          "command": "Command",
+          "interval": "Collection interval (seconds)",
+          "timeout": "Command timeout (seconds)"
+        }
+      },
+      "remove_custom_sensor": {
+        "title": "Remove custom command sensor",
+        "data": {
+          "custom_sensor": "Custom sensor",
+          "confirm_remove": "Confirm removal"
+        }
+      },
       "servers": {
         "title": "VServer SSH Stats",
         "description": "Add servers one by one. Choose 'Add another server' to continue entering hosts.",
@@ -115,10 +153,12 @@
       "host_in_use": "This host is already configured",
       "key_missing": "SSH key file not found",
       "invalid_host_key_fingerprints": "Enter at least one valid OpenSSH SHA256 host-key fingerprint",
-      "single_action": "Choose only one server action at a time",
+      "single_action": "Choose only one configuration action at a time",
       "no_servers": "No configured server was found",
+      "no_custom_sensors": "No custom command sensor was found",
+      "duplicate_custom_sensor": "A custom sensor with this name already exists for the selected server",
       "cannot_remove_last_server": "At least one server must remain configured",
-      "confirm_remove": "Confirm that the selected server should be removed",
+      "confirm_remove": "Confirm removal of the selected item",
       "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },

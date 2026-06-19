@@ -23,6 +23,7 @@ Current integration version: **1.4.16**.
 - Editable options flow for changing, adding, removing, or fully replacing configured servers.
 - Adaptive polling backoff after repeated collection failures.
 - Native Home Assistant sensors, binary sensors, action buttons, service responses, and events.
+- Scheduled custom command sensors with an independent interval and timeout per sensor.
 - Optional `run_command` allowlist with exact matches and prefix rules ending in `*`.
 - Device registry MAC address reporting so monitored hosts can be associated with existing network devices, for example UniFi devices, when MAC addresses match.
 - Diagnostic entities for metadata and action status so operational sensors remain easier to scan.
@@ -102,6 +103,31 @@ In the integration options you can also configure:
 - Add another server.
 - Remove a server.
 - Replace the full server list.
+- Add, edit, or remove custom command sensors.
+
+### Custom command sensors
+
+Open the integration options and select **Add a custom command sensor**. Each sensor defines:
+
+- A sensor name and one existing server.
+- The remote shell command to execute.
+- A collection interval in seconds (default `3600`, minimum `5`).
+- A command timeout in seconds (default `30`, maximum `3600`).
+
+Every custom sensor has its own update coordinator, so a slow daily command does not delay the
+normal server poll or another custom sensor. It reuses the selected server's SSH credentials,
+port, connect timeout, and pinned host-key fingerprints. Numeric output such as `632` becomes a
+numeric sensor state. Text and multi-line output becomes the state when it fits Home Assistant's
+255-character state limit; the complete retained output is also available in the `output`
+attribute. Output retained by the integration is limited to 16 KiB. A timeout, SSH failure, or
+non-zero command exit status marks only that custom sensor unavailable until a later successful
+run.
+
+Custom commands are explicitly trusted configuration and are not governed by the ad-hoc
+`run_command` allowlist. They run with the selected SSH user's permissions. Prefer a dedicated,
+restricted monitoring user and narrowly scoped non-interactive `sudo -n` rules when elevated
+read access is required. Cron expressions are not supported; use the per-sensor interval in
+seconds.
 
 Private-key paths may be absolute, relative to the Home Assistant configuration directory, or use `~` for the container user's home directory. Relative paths such as `ssh/id_vserver` resolve to `/config/ssh/id_vserver` on Home Assistant OS.
 

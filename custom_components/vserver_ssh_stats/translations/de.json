@@ -43,7 +43,10 @@
           "edit_server": "Bestehenden Server bearbeiten",
           "add_server": "Weiteren Server hinzufügen",
           "remove_server": "Server entfernen",
-          "reconfigure_servers": "Komplette Serverliste ersetzen"
+          "reconfigure_servers": "Komplette Serverliste ersetzen",
+          "add_custom_sensor": "Benutzerdefinierten Befehlssensor hinzufügen",
+          "edit_custom_sensor": "Benutzerdefinierten Befehlssensor bearbeiten",
+          "remove_custom_sensor": "Benutzerdefinierten Befehlssensor entfernen"
         }
       },
       "select_server": {
@@ -92,6 +95,41 @@
           "confirm_remove": "Entfernen bestätigen"
         }
       },
+      "select_custom_sensor": {
+        "title": "Benutzerdefinierten Sensor auswählen",
+        "data": {
+          "custom_sensor": "Benutzerdefinierter Sensor"
+        }
+      },
+      "add_custom_sensor": {
+        "title": "Benutzerdefinierten Befehlssensor hinzufügen",
+        "description": "Der Befehl wird mit den SSH-Zugangsdaten des ausgewählten Servers ausgeführt. Konfigurieren Sie nur vertrauenswürdige Befehle.",
+        "data": {
+          "name": "Sensorname",
+          "server_host": "Server",
+          "command": "Befehl",
+          "interval": "Abfrageintervall (Sekunden)",
+          "timeout": "Befehls-Timeout (Sekunden)"
+        }
+      },
+      "edit_custom_sensor": {
+        "title": "Benutzerdefinierten Befehlssensor bearbeiten",
+        "description": "Der Befehl wird mit den SSH-Zugangsdaten des ausgewählten Servers ausgeführt. Konfigurieren Sie nur vertrauenswürdige Befehle.",
+        "data": {
+          "name": "Sensorname",
+          "server_host": "Server",
+          "command": "Befehl",
+          "interval": "Abfrageintervall (Sekunden)",
+          "timeout": "Befehls-Timeout (Sekunden)"
+        }
+      },
+      "remove_custom_sensor": {
+        "title": "Benutzerdefinierten Befehlssensor entfernen",
+        "data": {
+          "custom_sensor": "Benutzerdefinierter Sensor",
+          "confirm_remove": "Entfernen bestätigen"
+        }
+      },
       "servers": {
         "title": "VServer SSH Stats",
         "description": "Server einzeln hinzufügen. Wählen Sie 'Weiteren Server danach hinzufügen', um weitere Hosts einzutragen.",
@@ -115,10 +153,12 @@
       "host_in_use": "Dieser Host ist bereits konfiguriert",
       "key_missing": "SSH-Schlüsseldatei nicht gefunden",
       "invalid_host_key_fingerprints": "Mindestens einen gültigen OpenSSH-SHA256-Host-Key-Fingerprint eingeben",
-      "single_action": "Bitte nur eine Serveraktion gleichzeitig auswählen",
+      "single_action": "Bitte nur eine Konfigurationsaktion gleichzeitig auswählen",
       "no_servers": "Es wurde kein konfigurierter Server gefunden",
+      "no_custom_sensors": "Es wurde kein benutzerdefinierter Befehlssensor gefunden",
+      "duplicate_custom_sensor": "Für den ausgewählten Server existiert bereits ein benutzerdefinierter Sensor mit diesem Namen",
       "cannot_remove_last_server": "Mindestens ein Server muss konfiguriert bleiben",
-      "confirm_remove": "Bitte bestätigen, dass der ausgewählte Server entfernt werden soll",
+      "confirm_remove": "Bitte das Entfernen des ausgewählten Eintrags bestätigen",
       "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
