@@ -162,6 +162,13 @@
       "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },
+  "entity": {
+    "button": {
+      "purge_history": {
+        "name": "Purge history"
+      }
+    }
+  },
   "services": {
     "get_local_ip": {
       "name": "Get local IP",

@@ -8,7 +8,10 @@ from typing import Any, Callable, Dict, Iterable
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DOMAIN
@@ -36,6 +39,38 @@ ACTION_BUTTONS: tuple[tuple[str, str], ...] = (
     ("clear_package_cache", "Clear package cache"),
     ("reboot_host", "Reboot host"),
 )
+
+
+def _entity_ids_for_server(
+    device_registry,
+    entity_registry,
+    host: str,
+    config_entry_id: str,
+) -> list[str]:
+    """Return this integration's entity IDs for a host and its child devices."""
+
+    server_device = device_registry.async_get_device(identifiers={(DOMAIN, host)})
+    if server_device is None:
+        return []
+
+    device_ids = {server_device.id}
+    while True:
+        child_ids = {
+            device.id
+            for device in device_registry.devices.values()
+            if getattr(device, "via_device_id", None) in device_ids
+        }
+        new_device_ids = child_ids - device_ids
+        if not new_device_ids:
+            break
+        device_ids.update(new_device_ids)
+
+    return sorted(
+        registry_entry.entity_id
+        for registry_entry in entity_registry.entities.values()
+        if registry_entry.device_id in device_ids
+        and registry_entry.config_entry_id == config_entry_id
+    )
 
 
 class VServerActionButton(ButtonEntity):
@@ -80,6 +115,52 @@ class VServerActionButton(ButtonEntity):
                     self._server["host_key_fingerprints"]
                 )
         await self.hass.services.async_call(DOMAIN, self._action, data, blocking=True)
+
+
+class VServerPurgeHistoryButton(ButtonEntity):
+    """Delete recorder history for all entities belonging to one server."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:database-remove"
+    _attr_translation_key = "purge_history"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: Dict[str, Any],
+        config_entry_id: str,
+    ) -> None:
+        """Initialize the history purge button."""
+
+        self.hass = hass
+        self._server = server
+        self._config_entry_id = config_entry_id
+        self._attr_unique_id = f"{server['host']}_purge_history"
+        self._attr_device_info = build_device_info(DOMAIN, server)
+
+    async def async_press(self) -> None:
+        """Purge all recorder rows for this server's registered entities."""
+
+        if not self.hass.services.has_service("recorder", "purge_entities"):
+            raise HomeAssistantError("The Home Assistant recorder service is unavailable")
+
+        entity_ids = _entity_ids_for_server(
+            dr.async_get(self.hass),
+            er.async_get(self.hass),
+            self._server["host"],
+            self._config_entry_id,
+        )
+        if not entity_ids:
+            raise HomeAssistantError("No entities were found for this server")
+
+        await self.hass.services.async_call(
+            "recorder",
+            "purge_entities",
+            {"entity_id": entity_ids, "keep_days": 0},
+            blocking=True,
+            context=self._context,
+        )
 
 
 class VServerContainerRestartButton(
@@ -206,6 +287,7 @@ async def async_setup_entry(
             entities.append(
                 VServerActionButton(hass, srv, action, button_name, connect_timeout)
             )
+        entities.append(VServerPurgeHistoryButton(hass, srv, entry.entry_id))
 
     entity_registry = er.async_get(hass)
     try:

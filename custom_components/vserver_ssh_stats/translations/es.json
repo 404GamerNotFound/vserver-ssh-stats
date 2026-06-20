@@ -162,6 +162,13 @@
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
+  "entity": {
+    "button": {
+      "purge_history": {
+        "name": "Purgar historial"
+      }
+    }
+  },
   "services": {
     "get_local_ip": {
       "name": "Obtener IP local",

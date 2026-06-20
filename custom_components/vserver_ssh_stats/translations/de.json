@@ -162,6 +162,13 @@
       "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
+  "entity": {
+    "button": {
+      "purge_history": {
+        "name": "Historie bereinigen"
+      }
+    }
+  },
   "services": {
     "get_local_ip": {
       "name": "Lokale IP abrufen",
