@@ -2,6 +2,8 @@
 
 ## Unreleased
 - Added a per-server purge-history button that removes recorder history for the host and its integration-owned child-device entities.
+- Deferred all initial SSH collectors until Home Assistant has fully started so recorder startup and database migrations are not competing with remote polling.
+- Excluded volatile process, container, command-output, timing, and availability details from recorder persistence while keeping them visible as live entity attributes.
 - Added scheduled custom command sensors that reuse a configured server connection and provide independent collection intervals, command timeouts, bounded multi-line output, and UI-based add/edit/remove management.
 - Added process totals/running/zombie metrics with a per-boot observed peak, TCP/socket/conntrack metrics and capacity warning, software RAID state/rebuild metrics, optional SMART/NVMe device health collection with child devices, and Docker memory-limit utilization/PID/CPU-throttling/disk-usage metrics.
 - Hardened the new collectors with partial storage-read reporting, per-command storage timeouts, serial-based storage identities, IPv6 socket accounting, an explicit per-container memory-limit warning, and read-only powercap handling without permission changes.

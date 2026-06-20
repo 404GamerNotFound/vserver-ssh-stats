@@ -25,6 +25,19 @@ class VServerContainerSwitch(CoordinatorEntity[VServerCoordinator], SwitchEntity
     """Start or stop one Docker container."""
 
     _attr_icon = "mdi:docker"
+    _unrecorded_attributes = frozenset(
+        {
+            "container_id",
+            "image",
+            "status",
+            "health_state",
+            "restart_count",
+            "restart_policy",
+            "compose_project",
+            "compose_service",
+            "swarm_service",
+        }
+    )
 
     def __init__(
         self,

@@ -37,6 +37,10 @@ BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
 class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySensorEntity):
     """Binary sensor representing host availability."""
 
+    _unrecorded_attributes = frozenset(
+        {"last_seen", "consecutive_failures", "current_poll_interval"}
+    )
+
     def __init__(self, coordinator: VServerCoordinator, server_name: str) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
@@ -133,6 +137,8 @@ class VServerDiagnosticBinarySensor(
 class VServerPortBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySensorEntity):
     """Binary sensor representing TCP port reachability from Home Assistant."""
 
+    _unrecorded_attributes = frozenset({"response_time_ms", "error"})
+
     def __init__(self, coordinator: VServerCoordinator, server_name: str, port: int) -> None:
         """Initialize the TCP port sensor."""
 
@@ -180,6 +186,10 @@ class VServerContainerMemoryLimitBinarySensor(
     BinarySensorEntity,
 ):
     """Warn when a container reaches its configured memory limit."""
+
+    _unrecorded_attributes = frozenset(
+        {"memory_usage_bytes", "memory_limit_bytes", "memory_limit_usage"}
+    )
 
     def __init__(
         self,

@@ -11,6 +11,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import DOMAIN
@@ -434,6 +435,21 @@ class CustomCommandCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
 
+def _schedule_initial_refresh(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinators: list[DataUpdateCoordinator],
+) -> None:
+    """Start remote polling only after Home Assistant finished startup."""
+
+    async def _async_refresh(_hass: HomeAssistant) -> None:
+        await asyncio.gather(
+            *(coordinator.async_request_refresh() for coordinator in coordinators)
+        )
+
+    entry.async_on_unload(async_at_started(hass, _async_refresh))
+
+
 async def async_get_or_create_coordinators(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -481,8 +497,7 @@ async def async_get_or_create_coordinators(
             )
 
         entry_data[COORDINATORS_KEY] = coordinators
-        for coordinator in coordinators:
-            hass.async_create_task(coordinator.async_request_refresh())
+        _schedule_initial_refresh(hass, entry, coordinators)
         return coordinators
 
 
@@ -530,6 +545,5 @@ async def async_get_or_create_custom_sensor_coordinators(
                 )
 
         entry_data[CUSTOM_COORDINATORS_KEY] = coordinators
-        for coordinator in coordinators:
-            hass.async_create_task(coordinator.async_request_refresh())
+        _schedule_initial_refresh(hass, entry, coordinators)
         return coordinators

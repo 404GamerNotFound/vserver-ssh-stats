@@ -717,6 +717,9 @@ ACTION_STATUS_SENSORS: tuple[tuple[str, str], ...] = (
 class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
     """Representation of a VServer SSH Stats sensor."""
 
+    _unrecorded_attributes = frozenset(
+        {"processes", "containers", "units", "arrays", "mdadm_details"}
+    )
     entity_description: VServerSensorDescription
 
     def __init__(
@@ -823,6 +826,8 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
 class VServerActionStatusSensor(SensorEntity):
     """Sensor that exposes the latest remote action result for a server."""
 
+    _unrecorded_attributes = frozenset({"output"})
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -888,6 +893,17 @@ class VServerCustomCommandSensor(
     CoordinatorEntity[CustomCommandCoordinator], SensorEntity
 ):
     """Sensor backed by one user-configured SSH command."""
+
+    _unrecorded_attributes = frozenset(
+        {
+            "output",
+            "output_truncated",
+            "last_updated",
+            "collection_time_ms",
+            "interval_seconds",
+            "timeout_seconds",
+        }
+    )
 
     def __init__(self, coordinator: CustomCommandCoordinator) -> None:
         """Initialize a custom command sensor."""
