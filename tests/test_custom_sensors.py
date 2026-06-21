@@ -255,6 +255,68 @@ def test_custom_sensor_config_preserves_id_and_rejects_duplicate_name() -> None:
     assert duplicate_errors == {"name": "duplicate_custom_sensor"}
 
 
+def test_custom_sensor_form_uses_strip_as_validator() -> None:
+    """Build the form with the current callable-style Voluptuous Strip API."""
+
+    class FakeVol:
+        UNDEFINED = object()
+
+        @staticmethod
+        def Strip(value):
+            return value.strip()
+
+        @staticmethod
+        def Required(key, *, default):
+            return key, default
+
+        @staticmethod
+        def Length(*, min, max):
+            return min, max
+
+        @staticmethod
+        def All(*validators):
+            return validators
+
+        @staticmethod
+        def Schema(schema):
+            return schema
+
+    build_schema = _function_from_class(
+        INTEGRATION / "config_flow.py",
+        "OptionsFlowHandler",
+        "_custom_sensor_form_schema",
+    )
+    build_schema.__globals__.update(
+        {
+            "vol": FakeVol,
+            "DEFAULT_CUSTOM_SENSOR_INTERVAL": 300,
+            "MIN_CUSTOM_SENSOR_INTERVAL": 5,
+            "DEFAULT_CUSTOM_SENSOR_TIMEOUT": 30,
+            "_number_box": lambda **kwargs: kwargs,
+        }
+    )
+    flow = SimpleNamespace(
+        _existing_servers=[{"host": "server.example"}],
+        _server_host_select_selector=lambda: "server-selector",
+    )
+
+    schema = build_schema(flow)
+
+    name_validators = next(
+        validators
+        for key, validators in schema.items()
+        if isinstance(key, tuple) and key[0] == "name"
+    )
+    command_validators = next(
+        validators
+        for key, validators in schema.items()
+        if isinstance(key, tuple) and key[0] == "command"
+    )
+    assert FakeVol.Strip in name_validators
+    assert FakeVol.Strip in command_validators
+    assert FakeVol.Strip("  uptime  ") == "uptime"
+
+
 def test_custom_sensor_translation_keys_match_strings() -> None:
     """All shipped languages expose the new options-flow fields and errors."""
 

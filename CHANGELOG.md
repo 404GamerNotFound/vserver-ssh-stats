@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixed the custom command sensor add/edit form for current Voluptuous versions by passing `vol.Strip` as a validator instead of calling it without a value.
 - Added a per-server purge-history button that removes recorder history for the host and its integration-owned child-device entities.
 - Deferred all initial SSH collectors until Home Assistant has fully started so recorder startup and database migrations are not competing with remote polling.
 - Excluded volatile process, container, command-output, timing, and availability details from recorder persistence while keeping them visible as live entity attributes.

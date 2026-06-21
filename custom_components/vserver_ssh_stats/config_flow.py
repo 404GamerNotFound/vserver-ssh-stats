@@ -674,14 +674,14 @@ class OptionsFlowHandler(OptionsFlow):
         return vol.Schema(
             {
                 vol.Required("name", default=defaults.get("name", vol.UNDEFINED)): vol.All(
-                    str, vol.Strip(), vol.Length(min=1, max=100)
+                    str, vol.Strip, vol.Length(min=1, max=100)
                 ),
                 vol.Required(
                     "server_host", default=defaults.get("server_host", first_host)
                 ): self._server_host_select_selector(),
                 vol.Required(
                     "command", default=defaults.get("command", vol.UNDEFINED)
-                ): vol.All(str, vol.Strip(), vol.Length(min=1, max=4096)),
+                ): vol.All(str, vol.Strip, vol.Length(min=1, max=4096)),
                 vol.Required(
                     "interval",
                     default=defaults.get("interval", DEFAULT_CUSTOM_SENSOR_INTERVAL),
