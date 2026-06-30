@@ -126,3 +126,26 @@ def test_volatile_live_attributes_are_not_persisted() -> None:
 
     for (filename, class_name), attributes in expected.items():
         assert attributes <= _unrecorded_attributes(INTEGRATION / filename, class_name)
+
+
+def test_core_numeric_sensors_have_measurement_state_class() -> None:
+    """Core numeric metrics should remain eligible for recorder statistics."""
+
+    source = (INTEGRATION / "sensor.py").read_text()
+    for key in (
+        "cpu",
+        "mem",
+        "swap_usage",
+        "disk",
+        "net_in",
+        "net_out",
+        "temp",
+        "load_1",
+        "load_5",
+        "load_15",
+    ):
+        marker = f'key="{key}"'
+        start = source.index(marker)
+        next_sensor = source.find("VServerSensorDescription(", start + len(marker))
+        block = source[start : next_sensor if next_sensor != -1 else len(source)]
+        assert "state_class=SensorStateClass.MEASUREMENT" in block

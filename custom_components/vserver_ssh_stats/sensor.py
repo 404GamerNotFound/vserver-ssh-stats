@@ -259,11 +259,13 @@ class ServerContainerRegistry:
             key=f"container_{sanitized}_cpu",
             name=f"{raw_name} CPU",
             native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
         )
         mem_description = VServerSensorDescription(
             key=f"container_{sanitized}_mem",
             name=f"{raw_name} Memory",
             native_unit_of_measurement=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
         )
         metrics = (
             cpu_description,
@@ -273,6 +275,7 @@ class ServerContainerRegistry:
                 name=f"{raw_name} Memory Usage",
                 native_unit_of_measurement=UnitOfInformation.BYTES,
                 device_class=SensorDeviceClass.DATA_SIZE,
+                state_class=SensorStateClass.MEASUREMENT,
             ),
             VServerSensorDescription(
                 key=f"container_{sanitized}_memory_limit_bytes",
@@ -414,6 +417,7 @@ class ServerDiskRegistry:
             key=f"disk_{sanitized}_free",
             name=f"{label} Free",
             native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
+            state_class=SensorStateClass.MEASUREMENT,
         )
         return [
             VServerSensor(self.coordinator, self.server_name, total_description),
@@ -486,6 +490,11 @@ class ServerStorageRegistry:
                     name=f"{name} {label}",
                     native_unit_of_measurement=unit,
                     device_class=device_class,
+                    state_class=(
+                        SensorStateClass.MEASUREMENT
+                        if metric in {"temperature", "wear_percent"}
+                        else None
+                    ),
                     entity_category=(
                         EntityCategory.DIAGNOSTIC
                         if metric not in {"temperature", "wear_percent"}
@@ -513,19 +522,35 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    VServerSensorDescription(key="cpu", name="CPU", native_unit_of_measurement=PERCENTAGE),
-    VServerSensorDescription(key="mem", name="Memory", native_unit_of_measurement=PERCENTAGE),
+    VServerSensorDescription(
+        key="cpu",
+        name="CPU",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="mem",
+        name="Memory",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     VServerSensorDescription(
         key="swap_usage",
         name="Swap Usage",
         native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     _diagnostic_sensor(
         key="swap_total",
         name="Swap Total",
         native_unit_of_measurement=UnitOfInformation.GIBIBYTES,
     ),
-    VServerSensorDescription(key="disk", name="Disk", native_unit_of_measurement=PERCENTAGE),
+    VServerSensorDescription(
+        key="disk",
+        name="Disk",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     _diagnostic_sensor(
         key="disk_capacity_total",
         name="Disk Capacity Total",
@@ -557,8 +582,18 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
     ),
-    VServerSensorDescription(key="net_in", name="Network In", native_unit_of_measurement="B/s"),
-    VServerSensorDescription(key="net_out", name="Network Out", native_unit_of_measurement="B/s"),
+    VServerSensorDescription(
+        key="net_in",
+        name="Network In",
+        native_unit_of_measurement="B/s",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="net_out",
+        name="Network Out",
+        native_unit_of_measurement="B/s",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     _diagnostic_sensor(
         key="ssh_connect_time_ms",
         name="SSH Connect Time",
@@ -598,13 +633,26 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         name="Temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     _diagnostic_sensor(key="cpu_temperature_status", name="CPU Temperature Status"),
     _diagnostic_sensor(key="ram", name="RAM", native_unit_of_measurement="MB"),
     _diagnostic_sensor(key="cores", name="Cores"),
-    VServerSensorDescription(key="load_1", name="Load 1"),
-    VServerSensorDescription(key="load_5", name="Load 5"),
-    VServerSensorDescription(key="load_15", name="Load 15"),
+    VServerSensorDescription(
+        key="load_1",
+        name="Load 1",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="load_5",
+        name="Load 5",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    VServerSensorDescription(
+        key="load_15",
+        name="Load 15",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     _diagnostic_sensor(
         key="cpu_freq",
         name="CPU Frequency",
@@ -709,6 +757,7 @@ ACTION_STATUS_SENSORS: tuple[tuple[str, str], ...] = (
     ("restart_docker_container", "Last Docker Container Restart Status"),
     ("start_docker_container", "Last Docker Container Start Status"),
     ("stop_docker_container", "Last Docker Container Stop Status"),
+    ("purge_history_keep_days", "Last History Retention Purge Status"),
     ("get_server_diagnostics", "Last Diagnostics Status"),
     ("tail_logs", "Last Log Tail Status"),
 )

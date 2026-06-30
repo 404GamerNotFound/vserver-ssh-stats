@@ -84,6 +84,8 @@ Version 1.4.16 is a major monitoring and security update. It adds process, stora
 - Added process, RAID, SMART, conntrack, and Docker-limit conditions to the host health score.
 - Diagnostic warning sensors now preserve an `unknown` state when the source metric is unavailable instead of incorrectly reporting a cleared warning.
 - Slow package, Docker, and storage collectors continue to run independently from the fast base poll.
+- Remote actions now respect explicit OS profiles without cross-OS fallback. Linux package actions no longer continue into Windows PowerShell commands when the Linux command fails.
+- Action buttons in auto-detect mode reuse the OS already reported by the collector, so recognized Debian/Linux hosts call Linux package commands instead of later falling through to `powershell.exe`.
 - Individual SMART, NVMe, and mdadm commands are limited to a maximum of 20 seconds.
 - SMART/NVMe and mdadm commands first run as the SSH user and only fall back to non-interactive `sudo -n` when required.
 - The collector no longer changes RAPL, powercap, `/sys`, or device permissions with `sudo chmod`. Unreadable metrics remain unavailable.
@@ -126,9 +128,9 @@ Example read-only sudoers rules, with paths adjusted for the target distribution
 
 ## Validation
 
-- 39 automated tests pass.
+- 57 automated tests pass.
 - Ruff, ShellCheck, Bash syntax, YAML, JSON, and Git diff validation pass.
-- Added regression coverage for SSH host-key validation, process-state parsing, partial storage reads, storage child devices, Docker limits, CPU throttling, and collector output stability.
+- Added regression coverage for SSH host-key validation, process-state parsing, partial storage reads, storage child devices, Docker limits, CPU throttling, collector output stability, OS-specific remote action command selection, and auto-detected action-button OS handling.
 
 ## Upgrade Notes
 

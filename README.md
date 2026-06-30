@@ -19,7 +19,7 @@ Current integration version: **1.4.16**.
 - Agentless monitoring over SSH with password or private-key authentication.
 - Multi-server setup from the Home Assistant UI.
 - Automatic SSH host discovery on local networks and Zeroconf discovery support.
-- Per-server options for name, host, SSH port, username, credentials, target OS, monitored TCP ports, polling interval, SSH connect timeout, and command timeout.
+- Per-server options for name, host, SSH port, username, credentials, target OS, monitored TCP ports, history retention days, polling interval, SSH connect timeout, and command timeout.
 - Editable options flow for changing, adding, removing, or fully replacing configured servers.
 - Adaptive polling backoff after repeated collection failures.
 - Native Home Assistant sensors, binary sensors, action buttons, service responses, and events.
@@ -88,6 +88,7 @@ During setup you provide:
 - Password or SSH private-key path.
 - Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`.
 - Optional monitored TCP ports, separated by commas, spaces, semicolons, or line breaks.
+- History retention days for the integration's recorder purge helper. Default: `10`.
 - Whether to add another server in the same integration entry.
 
 In the integration options you can also configure:
@@ -247,8 +248,14 @@ For each server, the integration creates buttons for:
 - Prune Docker.
 - Clear package cache.
 - Reboot host.
+- Purge all history.
+- Purge old history using the configured retention days.
 
 Buttons use the stored server configuration and call the matching Home Assistant service.
+
+The retention-aware history button and service call Home Assistant's `recorder.purge_entities`
+with `keep_days` for all entities belonging to the selected server and its child devices. They do
+not replace Home Assistant's global recorder retention settings.
 
 ## Services
 
@@ -261,6 +268,7 @@ These services run on the Home Assistant host, not on a monitored remote server:
 - `vserver_ssh_stats.get_local_ip` - Return Home Assistant's local IP address.
 - `vserver_ssh_stats.get_uptime` - Return Home Assistant host uptime in seconds.
 - `vserver_ssh_stats.list_connections` - Return active SSH session IPs reported by `who` on the Home Assistant host.
+- `vserver_ssh_stats.purge_history_keep_days` - Purge recorder history for a configured server while keeping recent days. Fields: `host`, optional `keep_days`.
 
 ### Refresh Service
 
@@ -309,6 +317,7 @@ The integration fires service-specific events such as:
 - `vserver_ssh_stats_local_ip`
 - `vserver_ssh_stats_uptime`
 - `vserver_ssh_stats_connections`
+- `vserver_ssh_stats_purge_history_keep_days`
 - `vserver_ssh_stats_command`
 - `vserver_ssh_stats_refresh`
 - `vserver_ssh_stats_update_package_list`

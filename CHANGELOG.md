@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Fixed package update, package list update, and package upgrade actions for Linux hosts so they no longer mask Linux command failures by falling through to `powershell.exe`; action buttons now reuse detected OS information when configured for auto-detect.
 - Fixed the custom command sensor add/edit form for current Voluptuous versions by passing `vol.Strip` as a validator instead of calling it without a value.
 - Added a per-server purge-history button that removes recorder history for the host and its integration-owned child-device entities.
 - Deferred all initial SSH collectors until Home Assistant has fully started so recorder startup and database migrations are not competing with remote polling.

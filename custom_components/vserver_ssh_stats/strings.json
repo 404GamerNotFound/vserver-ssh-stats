@@ -15,7 +15,8 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
-          "monitored_ports": "Monitored TCP ports"
+          "monitored_ports": "Monitored TCP ports",
+          "history_retention_days": "History retention days"
         }
       }
     },
@@ -69,7 +70,8 @@
           "key": "Key file",
           "clear_key": "Remove stored key file",
           "target_os": "Target system",
-          "monitored_ports": "Monitored TCP ports"
+          "monitored_ports": "Monitored TCP ports",
+          "history_retention_days": "History retention days"
         }
       },
       "add_server": {
@@ -85,7 +87,8 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
-          "monitored_ports": "Monitored TCP ports"
+          "monitored_ports": "Monitored TCP ports",
+          "history_retention_days": "History retention days"
         }
       },
       "remove_server": {
@@ -143,7 +146,8 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
-          "monitored_ports": "Monitored TCP ports"
+          "monitored_ports": "Monitored TCP ports",
+          "history_retention_days": "History retention days"
         }
       }
     },
@@ -166,6 +170,9 @@
     "button": {
       "purge_history": {
         "name": "Purge history"
+      },
+      "purge_history_keep_days": {
+        "name": "Purge old history"
       }
     }
   },
@@ -181,6 +188,20 @@
     "list_connections": {
       "name": "List SSH connections",
       "description": "List IP addresses of active SSH sessions."
+    },
+    "purge_history_keep_days": {
+      "name": "Purge history with retention",
+      "description": "Purge recorder history for one configured server while keeping the requested number of days.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the configured server."
+        },
+        "keep_days": {
+          "name": "Keep days",
+          "description": "Number of recent days to keep. If omitted, the server option is used."
+        }
+      }
     },
     "run_command": {
       "name": "Run SSH command",

@@ -42,6 +42,7 @@ def test_services_yaml_is_a_mapping() -> None:
     assert isinstance(services, dict)
     assert {
         "refresh",
+        "purge_history_keep_days",
         "start_docker_container",
         "stop_docker_container",
         "restart_docker_container",

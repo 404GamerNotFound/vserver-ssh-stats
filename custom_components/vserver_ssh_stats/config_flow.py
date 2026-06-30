@@ -24,10 +24,12 @@ from .util import (
     DEFAULT_CUSTOM_SENSOR_INTERVAL,
     DEFAULT_CUSTOM_SENSOR_TIMEOUT,
     DEFAULT_DOCKER_INTERVAL,
+    DEFAULT_HISTORY_RETENTION_DAYS,
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
     DEFAULT_STORAGE_INTERVAL,
+    MAX_HISTORY_RETENTION_DAYS,
     MIN_CUSTOM_SENSOR_INTERVAL,
     parse_monitored_ports,
     resolve_private_key_path,
@@ -180,6 +182,15 @@ def _build_server_schema(
             default=_format_monitored_ports(defaults.get("monitored_ports", "")),
         )
     ] = _textarea_selector()
+    schema[
+        vol.Optional(
+            "history_retention_days",
+            default=defaults.get(
+                "history_retention_days",
+                DEFAULT_HISTORY_RETENTION_DAYS,
+            ),
+        )
+    ] = _number_box(max_value=MAX_HISTORY_RETENTION_DAYS)
     schema[vol.Optional("password")] = _password_selector()
     if editing_existing:
         schema[vol.Optional("clear_password", default=defaults.get("clear_password", False))] = bool
@@ -264,6 +275,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "username": user_input["username"],
                         "port": user_input["port"],
                         "target_os": user_input.get("target_os", "auto"),
+                        "history_retention_days": min(
+                            _coerce_positive_int(
+                                user_input.get("history_retention_days"),
+                                DEFAULT_HISTORY_RETENTION_DAYS,
+                            ),
+                            MAX_HISTORY_RETENTION_DAYS,
+                        ),
                     }
                     try:
                         server["host_key_fingerprints"] = parse_host_key_fingerprints(
@@ -1019,6 +1037,13 @@ class OptionsFlowHandler(OptionsFlow):
                 "username": str(user_input["username"]).strip(),
                 "port": user_input["port"],
                 "target_os": user_input.get("target_os", "auto"),
+                "history_retention_days": min(
+                    _coerce_positive_int(
+                        user_input.get("history_retention_days"),
+                        DEFAULT_HISTORY_RETENTION_DAYS,
+                    ),
+                    MAX_HISTORY_RETENTION_DAYS,
+                ),
             }
         )
         try:

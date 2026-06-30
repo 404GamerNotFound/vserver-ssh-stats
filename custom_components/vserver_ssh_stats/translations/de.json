@@ -15,7 +15,8 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
-          "monitored_ports": "Überwachte TCP-Ports"
+          "monitored_ports": "Überwachte TCP-Ports",
+          "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
       }
     },
@@ -69,7 +70,8 @@
           "key": "Schlüsseldatei",
           "clear_key": "Gespeicherte Schlüsseldatei entfernen",
           "target_os": "Zielsystem",
-          "monitored_ports": "Überwachte TCP-Ports"
+          "monitored_ports": "Überwachte TCP-Ports",
+          "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
       },
       "add_server": {
@@ -85,7 +87,8 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
-          "monitored_ports": "Überwachte TCP-Ports"
+          "monitored_ports": "Überwachte TCP-Ports",
+          "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
       },
       "remove_server": {
@@ -143,7 +146,8 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
-          "monitored_ports": "Überwachte TCP-Ports"
+          "monitored_ports": "Überwachte TCP-Ports",
+          "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
       }
     },
@@ -166,6 +170,9 @@
     "button": {
       "purge_history": {
         "name": "Historie bereinigen"
+      },
+      "purge_history_keep_days": {
+        "name": "Alte Historie bereinigen"
       }
     }
   },
@@ -181,6 +188,20 @@
     "list_connections": {
       "name": "SSH-Verbindungen auflisten",
       "description": "Listet IP-Adressen aktiver SSH-Sitzungen auf."
+    },
+    "purge_history_keep_days": {
+      "name": "Historie mit Aufbewahrung bereinigen",
+      "description": "Bereinigt die Recorder-Historie eines konfigurierten Servers und behält die gewünschte Anzahl aktueller Tage.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des konfigurierten Servers."
+        },
+        "keep_days": {
+          "name": "Tage behalten",
+          "description": "Anzahl aktueller Tage, die behalten werden. Ohne Angabe wird die Serveroption verwendet."
+        }
+      }
     },
     "run_command": {
       "name": "SSH-Befehl ausführen",

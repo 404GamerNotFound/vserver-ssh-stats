@@ -15,7 +15,8 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
-          "monitored_ports": "Puertos TCP supervisados"
+          "monitored_ports": "Puertos TCP supervisados",
+          "history_retention_days": "Retención del historial (días)"
         }
       }
     },
@@ -69,7 +70,8 @@
           "key": "Archivo de clave",
           "clear_key": "Eliminar archivo de clave almacenado",
           "target_os": "Sistema de destino",
-          "monitored_ports": "Puertos TCP supervisados"
+          "monitored_ports": "Puertos TCP supervisados",
+          "history_retention_days": "Retención del historial (días)"
         }
       },
       "add_server": {
@@ -85,7 +87,8 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
-          "monitored_ports": "Puertos TCP supervisados"
+          "monitored_ports": "Puertos TCP supervisados",
+          "history_retention_days": "Retención del historial (días)"
         }
       },
       "remove_server": {
@@ -143,7 +146,8 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
-          "monitored_ports": "Puertos TCP supervisados"
+          "monitored_ports": "Puertos TCP supervisados",
+          "history_retention_days": "Retención del historial (días)"
         }
       }
     },
@@ -166,6 +170,9 @@
     "button": {
       "purge_history": {
         "name": "Purgar historial"
+      },
+      "purge_history_keep_days": {
+        "name": "Purgar historial antiguo"
       }
     }
   },
@@ -181,6 +188,20 @@
     "list_connections": {
       "name": "Listar conexiones SSH",
       "description": "Lista las direcciones IP de las sesiones SSH activas."
+    },
+    "purge_history_keep_days": {
+      "name": "Purgar historial con retención",
+      "description": "Purga el historial del recorder para un servidor configurado y conserva el número de días indicado.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Nombre de host o IP del servidor configurado."
+        },
+        "keep_days": {
+          "name": "Días a conservar",
+          "description": "Número de días recientes que se conservan. Si se omite, se usa la opción del servidor."
+        }
+      }
     },
     "run_command": {
       "name": "Ejecutar comando SSH",

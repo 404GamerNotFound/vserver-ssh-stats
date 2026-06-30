@@ -24,6 +24,7 @@ from .docker_entities import (
 )
 from .util import (
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_HISTORY_RETENTION_DAYS,
     build_container_device_info,
     build_device_info,
 )
@@ -39,6 +40,34 @@ ACTION_BUTTONS: tuple[tuple[str, str], ...] = (
     ("clear_package_cache", "Clear package cache"),
     ("reboot_host", "Reboot host"),
 )
+SUPPORTED_ACTION_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
+LINUX_OS_HINTS = ("debian", "ubuntu", "raspbian", "raspberry", "linux")
+
+
+def _normalize_action_target_os(value: object) -> str:
+    """Return a safe target OS value for action service calls."""
+
+    normalized = str(value or "auto").strip().lower()
+    return normalized if normalized in SUPPORTED_ACTION_TARGET_OS else "auto"
+
+
+def _target_os_for_action(
+    server: Dict[str, Any],
+    coordinator: VServerCoordinator | None,
+) -> str:
+    """Use configured target OS, falling back to the collector's detected OS."""
+
+    configured = _normalize_action_target_os(server.get("target_os"))
+    if configured != "auto" or coordinator is None:
+        return configured
+
+    data = coordinator.data if isinstance(coordinator.data, dict) else {}
+    detected_os = str(data.get("os") or "").strip().lower()
+    if "windows" in detected_os:
+        return "windows"
+    if any(hint in detected_os for hint in LINUX_OS_HINTS):
+        return "debian"
+    return configured
 
 
 def _entity_ids_for_server(
@@ -83,12 +112,14 @@ class VServerActionButton(ButtonEntity):
         action: str,
         name: str,
         connect_timeout: int,
+        coordinator: VServerCoordinator | None = None,
     ) -> None:
         """Initialize the button."""
         self.hass = hass
         self._server = server
         self._action = action
         self._connect_timeout = connect_timeout
+        self._coordinator = coordinator
         host = server["host"]
         self._attr_unique_id = f"{host}_{action}"
         self._attr_name = f"{server['name']} {name}"
@@ -103,7 +134,7 @@ class VServerActionButton(ButtonEntity):
                 "host": self._server["host"],
                 "username": self._server["username"],
                 "port": self._server.get("port", 22),
-                "target_os": self._server.get("target_os", "auto"),
+                "target_os": _target_os_for_action(self._server, self._coordinator),
                 "connect_timeout": self._connect_timeout,
             }
             if self._server.get("password"):
@@ -158,6 +189,44 @@ class VServerPurgeHistoryButton(ButtonEntity):
             "recorder",
             "purge_entities",
             {"entity_id": entity_ids, "keep_days": 0},
+            blocking=True,
+            context=self._context,
+        )
+
+
+class VServerPurgeHistoryKeepDaysButton(ButtonEntity):
+    """Delete old recorder history for all entities belonging to one server."""
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:database-clock"
+    _attr_translation_key = "purge_history_keep_days"
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: Dict[str, Any],
+    ) -> None:
+        """Initialize the retention-aware history purge button."""
+
+        self.hass = hass
+        self._server = server
+        self._keep_days = int(
+            server.get("history_retention_days", DEFAULT_HISTORY_RETENTION_DAYS)
+        )
+        self._attr_unique_id = f"{server['host']}_purge_history_keep_days"
+        self._attr_device_info = build_device_info(DOMAIN, server)
+
+    async def async_press(self) -> None:
+        """Purge recorder rows older than the configured retention window."""
+
+        await self.hass.services.async_call(
+            DOMAIN,
+            "purge_history_keep_days",
+            {
+                "host": self._server["host"],
+                "keep_days": self._keep_days,
+            },
             blocking=True,
             context=self._context,
         )
@@ -278,6 +347,10 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     servers = data.get("servers", [])
     connect_timeout = data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
+    coordinators = await async_get_or_create_coordinators(hass, entry)
+    coordinators_by_host = {
+        coordinator.server["host"]: coordinator for coordinator in coordinators
+    }
     entities: list[ButtonEntity] = []
     for srv in servers:
         name = srv.get("name")
@@ -285,9 +358,17 @@ async def async_setup_entry(
             continue
         for action, button_name in ACTION_BUTTONS:
             entities.append(
-                VServerActionButton(hass, srv, action, button_name, connect_timeout)
+                VServerActionButton(
+                    hass,
+                    srv,
+                    action,
+                    button_name,
+                    connect_timeout,
+                    coordinators_by_host.get(srv.get("host")),
+                )
             )
         entities.append(VServerPurgeHistoryButton(hass, srv, entry.entry_id))
+        entities.append(VServerPurgeHistoryKeepDaysButton(hass, srv))
 
     entity_registry = er.async_get(hass)
     try:
@@ -301,7 +382,6 @@ async def async_setup_entry(
             for registry_entry in entity_registry.entities.values()
             if registry_entry.config_entry_id == entry.entry_id
         ]
-    coordinators = await async_get_or_create_coordinators(hass, entry)
     for coordinator in coordinators:
         server_name = coordinator.server.get("name") or coordinator.server["host"]
         registry = ServerContainerButtonRegistry(coordinator, connect_timeout)

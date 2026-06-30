@@ -18,7 +18,7 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Unterstützt mehrere Server mit individueller Konfiguration.
 - Konfiguration über die Home Assistant Oberfläche (Config Flow).
 - Bestehende Server können über die Integrationsoptionen bearbeitet, hinzugefügt oder entfernt werden, inklusive Host,
-  Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem, überwachten TCP-Ports und Polling-Timeouts.
+  Port, Benutzername, Passwort, SSH-Schlüssel, Zielsystem, überwachten TCP-Ports, Historien-Aufbewahrung und Polling-Timeouts.
 - Unterstützt Passwort- und SSH-Schlüssel-Authentifizierung.
 - Home-Assistant-Services und Schaltflächen zum Ausführen von Befehlen, Paket-Updates und Reboots.
 - Benutzerdefinierte Befehlssensoren mit eigenem Abfrageintervall und Timeout je Sensor.
@@ -62,7 +62,8 @@ Die Integration stellt außerdem Home-Assistant-Dienste bereit, um ad-hoc Befehl
 - Docker-Metriken laufen in einem separaten Intervall (Standard: 1800 Sekunden / 30 Minuten).
 - SMART-/NVMe-Metriken laufen in einem separaten Intervall (Standard: 3600 Sekunden, `0` deaktiviert die Abfrage).
 - Langsame Paket-, Docker- und Storage-Teilabfragen nutzen ein eigenes Timeout (Standard: 180 Sekunden); einzelne Storage-Werkzeugaufrufe sind zusätzlich auf 20 Sekunden begrenzt.
-- Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketlisten, Upgraden von Paketen, Neustarten des Hosts, Neustarten von Diensten, Docker-Container-Aktionen, Docker-Prune, Cache-Cleanup, Diagnosereport und Log-Tail.
+- Pro Server konfigurierbare Historien-Aufbewahrung für den Recorder-Purge-Helfer (Standard: 10 Tage).
+- Dienste zum Abrufen der lokalen IP-Adresse, der Uptime, Liste aktiver SSH-Verbindungen, zum Ausführen von Befehlen, Aktualisieren von Paketlisten, Upgraden von Paketen, Neustarten des Hosts, Neustarten von Diensten, Docker-Container-Aktionen, Docker-Prune, Cache-Cleanup, Historien-Bereinigung, Diagnosereport und Log-Tail.
 - Statussensoren für das letzte Paketupdate und den letzten Neustart mit Zeitstempel, Erfolgsmeldung und Befehlsausgabe als Attribute.
 - Zusammenfassender `health_status`-Sensor mit `ok`, `warning`, `critical` oder `offline` sowie Score und Gründen als Attribute.
 - Technische Metadaten werden als Home-Assistant-Diagnoseentitäten markiert, damit operative Sensoren übersichtlicher bleiben.
@@ -106,6 +107,7 @@ Die Integration stellt Home-Assistant-Dienste für Remote-Aktionen bereit:
 - `vserver_ssh_stats.get_uptime` – Uptime in Sekunden abrufen.
 - `vserver_ssh_stats.list_connections` – Aktive SSH-Sitzungen auflisten.
 - `vserver_ssh_stats.refresh` – Sofortige Aktualisierung eines oder aller konfigurierten Server anstoßen.
+- `vserver_ssh_stats.purge_history_keep_days` – Recorder-Historie eines konfigurierten Servers bereinigen und die gewünschte Anzahl aktueller Tage behalten.
 - `vserver_ssh_stats.run_command` – Beliebigen Shell-Befehl remote ausführen.
 - `vserver_ssh_stats.update_package_list` – Paketlisten/Metadaten aktualisieren.
 - `vserver_ssh_stats.update_packages` – Systempakete aktualisieren (apt/dnf/yum).
@@ -121,6 +123,11 @@ Die Integration stellt Home-Assistant-Dienste für Remote-Aktionen bereit:
 Nach Abschluss von `update_packages` oder `reboot_host` aktualisiert die Integration den passenden Statussensor und löst
 ein Event mit `host`, `output` und `success` im Payload aus. Wenn in den Integrationsoptionen eine Command-Allowlist
 konfiguriert ist, akzeptiert `run_command` nur exakte Einträge oder Präfixregeln mit abschließendem `*`.
+
+Die Historien-Aufbewahrung ersetzt nicht die globale Home-Assistant-Recorder-Konfiguration. Der neue Button
+**Alte Historie bereinigen** und der Dienst `purge_history_keep_days` rufen `recorder.purge_entities` für alle
+Entitäten des ausgewählten Servers und seiner Untergeräte auf. Ohne explizites `keep_days` wird der pro Server
+konfigurierte Wert verwendet.
 
 ## Unterstützung
 

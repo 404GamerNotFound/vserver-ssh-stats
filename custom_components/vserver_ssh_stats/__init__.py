@@ -23,10 +23,12 @@ from .util import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DOCKER_INTERVAL,
+    DEFAULT_HISTORY_RETENTION_DAYS,
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
     DEFAULT_STORAGE_INTERVAL,
+    MAX_HISTORY_RETENTION_DAYS,
     is_command_allowed,
     parse_command_allowlist,
     parse_monitored_ports,
@@ -40,6 +42,7 @@ PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
+LINUX_TARGET_OS = SUPPORTED_TARGET_OS - {"auto", "windows"}
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 REMOTE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
 DOCKER_RESTART_POLICIES = {"always", "no", "on-failure", "unless-stopped"}
@@ -50,6 +53,20 @@ def _normalize_target_os(value: str | None) -> str:
 
     normalized = (value or "auto").strip().lower()
     return normalized if normalized in SUPPORTED_TARGET_OS else "auto"
+
+
+def _build_os_command_sequence(
+    target_os: str,
+    linux_cmd: str,
+    windows_cmd: str,
+) -> list[str]:
+    """Return OS commands without cross-OS fallback for explicit profiles."""
+
+    if target_os == "windows":
+        return [windows_cmd]
+    if target_os in LINUX_TARGET_OS:
+        return [linux_cmd]
+    return [linux_cmd, windows_cmd]
 
 
 def _cleanup_empty_device_entries(hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -97,6 +114,63 @@ def _cleanup_empty_device_entries(hass: HomeAssistant, entry: ConfigEntry) -> No
         )
 
 
+def _entity_ids_for_server(
+    device_registry,
+    entity_registry,
+    host: str,
+    config_entry_id: str,
+) -> list[str]:
+    """Return this integration's entity IDs for a host and its child devices."""
+
+    server_device = device_registry.async_get_device(identifiers={(DOMAIN, host)})
+    if server_device is None:
+        return []
+
+    device_ids = {server_device.id}
+    while True:
+        child_ids = {
+            device.id
+            for device in device_registry.devices.values()
+            if getattr(device, "via_device_id", None) in device_ids
+        }
+        new_device_ids = child_ids - device_ids
+        if not new_device_ids:
+            break
+        device_ids.update(new_device_ids)
+
+    return sorted(
+        registry_entry.entity_id
+        for registry_entry in entity_registry.entities.values()
+        if registry_entry.device_id in device_ids
+        and registry_entry.config_entry_id == config_entry_id
+    )
+
+
+def _server_context_for_host(
+    hass: HomeAssistant,
+    host: str,
+) -> tuple[str, dict[str, object]] | None:
+    """Return config-entry ID and server config for a configured host."""
+
+    for entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
+        if not isinstance(entry_data, dict):
+            continue
+        for server in entry_data.get("servers", []):
+            if server.get("host") == host:
+                return entry_id, server
+    return None
+
+
+def _history_retention_days(value: object) -> int:
+    """Return a bounded recorder retention window in days."""
+
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        days = DEFAULT_HISTORY_RETENTION_DAYS
+    return max(1, min(days, MAX_HISTORY_RETENTION_DAYS))
+
+
 def _positive_timeout(value: object, default: int) -> int:
     """Return *value* as a positive timeout in seconds."""
 
@@ -140,7 +214,7 @@ def _build_update_commands(target_os: str) -> list[str]:
         "winget upgrade --all --accept-source-agreements --accept-package-agreements "
         "} else { Write-Output 'winget not available'; exit 1 }\""
     )
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _build_package_list_update_commands(target_os: str) -> list[str]:
@@ -167,7 +241,7 @@ def _build_package_list_update_commands(target_os: str) -> list[str]:
         "winget source update "
         "} else { Write-Output 'winget not available'; exit 1 }\""
     )
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _build_reboot_commands(target_os: str) -> list[str]:
@@ -175,7 +249,7 @@ def _build_reboot_commands(target_os: str) -> list[str]:
 
     windows_cmd = "shutdown /r /t 0"
     linux_cmd = "sudo reboot &"
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _build_clear_package_cache_commands(target_os: str) -> list[str]:
@@ -200,7 +274,7 @@ def _build_clear_package_cache_commands(target_os: str) -> list[str]:
         "powershell.exe -NoProfile -NonInteractive -Command "
         "\"Write-Output 'Package cache cleanup is not supported on this Windows target'; exit 1\""
     )
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
@@ -214,7 +288,7 @@ def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
         "powershell.exe -NoProfile -NonInteractive -Command "
         f"\"Restart-Service -Name '{service}' -Force\""
     )
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _build_docker_container_commands(
@@ -348,7 +422,7 @@ def _build_tail_logs_commands(target_os: str, service: str | None, lines: int) -
             "powershell.exe -NoProfile -NonInteractive -Command "
             f"\"Get-EventLog -LogName System -Newest {lines} | Format-Table -AutoSize\""
         )
-    return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
 def _exec_ssh_with_fallback(
@@ -679,6 +753,81 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         )
         return {"refreshed": len(coordinators), "success": success, "output": output}
 
+    async def handle_purge_history_keep_days(call: ServiceCall) -> ServiceResponse:
+        """Purge recorder history for one configured server while keeping recent days."""
+
+        host = call.data["host"]
+        context = _server_context_for_host(hass, host)
+        if context is None:
+            output = f"No configured server found for host: {host}"
+            _store_action_status(hass, host, "purge_history_keep_days", output, False)
+            return {
+                "purged": 0,
+                "keep_days": None,
+                "success": False,
+                "output": output,
+            }
+
+        config_entry_id, server = context
+        keep_days = _history_retention_days(
+            call.data.get("keep_days", server.get("history_retention_days"))
+        )
+        if not hass.services.has_service("recorder", "purge_entities"):
+            output = "The Home Assistant recorder service is unavailable"
+            _store_action_status(hass, host, "purge_history_keep_days", output, False)
+            return {
+                "purged": 0,
+                "keep_days": keep_days,
+                "success": False,
+                "output": output,
+            }
+
+        entity_ids = _entity_ids_for_server(
+            dr.async_get(hass),
+            er.async_get(hass),
+            host,
+            config_entry_id,
+        )
+        if not entity_ids:
+            output = "No entities were found for this server"
+            _store_action_status(hass, host, "purge_history_keep_days", output, False)
+            return {
+                "purged": 0,
+                "keep_days": keep_days,
+                "success": False,
+                "output": output,
+            }
+
+        await hass.services.async_call(
+            "recorder",
+            "purge_entities",
+            {"entity_id": entity_ids, "keep_days": keep_days},
+            blocking=True,
+            context=call.context,
+        )
+        output = (
+            f"Purged recorder history for {len(entity_ids)} entit"
+            f"{'y' if len(entity_ids) == 1 else 'ies'}, keeping {keep_days} day"
+            f"{'' if keep_days == 1 else 's'}"
+        )
+        _store_action_status(hass, host, "purge_history_keep_days", output, True)
+        hass.bus.async_fire(
+            f"{DOMAIN}_purge_history_keep_days",
+            {
+                "host": host,
+                "entity_ids": entity_ids,
+                "keep_days": keep_days,
+                "purged": len(entity_ids),
+                "success": True,
+            },
+        )
+        return {
+            "purged": len(entity_ids),
+            "keep_days": keep_days,
+            "success": True,
+            "output": output,
+        }
+
     async def handle_update_package_list(call: ServiceCall) -> ServiceResponse:
         """Refresh package metadata on a server via SSH."""
 
@@ -850,6 +999,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         vol.Optional("service"): _safe_remote_name,
         vol.Optional("lines", default=100): _log_line_count,
     }
+    purge_history_keep_days_schema_fields = {
+        vol.Required("host"): cv.string,
+        vol.Optional("keep_days"): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=1, max=MAX_HISTORY_RETENTION_DAYS),
+        ),
+    }
 
     hass.services.async_register(
         DOMAIN,
@@ -874,6 +1030,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         "refresh",
         handle_refresh,
         schema=vol.Schema({vol.Optional("host"): cv.string}),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "purge_history_keep_days",
+        handle_purge_history_keep_days,
+        schema=vol.Schema(purge_history_keep_days_schema_fields),
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
@@ -1000,6 +1163,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:  # pragma: no cover - validation handled in flow
         custom_sensors = []
     for server in servers:
+        server["history_retention_days"] = _history_retention_days(
+            server.get("history_retention_days")
+        )
         key = resolve_private_key_path(hass, server.get("key"))
         if key:
             server["key"] = key

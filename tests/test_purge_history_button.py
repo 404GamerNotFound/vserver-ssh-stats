@@ -153,3 +153,50 @@ def test_button_calls_recorder_for_all_selected_entities_with_user_context() -> 
         )
     ]
     assert button._attr_unique_id == "192.0.2.10_purge_history"
+
+
+def test_retention_button_calls_integration_service_with_configured_keep_days() -> None:
+    """Pressing the retention button delegates to the integration purge service."""
+
+    namespace: dict[str, Any] = {
+        "Any": Any,
+        "ButtonEntity": object,
+        "Dict": dict,
+        "DEFAULT_HISTORY_RETENTION_DAYS": 10,
+        "DOMAIN": "vserver_ssh_stats",
+        "EntityCategory": SimpleNamespace(CONFIG="config"),
+        "HomeAssistant": object,
+        "build_device_info": lambda domain, server: {"identifiers": {(domain, server["host"])}},
+    }
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class FakeServices:
+        async def async_call(self, *args, **kwargs) -> None:
+            calls.append((args, kwargs))
+
+    button_class = _load_node("VServerPurgeHistoryKeepDaysButton", namespace)
+    hass = SimpleNamespace(services=FakeServices())
+    button = button_class(
+        hass,
+        {
+            "host": "192.0.2.10",
+            "name": "Server",
+            "history_retention_days": 21,
+        },
+    )
+    context = object()
+    button._context = context
+
+    asyncio.run(button.async_press())
+
+    assert calls == [
+        (
+            (
+                "vserver_ssh_stats",
+                "purge_history_keep_days",
+                {"host": "192.0.2.10", "keep_days": 21},
+            ),
+            {"blocking": True, "context": context},
+        )
+    ]
+    assert button._attr_unique_id == "192.0.2.10_purge_history_keep_days"

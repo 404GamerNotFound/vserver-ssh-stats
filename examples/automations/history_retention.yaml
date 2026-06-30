@@ -1,0 +1,17 @@
+# Example Home Assistant automation for VServer SSH Stats recorder retention.
+# Replace host values with the configured server hosts from your integration entry.
+
+- alias: "[VServer] Nightly history retention purge"
+  description: "Keep only the configured number of recorder-history days for selected VServer entities."
+  trigger:
+    - platform: time
+      at: "04:15:00"
+  action:
+    - service: vserver_ssh_stats.purge_history_keep_days
+      data:
+        host: 192.168.1.10
+    - service: vserver_ssh_stats.purge_history_keep_days
+      data:
+        host: 192.168.1.11
+        keep_days: 30
+  mode: single

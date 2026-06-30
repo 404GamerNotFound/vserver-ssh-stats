@@ -18,6 +18,17 @@ refresh:
       description: Optional hostname or IP of the server. If omitted, all servers are refreshed.
       example: 192.168.1.10
 
+purge_history_keep_days:
+  name: Purge history with retention
+  description: Purge recorder history for one configured server while keeping the requested number of days.
+  fields:
+    host:
+      description: Hostname or IP of the configured server.
+      example: 192.168.1.10
+    keep_days:
+      description: Number of recent days to keep. If omitted by service callers, the server option is used.
+      example: 30
+
 run_command:
   name: Run SSH command
   description: Execute an arbitrary command on a remote server.
