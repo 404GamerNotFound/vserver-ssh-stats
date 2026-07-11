@@ -1,5 +1,8 @@
 # VServer SSH Stats - Home Assistant Integration
 
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/default)
+
+
 [Deutsch](README.de.md) | [Español](README.es.md) | [Français](README.fr.md)
 
 ![VServer SSH Stats logo](images/logo/logo.png)
