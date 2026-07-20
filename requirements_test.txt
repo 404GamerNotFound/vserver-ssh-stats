@@ -2,4 +2,4 @@ PyYAML==6.0.3
 pytest==9.1.1
 ruff==0.15.22
 yamllint==1.38.0
-zizmor==1.26.1
+zizmor==1.27.0
