@@ -15,7 +15,7 @@ The integration connects to each configured server via SSH, runs a compact colle
 
 It is intended for vServers, VPS instances, Raspberry Pis, dedicated Linux hosts, and similar machines that can be reached from Home Assistant via SSH. A Windows target profile exists as an experimental fallback with a smaller metric set.
 
-Current integration version: **1.4.16**.
+Current integration version: **1.4.34**.
 
 ## Highlights
 
@@ -445,14 +445,14 @@ Adjust paths for your distribution. For production systems, keep sudoers entries
 
 ## Release Management
 
-- Current manifest version: **1.4.16**.
+- Current manifest version: **1.4.34**.
 - Update `custom_components/vserver_ssh_stats/manifest.json` for each release.
 - Use `scripts/bump_version.py` when preparing a version bump.
 - Add notable changes to [`CHANGELOG.md`](CHANGELOG.md).
 - Use [`.github/release_template.md`](.github/release_template.md) for manually drafted GitHub releases so every release keeps the same structure and includes the donation link.
 - If you use GitHub's generated release notes, [`.github/release.yml`](.github/release.yml) provides the category format. Keep the support section from the release template in the final release body.
 - The `Validate Release Notes` workflow checks published or edited releases and fails when the PayPal donation link is missing.
-- Create a matching Git tag and GitHub release, for example `v1.4.16`, so HACS can track updates reliably.
+- Create a matching Git tag and GitHub release, for example `v1.4.34`, so HACS can track updates reliably.
 
 ## Support the Project
 

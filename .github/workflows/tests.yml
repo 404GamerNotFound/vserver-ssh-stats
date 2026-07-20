@@ -46,16 +46,10 @@ jobs:
 
       - name: Check embedded remote shell script
         run: |
-          python - <<'PY' > /tmp/vserver-ssh-stats-remote.sh
-          import ast
-          from pathlib import Path
-
-          print("#!/usr/bin/env bash")
-          module = ast.parse(
-              Path("custom_components/vserver_ssh_stats/remote_script.py").read_text()
-          )
-          print(ast.literal_eval(module.body[0].value))
-          PY
+          {
+            echo "#!/usr/bin/env bash"
+            cat custom_components/vserver_ssh_stats/remote_collector.sh
+          } > /tmp/vserver-ssh-stats-remote.sh
           bash -n /tmp/vserver-ssh-stats-remote.sh
           shellcheck --severity=error /tmp/vserver-ssh-stats-remote.sh
 

@@ -285,7 +285,7 @@ Eine Beispiel-Konfiguration für `/etc/sudoers.d/<Ihr-user-name-für-VServer-SSH
 ---
 
 ## Release-Management
-- Aktuelle Manifest-Version: **v1.4.16** (siehe `manifest.json`).
+- Aktuelle Manifest-Version: **v1.4.34** (siehe `manifest.json`).
 - Erstellen Sie für jede veröffentlichte Version ein Git-Tag (z. B. `git tag v1.3.1`) sowie ein zugehöriges GitHub-Release, damit HACS Updates sauber nachvollziehen kann.
 - Nutzen Sie das vorhandene Skript `scripts/bump_version.py`, um die Versionsnummer der Integration vor einer neuen Veröffentlichung zu erhöhen.
 - Pflegen Sie wichtige Änderungen zusätzlich in der [`CHANGELOG.md`](CHANGELOG.md).

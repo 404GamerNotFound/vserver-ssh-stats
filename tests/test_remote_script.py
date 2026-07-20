@@ -1,19 +1,17 @@
 """Tests for the embedded remote collector script."""
 from __future__ import annotations
 
-import ast
 import json
 import os
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
-REMOTE_SCRIPT_PATH = ROOT / "custom_components" / "vserver_ssh_stats" / "remote_script.py"
+REMOTE_SCRIPT_PATH = ROOT / "custom_components" / "vserver_ssh_stats" / "remote_collector.sh"
 
 
 def _remote_script() -> str:
-    module = ast.parse(REMOTE_SCRIPT_PATH.read_text())
-    return ast.literal_eval(module.body[0].value)
+    return REMOTE_SCRIPT_PATH.read_text()
 
 
 def _bash_function(name: str) -> str:
