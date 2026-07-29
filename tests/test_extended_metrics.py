@@ -105,6 +105,20 @@ def test_process_peak_cache_resets_when_uptime_decreases() -> None:
     assert cache.compute("host", 40, 10) == 40
 
 
+def test_rolling_average_cache_averages_within_the_trailing_window() -> None:
+    """Old samples fall out of the window and missing values pass through as None."""
+
+    module = runpy.run_path(str(INTEGRATION / "net_cache.py"))
+    cache = module["RollingAverageCache"](window_seconds=300.0)
+
+    assert cache.compute("host", 10.0, 0.0) == 10.0
+    assert cache.compute("host", 20.0, 100.0) == 15.0
+    assert cache.compute("host", 30.0, 200.0) == 20.0
+    # The first sample (t=0) falls outside the 300s window once t=301 is reached.
+    assert cache.compute("host", 40.0, 301.0) == 30.0
+    assert cache.compute("other-host", None, 301.0) is None
+
+
 def test_storage_collector_caps_commands_and_reports_partial_reads() -> None:
     """Bound individual privileged reads and preserve successful partial data."""
 

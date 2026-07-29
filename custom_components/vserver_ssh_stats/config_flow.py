@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import socket
 import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+import paramiko
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry, OptionsFlow
@@ -15,8 +17,9 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from . import DOMAIN
+from .ssh_collector import async_run_custom_command
 from .ssh_discovery import discover_ssh_hosts, guess_local_network
-from .ssh_security import parse_host_key_fingerprints
+from .ssh_security import SSHHostKeyError, parse_host_key_fingerprints
 from .util import (
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
@@ -34,6 +37,32 @@ from .util import (
     parse_monitored_ports,
     resolve_private_key_path,
 )
+
+
+async def _async_test_ssh_connection(server: dict[str, Any]) -> str | None:
+    """Attempt a lightweight SSH command and return an error code, or None on success."""
+
+    try:
+        await async_run_custom_command(
+            server["host"],
+            server["username"],
+            server.get("password"),
+            server.get("key"),
+            server["port"],
+            "echo vserver_ssh_stats_connection_test",
+            DEFAULT_CONNECT_TIMEOUT,
+            DEFAULT_CONNECT_TIMEOUT,
+            server.get("host_key_fingerprints"),
+        )
+    except SSHHostKeyError:
+        return "host_key_mismatch"
+    except paramiko.AuthenticationException:
+        return "cannot_authenticate"
+    except (TimeoutError, socket.timeout):
+        return "cannot_connect_timeout"
+    except (OSError, paramiko.SSHException, RuntimeError):
+        return "cannot_connect"
+    return None
 
 
 def _coerce_positive_int(value: Any, default: int) -> int:
@@ -150,6 +179,7 @@ def _build_server_schema(
     schema[vol.Required("name", default=defaults.get("name", default_name))] = vol.All(
         str, vol.Length(min=1)
     )
+    schema[vol.Optional("label", default=defaults.get("label", ""))] = str
     schema[vol.Required("host", default=defaults.get("host", default_host))] = host_field
     schema[vol.Required("port", default=defaults.get("port", 22))] = vol.All(
         vol.Coerce(int), vol.Range(min=1, max=65535)
@@ -271,6 +301,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 else:
                     server: dict[str, Any] = {
                         "name": user_input["name"],
+                        "label": str(user_input.get("label") or "").strip(),
                         "host": host,
                         "username": user_input["username"],
                         "port": user_input["port"],
@@ -305,6 +336,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             defaults = user_input
                         else:
                             server["key"] = resolved
+                    if not errors:
+                        connection_error = await _async_test_ssh_connection(server)
+                        if connection_error:
+                            errors["base"] = connection_error
                     if errors:
                         defaults = user_input
                     else:
@@ -771,7 +806,7 @@ class OptionsFlowHandler(OptionsFlow):
         defaults.pop("password", None)
         if user_input is not None:
             defaults.update(user_input)
-            server = self._server_from_input(
+            server = await self._server_from_input(
                 user_input,
                 errors,
                 existing=current,
@@ -937,7 +972,7 @@ class OptionsFlowHandler(OptionsFlow):
         errors: dict[str, str] = {}
         defaults = user_input or {}
         if user_input is not None:
-            server = self._server_from_input(
+            server = await self._server_from_input(
                 user_input,
                 errors,
                 pending_servers=self._pending_servers,
@@ -1002,7 +1037,7 @@ class OptionsFlowHandler(OptionsFlow):
             errors=errors,
         )
 
-    def _server_from_input(
+    async def _server_from_input(
         self,
         user_input: dict[str, Any],
         errors: dict[str, str],
@@ -1033,6 +1068,7 @@ class OptionsFlowHandler(OptionsFlow):
         server.update(
             {
                 "name": str(user_input["name"]).strip(),
+                "label": str(user_input.get("label") or "").strip(),
                 "host": host,
                 "username": str(user_input["username"]).strip(),
                 "port": user_input["port"],
@@ -1083,7 +1119,15 @@ class OptionsFlowHandler(OptionsFlow):
         if not server.get("password") and not server.get("key"):
             errors["base"] = "auth"
 
-        return None if errors else server
+        if errors:
+            return None
+
+        connection_error = await _async_test_ssh_connection(server)
+        if connection_error:
+            errors["base"] = connection_error
+            return None
+
+        return server
 
     async def async_step_servers(self, user_input: dict[str, Any] | None = None):
         """Collect replacement server information during options flow."""
@@ -1092,7 +1136,7 @@ class OptionsFlowHandler(OptionsFlow):
         defaults = user_input or {}
 
         if user_input is not None:
-            server = self._server_from_input(
+            server = await self._server_from_input(
                 user_input,
                 errors,
                 pending_servers=self._pending_servers,

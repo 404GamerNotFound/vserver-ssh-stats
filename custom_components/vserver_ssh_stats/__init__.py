@@ -38,7 +38,7 @@ from .util import (
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
-PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch"]
+PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch", "update"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}

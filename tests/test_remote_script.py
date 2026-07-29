@@ -192,6 +192,73 @@ EOF
     assert data["firewall_rules_count"] == 2
 
 
+def test_fail2ban_collector_aggregates_banned_ips_across_jails() -> None:
+    """Sum "Currently banned" across every reported jail, capped at 5."""
+
+    fail2ban_stub = r'''
+timeout() { shift; "$@"; }
+fail2ban-client() {
+  if [ "$1" = "status" ] && [ -z "$2" ]; then
+    cat <<'EOF'
+Status
+|- Number of jail:      2
+`- Jail list:   sshd, recidive
+EOF
+  elif [ "$1" = "status" ] && [ "$2" = "sshd" ]; then
+    cat <<'EOF'
+Status for the jail: sshd
+`- Actions
+   |- Currently banned: 3
+   `- Banned IP list:   1.2.3.4 5.6.7.8 9.10.11.12
+EOF
+  elif [ "$1" = "status" ] && [ "$2" = "recidive" ]; then
+    cat <<'EOF'
+Status for the jail: recidive
+`- Actions
+   |- Currently banned: 1
+   `- Banned IP list:   1.2.3.4
+EOF
+  fi
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=fail2ban_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["fail2ban_active"] == 1
+    assert data["fail2ban_banned_count"] == 4
+    assert data["fail2ban_jails"] == [
+        {"jail": "sshd", "banned": 3},
+        {"jail": "recidive", "banned": 1},
+    ]
+
+
+def test_fail2ban_collector_defaults_when_not_installed() -> None:
+    """Report inactive fail2ban without failing the whole collector."""
+
+    result = subprocess.run(
+        ["bash"],
+        input=_remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["fail2ban_active"] == 0
+    assert data["fail2ban_banned_count"] == 0
+    assert data["fail2ban_jails"] == []
+
+
 def test_process_state_parser_handles_spaces_and_parentheses() -> None:
     """Parse the state after the final command-name parenthesis in proc stat."""
 

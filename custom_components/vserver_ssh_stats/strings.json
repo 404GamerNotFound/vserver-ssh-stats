@@ -7,6 +7,7 @@
         "data": {
           "interval": "Update interval (seconds)",
           "name": "Server name",
+          "label": "Label (optional, e.g. prod/staging/lab)",
           "host": "Host",
           "port": "SSH port",
           "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
@@ -26,6 +27,10 @@
       "host_in_use": "This host is already configured",
       "key_missing": "SSH key file not found",
       "invalid_host_key_fingerprints": "Enter at least one valid OpenSSH SHA256 host-key fingerprint",
+      "cannot_connect": "Could not connect to the host. Check the address, port, and network reachability.",
+      "cannot_connect_timeout": "Connection timed out. Check the address, port, and firewall rules.",
+      "cannot_authenticate": "SSH authentication failed. Check the username, password, or key file.",
+      "host_key_mismatch": "The host's SSH key does not match the configured fingerprint.",
       "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
     }
   },
@@ -61,6 +66,7 @@
         "description": "Leave the password empty to keep the stored password. Use the clear checkboxes to remove stored credentials.",
         "data": {
           "name": "Server name",
+          "label": "Label (optional, e.g. prod/staging/lab)",
           "host": "Host",
           "port": "SSH port",
           "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
@@ -79,6 +85,7 @@
         "description": "Add another server to this integration entry.",
         "data": {
           "name": "Server name",
+          "label": "Label (optional, e.g. prod/staging/lab)",
           "host": "Host",
           "port": "SSH port",
           "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
@@ -138,6 +145,7 @@
         "description": "Add servers one by one. Choose 'Add another server' to continue entering hosts.",
         "data": {
           "name": "Server name",
+          "label": "Label (optional, e.g. prod/staging/lab)",
           "host": "Host",
           "port": "SSH port",
           "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
@@ -157,6 +165,10 @@
       "host_in_use": "This host is already configured",
       "key_missing": "SSH key file not found",
       "invalid_host_key_fingerprints": "Enter at least one valid OpenSSH SHA256 host-key fingerprint",
+      "cannot_connect": "Could not connect to the host. Check the address, port, and network reachability.",
+      "cannot_connect_timeout": "Connection timed out. Check the address, port, and firewall rules.",
+      "cannot_authenticate": "SSH authentication failed. Check the username, password, or key file.",
+      "host_key_mismatch": "The host's SSH key does not match the configured fingerprint.",
       "single_action": "Choose only one configuration action at a time",
       "no_servers": "No configured server was found",
       "no_custom_sensors": "No custom command sensor was found",

@@ -7,6 +7,7 @@
         "data": {
           "interval": "Aktualisierungsintervall (Sekunden)",
           "name": "Servername",
+          "label": "Label (optional, z. B. prod/staging/lab)",
           "host": "Host",
           "port": "SSH-Port",
           "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
@@ -26,6 +27,10 @@
       "host_in_use": "Dieser Host ist bereits konfiguriert",
       "key_missing": "SSH-Schlüsseldatei nicht gefunden",
       "invalid_host_key_fingerprints": "Mindestens einen gültigen OpenSSH-SHA256-Host-Key-Fingerprint eingeben",
+      "cannot_connect": "Verbindung zum Host konnte nicht hergestellt werden. Adresse, Port und Erreichbarkeit prüfen.",
+      "cannot_connect_timeout": "Zeitüberschreitung bei der Verbindung. Adresse, Port und Firewall-Regeln prüfen.",
+      "cannot_authenticate": "SSH-Authentifizierung fehlgeschlagen. Benutzername, Passwort oder Schlüsseldatei prüfen.",
+      "host_key_mismatch": "Der SSH-Host-Key des Hosts stimmt nicht mit dem konfigurierten Fingerprint überein.",
       "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
     }
   },
@@ -61,6 +66,7 @@
         "description": "Passwort leer lassen, um das gespeicherte Passwort beizubehalten. Mit den Entfernen-Optionen können gespeicherte Zugangsdaten gelöscht werden.",
         "data": {
           "name": "Servername",
+          "label": "Label (optional, z. B. prod/staging/lab)",
           "host": "Host",
           "port": "SSH-Port",
           "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
@@ -79,6 +85,7 @@
         "description": "Fügt dieser Integration einen weiteren Server hinzu.",
         "data": {
           "name": "Servername",
+          "label": "Label (optional, z. B. prod/staging/lab)",
           "host": "Host",
           "port": "SSH-Port",
           "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
@@ -138,6 +145,7 @@
         "description": "Server einzeln hinzufügen. Wählen Sie 'Weiteren Server danach hinzufügen', um weitere Hosts einzutragen.",
         "data": {
           "name": "Servername",
+          "label": "Label (optional, z. B. prod/staging/lab)",
           "host": "Host",
           "port": "SSH-Port",
           "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
@@ -157,6 +165,10 @@
       "host_in_use": "Dieser Host ist bereits konfiguriert",
       "key_missing": "SSH-Schlüsseldatei nicht gefunden",
       "invalid_host_key_fingerprints": "Mindestens einen gültigen OpenSSH-SHA256-Host-Key-Fingerprint eingeben",
+      "cannot_connect": "Verbindung zum Host konnte nicht hergestellt werden. Adresse, Port und Erreichbarkeit prüfen.",
+      "cannot_connect_timeout": "Zeitüberschreitung bei der Verbindung. Adresse, Port und Firewall-Regeln prüfen.",
+      "cannot_authenticate": "SSH-Authentifizierung fehlgeschlagen. Benutzername, Passwort oder Schlüsseldatei prüfen.",
+      "host_key_mismatch": "Der SSH-Host-Key des Hosts stimmt nicht mit dem konfigurierten Fingerprint überein.",
       "single_action": "Bitte nur eine Konfigurationsaktion gleichzeitig auswählen",
       "no_servers": "Es wurde kein konfigurierter Server gefunden",
       "no_custom_sensors": "Es wurde kein benutzerdefinierter Befehlssensor gefunden",

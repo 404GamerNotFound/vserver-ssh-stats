@@ -1110,6 +1110,50 @@ read_firewall_status() {
   fi
 }
 
+read_fail2ban_status() {
+  fail2ban_active=0
+  fail2ban_banned_count=0
+  fail2ban_jails_json="[]"
+
+  command -v fail2ban-client >/dev/null 2>&1 || return 0
+
+  set +e
+  f2b_status=$(run_limited 4 fail2ban-client status 2>/dev/null)
+  f2b_status_code=$?
+  if [ "$f2b_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    f2b_status=$(run_limited 4 sudo -n fail2ban-client status 2>/dev/null)
+    f2b_status_code=$?
+  fi
+  set -e
+  [ "$f2b_status_code" -eq 0 ] || return 0
+  fail2ban_active=1
+
+  jail_list=$(printf '%s\n' "$f2b_status" | awk -F':' '/Jail list:/ {print $2}' \
+    | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | grep -v '^$' | head -n 5)
+
+  jail_entries=""
+  while IFS= read -r jail; do
+    [ -z "$jail" ] && continue
+    set +e
+    jail_status=$(run_limited 3 fail2ban-client status "$jail" 2>/dev/null)
+    jail_status_code=$?
+    if [ "$jail_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      jail_status=$(run_limited 3 sudo -n fail2ban-client status "$jail" 2>/dev/null)
+      jail_status_code=$?
+    fi
+    set -e
+    [ "$jail_status_code" -eq 0 ] || continue
+    jail_banned=$(printf '%s\n' "$jail_status" | awk -F':' '/Currently banned:/ {gsub(/[ \t]/,"",$2); print $2}')
+    case "$jail_banned" in
+      ''|*[!0-9]*) jail_banned=0 ;;
+    esac
+    fail2ban_banned_count=$((fail2ban_banned_count + jail_banned))
+    jail_name_json=$(json_escape "$jail")
+    jail_entries="$jail_entries{\"jail\":\"$jail_name_json\",\"banned\":$jail_banned},"
+  done < <(printf '%s\n' "$jail_list")
+  [ -n "$jail_entries" ] && fail2ban_jails_json="[${jail_entries%,}]"
+}
+
 read_disk_io_bytes() {
   disk_read_bytes=0
   disk_write_bytes=0
@@ -1176,6 +1220,8 @@ prepare_numeric_json_values() {
   firewall_active_json=$(number_or_null "$firewall_active")
   firewall_backend_json=$(json_escape "$firewall_backend")
   firewall_rules_count_json=$(number_or_null "$firewall_rules_count")
+  fail2ban_active_json=$(number_or_null "$fail2ban_active")
+  fail2ban_banned_count_json=$(number_or_null "$fail2ban_banned_count")
   disk_read_bytes_json=$(number_or_null "$disk_read_bytes")
   disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
   process_total_json=$(number_or_null "$process_total")
@@ -1293,11 +1339,12 @@ read_journal_errors
 read_root_filesystem_status
 read_failed_ssh_logins
 read_firewall_status
+read_fail2ban_status
 read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
@@ -1306,4 +1353,5 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"u
   "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
   "$journal_errors_json" "$root_fs_readonly_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
+  "$fail2ban_active_json" "$fail2ban_banned_count_json" "$fail2ban_jails_json" \
   "$disk_read_bytes_json" "$disk_write_bytes_json"

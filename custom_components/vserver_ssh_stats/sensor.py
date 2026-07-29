@@ -541,9 +541,21 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    _diagnostic_sensor(
+        key="cpu_avg_5m",
+        name="CPU 5m Average",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     VServerSensorDescription(
         key="mem",
         name="Memory",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    _diagnostic_sensor(
+        key="mem_avg_5m",
+        name="Memory 5m Average",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -754,6 +766,7 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     _diagnostic_sensor(key="failed_ssh_logins_15m", name="Failed SSH Logins (15m)"),
     _diagnostic_sensor(key="firewall_backend", name="Firewall Backend"),
     _diagnostic_sensor(key="firewall_rules_count", name="Firewall Rules Count"),
+    _diagnostic_sensor(key="fail2ban_banned_count", name="Fail2ban Banned IPs"),
     _diagnostic_sensor(key="network_primary_mac", name="Primary MAC"),
     _diagnostic_sensor(key="primary_ip", name="Primary IP"),
     _diagnostic_sensor(key="vnc", name="VNC Supported"),
@@ -783,7 +796,7 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
     """Representation of a VServer SSH Stats sensor."""
 
     _unrecorded_attributes = frozenset(
-        {"processes", "containers", "units", "arrays", "mdadm_details"}
+        {"processes", "containers", "units", "arrays", "mdadm_details", "jails"}
     )
     entity_description: VServerSensorDescription
 
@@ -874,6 +887,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return {
                 "arrays": self.coordinator.data.get("raid_arrays", []),
                 "mdadm_details": self.coordinator.data.get("raid_detail_arrays", []),
+            }
+        if self.entity_description.key == "fail2ban_banned_count":
+            return {
+                "jails": self.coordinator.data.get("fail2ban_jails", []),
             }
         if self._storage_key:
             lookup = self.coordinator.data.get("storage_device_lookup", {})

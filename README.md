@@ -27,14 +27,18 @@ Current integration version: **1.4.51**.
 - Agentless monitoring over SSH with password or private-key authentication.
 - Multi-server setup from the Home Assistant UI.
 - Automatic SSH host discovery on local networks and Zeroconf discovery support.
+- Live SSH connection test on add/edit before a server can be saved, catching bad credentials, host keys, or unreachable hosts during setup instead of afterward.
 - Per-server options for name, host, SSH port, username, credentials, target OS, monitored TCP ports, history retention days, polling interval, SSH connect timeout, and command timeout.
+- Optional free-text server label (for example `prod`, `staging`, `lab`) exposed as an attribute for area-style filtering in dashboards and automations.
 - Editable options flow for changing, adding, removing, or fully replacing configured servers.
 - Adaptive polling backoff after repeated collection failures.
 - Native Home Assistant sensors, binary sensors, action buttons, service responses, and events.
+- An `update` entity that checks the GitHub releases feed once a day and reports when a newer integration version is published.
 - Scheduled custom command sensors with an independent interval and timeout per sensor.
 - Optional `run_command` allowlist with exact matches and prefix rules ending in `*`.
 - Device registry MAC address reporting so monitored hosts can be associated with existing network devices, for example UniFi devices, when MAC addresses match.
 - Diagnostic entities for metadata and action status so operational sensors remain easier to scan.
+- Example Lovelace dashboards for single-host and multi-host setups under `examples/dashboards/`.
 
 ## Collected Metrics
 
@@ -42,8 +46,8 @@ For each configured server, the integration can collect:
 
 - Health status and health score with reason attributes.
 - Online state, last seen time, consecutive failures, and active poll interval.
-- CPU usage, CPU cores, CPU frequency, load average for 1/5/15 minutes.
-- Memory usage, total RAM, swap usage, and total swap.
+- CPU usage, CPU cores, CPU frequency, load average for 1/5/15 minutes, and a 5-minute rolling CPU average.
+- Memory usage, total RAM, swap usage, total swap, and a 5-minute rolling memory average.
 - Root disk usage, total detected disk capacity, per-mount total/free sensors, and disk I/O read/write rates.
 - Network inbound/outbound throughput.
 - Uptime, last boot timestamp, kernel version, operating system version, primary IP, and primary MAC address.
@@ -60,6 +64,7 @@ For each configured server, the integration can collect:
 - Docker memory usage/limits, limit utilization, a per-container limit-reached binary sensor, PID counts, cumulative CPU throttling, and disk usage for images, containers, volumes, and build cache.
 - Failed systemd unit count/list and journal error count from the last 15 minutes.
 - Failed SSH login attempts in the last 15 minutes, and firewall status (active state, detected backend, and rule count for `ufw`, `firewalld`, `nftables`, or `iptables`).
+- Optional fail2ban status: active state and currently banned IP count aggregated across up to 5 jails, with a per-jail breakdown attribute.
 - SSH, web server, and VNC capability/status checks.
 - User-configured TCP port reachability from Home Assistant, including response time and error attributes.
 - SSH connect time, full collection runtime, collection error, and last collection failure state.
@@ -84,12 +89,13 @@ For each configured server, the integration can collect:
 
 ## Configuration
 
-The integration is configured through the Home Assistant UI.
+The integration is configured through the Home Assistant UI. Adding or editing a server performs a real SSH connectivity check (a lightweight `echo` command over the configured credentials and pinned host key) before the form can be submitted, so authentication, host-key, and network problems surface immediately instead of only after the entry is created.
 
 During setup you provide:
 
 - Update interval in seconds. Default: `30`.
 - Server name.
+- Optional label (for example `prod`, `staging`, `lab`) exposed as a `label` attribute on `binary_sensor.<name>_online` for filtering dashboards and automations by environment.
 - Hostname or IP address.
 - SSH port. Default: `22`.
 - One or more verified OpenSSH `SHA256:` host-key fingerprints.
@@ -163,7 +169,9 @@ Entity IDs depend on the Home Assistant entity registry and the configured serve
 - `sensor.<name>_health_status` - `ok`, `warning`, `critical`, or `offline`; attributes include score and reasons.
 - `sensor.<name>_health_score` - Numeric health score from 0 to 100.
 - `sensor.<name>_cpu` - CPU usage in percent.
+- `sensor.<name>_cpu_5m_average` - Rolling average CPU usage over the trailing 5 minutes.
 - `sensor.<name>_memory` - Memory usage in percent.
+- `sensor.<name>_memory_5m_average` - Rolling average memory usage over the trailing 5 minutes.
 - `sensor.<name>_swap_usage` - Swap usage in percent.
 - `sensor.<name>_swap_total` - Total swap in GiB.
 - `sensor.<name>_disk` - Root disk usage in percent.
@@ -207,6 +215,7 @@ Entity IDs depend on the Home Assistant entity registry and the configured serve
 - `sensor.<name>_failed_ssh_logins_15m` - Failed SSH login attempts from the last 15 minutes.
 - `sensor.<name>_firewall_backend` - Detected active firewall backend (`ufw`, `firewalld`, `nftables`, `iptables`, or empty when none is active).
 - `sensor.<name>_firewall_rules_count` - Rule count reported by the detected firewall backend.
+- `sensor.<name>_fail2ban_banned_ips` - Currently banned IP count summed across up to 5 fail2ban jails; a `jails` attribute lists the per-jail breakdown.
 - `sensor.<name>_primary_mac` - Primary MAC address.
 - `sensor.<name>_primary_ip` - Primary IP address.
 - `sensor.<name>_vnc_supported` - VNC status.
@@ -224,10 +233,11 @@ Dynamic disk and container sensors are created when the integration sees new mou
 
 ### Binary Sensors
 
-- `binary_sensor.<name>_online` - Host availability based on successful collection.
+- `binary_sensor.<name>_online` - Host availability based on successful collection. Attributes include `last_seen`, `consecutive_failures`, `current_poll_interval`, and the optional per-server `label`.
 - `binary_sensor.<name>_reboot_required` - Reboot-required flag.
 - `binary_sensor.<name>_root_filesystem_read_only` - Root filesystem read-only flag.
 - `binary_sensor.<name>_firewall_active` - On when a local firewall backend (`ufw`, `firewalld`, `nftables`, or `iptables`) is detected as active.
+- `binary_sensor.<name>_fail2ban_active` - On when `fail2ban-client` responds and reports at least one jail.
 - `binary_sensor.<name>_port_<port>_open` - Configured TCP port reachability from Home Assistant.
 
 Port binary sensors expose `host`, `port`, `protocol`, `checked_from`, `response_time_ms`, and `error` attributes.
@@ -249,6 +259,10 @@ Each server gets diagnostic status sensors for the latest result of supported ac
 - Last log tail request.
 
 Attributes include `success`, `last_run`, and `output`.
+
+### Update Entity
+
+Each config entry gets one `update.vserver_ssh_stats_update` entity, independent of any monitored server. It checks the GitHub releases feed once every 24 hours and compares the latest published tag against the installed manifest version, exposing `release_url` and `release_summary` attributes. It has no `install` action; use HACS or the manual installation steps above to actually upgrade.
 
 ### Buttons
 
@@ -374,6 +388,8 @@ cards:
       - sensor.vps1_temperature
       - sensor.vps1_security_updates
 ```
+
+Full ready-to-import dashboards are available in [`examples/dashboards/single_host.yaml`](examples/dashboards/single_host.yaml) (one server, gauges plus the 5-minute rolling averages, security, and maintenance buttons) and [`examples/dashboards/multi_host.yaml`](examples/dashboards/multi_host.yaml) (fleet overview across several servers). Replace the `vps1`/`vps2`/`vps3` entity_id prefixes with your own server slugs before use.
 
 ## Example Automations and Scripts
 

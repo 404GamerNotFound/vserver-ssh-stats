@@ -32,6 +32,7 @@ BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
     ("conntrack_near_capacity", "Conntrack Near Capacity", "mdi:network-strength-1-alert"),
     ("smart_failure_detected", "SMART Failure Detected", "mdi:harddisk-alert"),
     ("firewall_active", "Firewall Active", "mdi:security"),
+    ("fail2ban_active", "Fail2ban Active", "mdi:shield-lock"),
 )
 
 
@@ -39,7 +40,7 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
     """Binary sensor representing host availability."""
 
     _unrecorded_attributes = frozenset(
-        {"last_seen", "consecutive_failures", "current_poll_interval"}
+        {"last_seen", "consecutive_failures", "current_poll_interval", "label"}
     )
 
     def __init__(self, coordinator: VServerCoordinator, server_name: str) -> None:
@@ -65,6 +66,7 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
             "last_seen": self._last_seen,
             "consecutive_failures": self.coordinator.consecutive_failures,
             "current_poll_interval": self.coordinator.current_interval,
+            "label": self.coordinator.server.get("label") or None,
         }
 
     @property

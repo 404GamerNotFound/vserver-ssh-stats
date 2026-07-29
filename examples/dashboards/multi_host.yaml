@@ -1,0 +1,118 @@
+# Example Lovelace dashboard (YAML mode) for an overview across multiple
+# VServer SSH Stats hosts. Replace "vps1"/"vps2"/"vps3" entity_id prefixes
+# with your configured servers' slugs, and add or remove rows as needed.
+# Only built-in Home Assistant cards are used, so no extra frontend cards
+# are required. Pair this with an optional server "Label" (set per host in
+# the integration options) if you want to filter automations by
+# environment via `state_attr('binary_sensor.<name>_online', 'label')`.
+title: VServers
+views:
+  - title: Fleet Overview
+    path: fleet-overview
+    cards:
+      - type: entities
+        title: Online status
+        entities:
+          - binary_sensor.vps1_online
+          - binary_sensor.vps2_online
+          - binary_sensor.vps3_online
+
+      - type: entities
+        title: Health
+        entities:
+          - sensor.vps1_health_status
+          - sensor.vps2_health_status
+          - sensor.vps3_health_status
+
+      - type: grid
+        title: CPU usage
+        columns: 3
+        square: false
+        cards:
+          - type: gauge
+            entity: sensor.vps1_cpu
+            name: VPS1
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps2_cpu
+            name: VPS2
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps3_cpu
+            name: VPS3
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+
+      - type: grid
+        title: Memory usage
+        columns: 3
+        square: false
+        cards:
+          - type: gauge
+            entity: sensor.vps1_memory
+            name: VPS1
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps2_memory
+            name: VPS2
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps3_memory
+            name: VPS3
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+
+      - type: entities
+        title: Security
+        entities:
+          - binary_sensor.vps1_firewall_active
+          - sensor.vps1_failed_ssh_logins_15m
+          - sensor.vps1_fail2ban_banned_ips
+          - binary_sensor.vps2_firewall_active
+          - sensor.vps2_failed_ssh_logins_15m
+          - sensor.vps2_fail2ban_banned_ips
+          - binary_sensor.vps3_firewall_active
+          - sensor.vps3_failed_ssh_logins_15m
+          - sensor.vps3_fail2ban_banned_ips
+
+      - type: entities
+        title: Pending package updates
+        entities:
+          - sensor.vps1_security_updates
+          - sensor.vps2_security_updates
+          - sensor.vps3_security_updates
+
+      - type: entities
+        title: Integration
+        entities:
+          # Confirm the exact entity_id in Developer Tools > States; it is
+          # created once per config entry (Settings > Devices & services).
+          - update.vserver_ssh_stats_update

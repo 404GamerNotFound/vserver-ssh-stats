@@ -62,6 +62,11 @@ JOURNAL_READ_RULES = [
     "/usr/bin/journalctl -n * --no-pager",
 ]
 
+FAIL2BAN_STATUS_RULES = [
+    "/usr/bin/fail2ban-client status",
+    "/usr/bin/fail2ban-client status *",
+]
+
 
 def build_rules(args: argparse.Namespace) -> list[str]:
     """Return the fully qualified sudoers command lines for the selected features."""
@@ -88,6 +93,9 @@ def build_rules(args: argparse.Namespace) -> list[str]:
 
     if args.journal_read:
         rules.extend(JOURNAL_READ_RULES)
+
+    if args.fail2ban:
+        rules.extend(FAIL2BAN_STATUS_RULES)
 
     return rules
 
@@ -152,6 +160,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Allow reading systemd journal logs via `sudo journalctl`.",
     )
     parser.add_argument(
+        "--fail2ban",
+        action="store_true",
+        help="Allow the read-only `fail2ban-client status[/status <jail>]` fallback commands.",
+    )
+    parser.add_argument(
         "--output",
         type=argparse.FileType("w"),
         default=sys.stdout,
@@ -167,7 +180,7 @@ def main(argv: list[str]) -> int:
         print(
             "No features selected; nothing to generate. "
             "Pass at least one of --package-manager/--reboot/--docker/--service/"
-            "--storage-health/--firewall-status/--journal-read.",
+            "--storage-health/--firewall-status/--journal-read/--fail2ban.",
             file=sys.stderr,
         )
         return 1

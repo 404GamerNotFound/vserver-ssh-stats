@@ -1,7 +1,8 @@
 """Cache network statistics for rate computation."""
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, Optional, Tuple
 
 
 class NetStatsCache:
@@ -88,3 +89,23 @@ class ProcessPeakCache:
         self._peaks[key] = peak
         self._uptimes[key] = uptime
         return peak
+
+
+class RollingAverageCache:
+    """Average recent samples over a trailing time window per key."""
+
+    def __init__(self, window_seconds: float = 300.0) -> None:
+        self._window_seconds = window_seconds
+        self._samples: Dict[str, Deque[Tuple[float, float]]] = {}
+
+    def compute(self, key: str, value: Optional[float], now: float) -> Optional[float]:
+        """Record *value* for *key* and return the average over the trailing window."""
+
+        if value is None:
+            return None
+        samples = self._samples.setdefault(key, deque())
+        samples.append((now, value))
+        cutoff = now - self._window_seconds
+        while samples and samples[0][0] < cutoff:
+            samples.popleft()
+        return sum(sample_value for _, sample_value in samples) / len(samples)

@@ -1,0 +1,89 @@
+# Example Lovelace dashboard (YAML mode) for one VServer SSH Stats host.
+# Replace every "vps1" entity_id prefix with your configured server's slug.
+# Only built-in Home Assistant cards are used, so no extra frontend cards are required.
+title: VPS1
+views:
+  - title: Overview
+    path: overview
+    cards:
+      - type: glance
+        title: VPS1 status
+        entities:
+          - entity: binary_sensor.vps1_online
+            name: Online
+          - entity: sensor.vps1_health_status
+            name: Health
+          - entity: sensor.vps1_uptime
+            name: Uptime
+          - entity: sensor.vps1_docker_containers
+            name: Docker
+
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.vps1_cpu
+            name: CPU
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps1_memory
+            name: Memory
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 70
+              red: 90
+          - type: gauge
+            entity: sensor.vps1_disk
+            name: Disk
+            min: 0
+            max: 100
+            severity:
+              green: 0
+              yellow: 80
+              red: 90
+
+      - type: history-graph
+        title: CPU / Memory (with 5-minute averages)
+        hours_to_show: 6
+        entities:
+          - sensor.vps1_cpu
+          - sensor.vps1_cpu_5m_average
+          - sensor.vps1_memory
+          - sensor.vps1_memory_5m_average
+
+      - type: entities
+        title: Network & storage
+        entities:
+          - sensor.vps1_network_in
+          - sensor.vps1_network_out
+          # Home Assistant slugifies "I/O" to "i_o"; verify in Developer Tools > States.
+          - sensor.vps1_disk_i_o_read
+          - sensor.vps1_disk_i_o_write
+          - sensor.vps1_disk_capacity_total
+
+      - type: entities
+        title: Security & maintenance
+        entities:
+          - binary_sensor.vps1_firewall_active
+          - sensor.vps1_firewall_backend
+          - sensor.vps1_firewall_rules_count
+          - sensor.vps1_failed_ssh_logins_15m
+          - binary_sensor.vps1_fail2ban_active
+          - sensor.vps1_fail2ban_banned_ips
+          - sensor.vps1_security_updates
+          - binary_sensor.vps1_reboot_required
+          - sensor.vps1_failed_systemd_units
+          - sensor.vps1_journal_errors
+
+      - type: entities
+        title: Maintenance actions
+        entities:
+          - button.vps1_update_packages
+          - button.vps1_reboot_host
+          - button.vps1_prune_docker

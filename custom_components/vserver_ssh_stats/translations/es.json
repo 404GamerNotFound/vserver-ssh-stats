@@ -7,6 +7,7 @@
         "data": {
           "interval": "Intervalo de actualización (segundos)",
           "name": "Nombre del servidor",
+          "label": "Etiqueta (opcional, p. ej. prod/staging/lab)",
           "host": "Host",
           "port": "Puerto SSH",
           "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
@@ -26,6 +27,10 @@
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
       "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
+      "cannot_connect": "No se pudo conectar con el host. Compruebe la dirección, el puerto y la accesibilidad de red.",
+      "cannot_connect_timeout": "Tiempo de conexión agotado. Compruebe la dirección, el puerto y las reglas del firewall.",
+      "cannot_authenticate": "Fallo de autenticación SSH. Compruebe el usuario, la contraseña o el archivo de clave.",
+      "host_key_mismatch": "La clave SSH del host no coincide con la huella configurada.",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
@@ -61,6 +66,7 @@
         "description": "Deja la contraseña vacía para conservar la almacenada. Usa las casillas de eliminación para borrar credenciales guardadas.",
         "data": {
           "name": "Nombre del servidor",
+          "label": "Etiqueta (opcional, p. ej. prod/staging/lab)",
           "host": "Host",
           "port": "Puerto SSH",
           "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
@@ -79,6 +85,7 @@
         "description": "Agrega otro servidor a esta entrada de integración.",
         "data": {
           "name": "Nombre del servidor",
+          "label": "Etiqueta (opcional, p. ej. prod/staging/lab)",
           "host": "Host",
           "port": "Puerto SSH",
           "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
@@ -138,6 +145,7 @@
         "description": "Agrega servidores uno a uno. Selecciona 'Agregar otro servidor después de este' para seguir introduciendo hosts.",
         "data": {
           "name": "Nombre del servidor",
+          "label": "Etiqueta (opcional, p. ej. prod/staging/lab)",
           "host": "Host",
           "port": "Puerto SSH",
           "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
@@ -157,6 +165,10 @@
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
       "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
+      "cannot_connect": "No se pudo conectar con el host. Compruebe la dirección, el puerto y la accesibilidad de red.",
+      "cannot_connect_timeout": "Tiempo de conexión agotado. Compruebe la dirección, el puerto y las reglas del firewall.",
+      "cannot_authenticate": "Fallo de autenticación SSH. Compruebe el usuario, la contraseña o el archivo de clave.",
+      "host_key_mismatch": "La clave SSH del host no coincide con la huella configurada.",
       "single_action": "Elige solo una acción de configuración a la vez",
       "no_servers": "No se encontró ningún servidor configurado",
       "no_custom_sensors": "No se encontró ningún sensor de comando personalizado",

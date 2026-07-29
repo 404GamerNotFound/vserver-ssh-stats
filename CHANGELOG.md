@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- Added a live SSH connection test when adding or editing a server in the config/options flow: a lightweight command is run over the submitted credentials and pinned host key before the form can be saved, surfacing authentication, host-key mismatch, timeout, and unreachable-host errors immediately instead of only after the entry is created.
+- Added optional fail2ban status detection (`binary_sensor.<name>_fail2ban_active`, `sensor.<name>_fail2ban_banned_ips` with a per-jail `jails` attribute) and a matching `--fail2ban` option in `scripts/generate_sudoers_template.py`.
+- Added 5-minute rolling average CPU/memory sensors, an optional per-server label (exposed as an attribute on the online binary sensor), an `update.vserver_ssh_stats_update` entity that checks GitHub releases once a day, and example single-host/multi-host Lovelace dashboards under `examples/dashboards/`.
 - Added failed SSH login attempt tracking (last 15 minutes) and firewall status detection (active state, backend, and rule count for `ufw`, `firewalld`, `nftables`, and `iptables`) with a new `binary_sensor.<name>_firewall_active` sensor and health-score integration.
 - Added `scripts/generate_sudoers_template.py` to generate a least-privilege sudoers snippet for the monitoring user based on selected integration features.
 - Fixed package update, package list update, and package upgrade actions for Linux hosts so they no longer mask Linux command failures by falling through to `powershell.exe`; action buttons now reuse detected OS information when configured for auto-detect.

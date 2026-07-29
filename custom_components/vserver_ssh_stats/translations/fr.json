@@ -7,6 +7,7 @@
         "data": {
           "interval": "Intervalle de mise à jour (secondes)",
           "name": "Nom du serveur",
+          "label": "Étiquette (optionnel, ex. prod/staging/lab)",
           "host": "Hôte",
           "port": "Port SSH",
           "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
@@ -26,6 +27,10 @@
       "host_in_use": "Cet hôte est déjà configuré",
       "key_missing": "Fichier de clé SSH introuvable",
       "invalid_host_key_fingerprints": "Saisissez au moins une empreinte SHA256 de clé d'hôte OpenSSH valide",
+      "cannot_connect": "Impossible de se connecter à l'hôte. Vérifiez l'adresse, le port et l'accessibilité réseau.",
+      "cannot_connect_timeout": "Délai de connexion dépassé. Vérifiez l'adresse, le port et les règles du pare-feu.",
+      "cannot_authenticate": "Échec de l'authentification SSH. Vérifiez le nom d'utilisateur, le mot de passe ou le fichier de clé.",
+      "host_key_mismatch": "La clé SSH de l'hôte ne correspond pas à l'empreinte configurée.",
       "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
     }
   },
@@ -61,6 +66,7 @@
         "description": "Laissez le mot de passe vide pour conserver celui qui est enregistré. Utilisez les cases de suppression pour retirer les identifiants stockés.",
         "data": {
           "name": "Nom du serveur",
+          "label": "Étiquette (optionnel, ex. prod/staging/lab)",
           "host": "Hôte",
           "port": "Port SSH",
           "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
@@ -79,6 +85,7 @@
         "description": "Ajoute un autre serveur à cette entrée d'intégration.",
         "data": {
           "name": "Nom du serveur",
+          "label": "Étiquette (optionnel, ex. prod/staging/lab)",
           "host": "Hôte",
           "port": "Port SSH",
           "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
@@ -138,6 +145,7 @@
         "description": "Ajoutez les serveurs un par un. Choisissez 'Ajouter un autre serveur après celui-ci' pour continuer.",
         "data": {
           "name": "Nom du serveur",
+          "label": "Étiquette (optionnel, ex. prod/staging/lab)",
           "host": "Hôte",
           "port": "Port SSH",
           "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
@@ -157,6 +165,10 @@
       "host_in_use": "Cet hôte est déjà configuré",
       "key_missing": "Fichier de clé SSH introuvable",
       "invalid_host_key_fingerprints": "Saisissez au moins une empreinte SHA256 de clé d'hôte OpenSSH valide",
+      "cannot_connect": "Impossible de se connecter à l'hôte. Vérifiez l'adresse, le port et l'accessibilité réseau.",
+      "cannot_connect_timeout": "Délai de connexion dépassé. Vérifiez l'adresse, le port et les règles du pare-feu.",
+      "cannot_authenticate": "Échec de l'authentification SSH. Vérifiez le nom d'utilisateur, le mot de passe ou le fichier de clé.",
+      "host_key_mismatch": "La clé SSH de l'hôte ne correspond pas à l'empreinte configurée.",
       "single_action": "Choisissez une seule action de configuration à la fois",
       "no_servers": "Aucun serveur configuré n'a été trouvé",
       "no_custom_sensors": "Aucun capteur de commande personnalisé n'a été trouvé",
