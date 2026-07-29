@@ -59,6 +59,7 @@ For each configured server, the integration can collect:
 - Optional SMART/NVMe health devices with temperature, wear, media errors, sector errors, power-on hours, and explicit partial/error counters.
 - Docker memory usage/limits, limit utilization, a per-container limit-reached binary sensor, PID counts, cumulative CPU throttling, and disk usage for images, containers, volumes, and build cache.
 - Failed systemd unit count/list and journal error count from the last 15 minutes.
+- Failed SSH login attempts in the last 15 minutes, and firewall status (active state, detected backend, and rule count for `ufw`, `firewalld`, `nftables`, or `iptables`).
 - SSH, web server, and VNC capability/status checks.
 - User-configured TCP port reachability from Home Assistant, including response time and error attributes.
 - SSH connect time, full collection runtime, collection error, and last collection failure state.
@@ -203,6 +204,9 @@ Entity IDs depend on the Home Assistant entity registry and the configured serve
 - `sensor.<name>_failed_systemd_units` - Failed systemd unit count.
 - `sensor.<name>_failed_systemd_units_list` - Failed systemd units with list attributes.
 - `sensor.<name>_journal_errors` - Journal errors from the last 15 minutes.
+- `sensor.<name>_failed_ssh_logins_15m` - Failed SSH login attempts from the last 15 minutes.
+- `sensor.<name>_firewall_backend` - Detected active firewall backend (`ufw`, `firewalld`, `nftables`, `iptables`, or empty when none is active).
+- `sensor.<name>_firewall_rules_count` - Rule count reported by the detected firewall backend.
 - `sensor.<name>_primary_mac` - Primary MAC address.
 - `sensor.<name>_primary_ip` - Primary IP address.
 - `sensor.<name>_vnc_supported` - VNC status.
@@ -223,6 +227,7 @@ Dynamic disk and container sensors are created when the integration sees new mou
 - `binary_sensor.<name>_online` - Host availability based on successful collection.
 - `binary_sensor.<name>_reboot_required` - Reboot-required flag.
 - `binary_sensor.<name>_root_filesystem_read_only` - Root filesystem read-only flag.
+- `binary_sensor.<name>_firewall_active` - On when a local firewall backend (`ufw`, `firewalld`, `nftables`, or `iptables`) is detected as active.
 - `binary_sensor.<name>_port_<port>_open` - Configured TCP port reachability from Home Assistant.
 
 Port binary sensors expose `host`, `port`, `protocol`, `checked_from`, `response_time_ms`, and `error` attributes.
@@ -437,6 +442,20 @@ Example sudoers rules for a dedicated monitoring user:
 ```
 
 Adjust paths for your distribution. For production systems, keep sudoers entries as narrow as possible and avoid broad wildcard permissions for maintenance commands.
+
+`scripts/generate_sudoers_template.py` generates a snippet like the one above for the features you actually use:
+
+```bash
+python3 scripts/generate_sudoers_template.py \
+  --user <your-vserver-user> \
+  --package-manager apt \
+  --reboot \
+  --storage-health \
+  --firewall-status \
+  --service nginx
+```
+
+Review the generated paths with `which <tool>` on the target host, validate with `visudo -c -f <file>`, then install as `/etc/sudoers.d/vserver-ssh-stats`. Run `python3 scripts/generate_sudoers_template.py --help` for all available features.
 
 ## Requirements
 

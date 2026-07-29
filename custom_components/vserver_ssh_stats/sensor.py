@@ -188,6 +188,19 @@ def _build_health(data: dict[str, Any], online: bool) -> dict[str, Any]:
         elif journal_errors >= 1:
             add_reason(f"{journal_errors:.0f} journal errors in the last 15 minutes", 5)
 
+    failed_ssh_logins = _as_float(data.get("failed_ssh_logins_15m"))
+    if failed_ssh_logins is not None:
+        if failed_ssh_logins >= 100:
+            add_reason(
+                f"{failed_ssh_logins:.0f} failed SSH login attempts in the last 15 minutes",
+                15,
+            )
+        elif failed_ssh_logins >= 20:
+            add_reason(
+                f"{failed_ssh_logins:.0f} failed SSH login attempts in the last 15 minutes",
+                5,
+            )
+
     unhealthy_containers: list[str] = []
     for container in data.get("container_stats", []):
         if not isinstance(container, dict):
@@ -738,6 +751,9 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     _diagnostic_sensor(key="failed_systemd_units", name="Failed Systemd Units"),
     _diagnostic_sensor(key="failed_systemd_units_list", name="Failed Systemd Units List"),
     _diagnostic_sensor(key="journal_errors", name="Journal Errors"),
+    _diagnostic_sensor(key="failed_ssh_logins_15m", name="Failed SSH Logins (15m)"),
+    _diagnostic_sensor(key="firewall_backend", name="Firewall Backend"),
+    _diagnostic_sensor(key="firewall_rules_count", name="Firewall Rules Count"),
     _diagnostic_sensor(key="network_primary_mac", name="Primary MAC"),
     _diagnostic_sensor(key="primary_ip", name="Primary IP"),
     _diagnostic_sensor(key="vnc", name="VNC Supported"),

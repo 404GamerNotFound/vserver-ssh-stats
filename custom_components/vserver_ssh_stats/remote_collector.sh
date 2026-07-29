@@ -1028,6 +1028,88 @@ read_root_filesystem_status() {
   fi
 }
 
+read_failed_ssh_logins() {
+  failed_ssh_logins_15m=0
+  if command -v journalctl >/dev/null 2>&1; then
+    set +e
+    failed_ssh_logins_15m=$(run_limited 4 journalctl -u ssh -u sshd --since "15 min ago" --no-pager -q 2>/dev/null \
+      | grep -Ec 'Failed password|Invalid user|authentication failure|Connection closed by authenticating user')
+    set -e
+    failed_ssh_logins_15m=${failed_ssh_logins_15m:-0}
+  fi
+}
+
+read_firewall_status() {
+  firewall_active=0
+  firewall_backend=""
+  firewall_rules_count=""
+
+  if command -v ufw >/dev/null 2>&1; then
+    set +e
+    ufw_status=$(run_limited 4 ufw status verbose 2>/dev/null)
+    ufw_status_code=$?
+    if [ "$ufw_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      ufw_status=$(run_limited 4 sudo -n ufw status verbose 2>/dev/null)
+    fi
+    set -e
+    if printf '%s' "$ufw_status" | grep -qi '^Status: active'; then
+      firewall_active=1
+      firewall_backend="ufw"
+      firewall_rules_count=$(printf '%s\n' "$ufw_status" | grep -Ec '^\[ *[0-9]+\]')
+    fi
+  fi
+
+  if [ "$firewall_active" -eq 0 ] && command -v firewall-cmd >/dev/null 2>&1; then
+    set +e
+    firewalld_state=$(run_limited 4 firewall-cmd --state 2>/dev/null)
+    set -e
+    if [ "$firewalld_state" = "running" ]; then
+      firewall_active=1
+      firewall_backend="firewalld"
+      set +e
+      firewalld_rules=$(run_limited 4 firewall-cmd --list-all 2>/dev/null \
+        | grep -Ec '^\s*(rules|ports|services|forward-ports|source-ports):')
+      set -e
+      firewall_rules_count=${firewalld_rules:-0}
+    fi
+  fi
+
+  if [ "$firewall_active" -eq 0 ] && command -v nft >/dev/null 2>&1; then
+    set +e
+    nft_rules=$(run_limited 4 nft -a list ruleset 2>/dev/null)
+    nft_status=$?
+    if [ "$nft_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      nft_rules=$(run_limited 4 sudo -n nft -a list ruleset 2>/dev/null)
+      nft_status=$?
+    fi
+    set -e
+    if [ "$nft_status" -eq 0 ] && [ -n "$nft_rules" ]; then
+      firewall_active=1
+      firewall_backend="nftables"
+      firewall_rules_count=$(printf '%s\n' "$nft_rules" | grep -Ec 'handle [0-9]+')
+    fi
+  fi
+
+  if [ "$firewall_active" -eq 0 ] && command -v iptables >/dev/null 2>&1; then
+    set +e
+    iptables_rules=$(run_limited 4 iptables -S 2>/dev/null)
+    iptables_status=$?
+    if [ "$iptables_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      iptables_rules=$(run_limited 4 sudo -n iptables -S 2>/dev/null)
+      iptables_status=$?
+    fi
+    set -e
+    if [ "$iptables_status" -eq 0 ]; then
+      iptables_count=$(printf '%s\n' "$iptables_rules" | grep -c '^-A')
+      if [ "$iptables_count" -gt 0 ]; then
+        firewall_active=1
+        firewall_backend="iptables"
+        firewall_rules_count=$iptables_count
+      fi
+    fi
+  fi
+}
+
 read_disk_io_bytes() {
   disk_read_bytes=0
   disk_write_bytes=0
@@ -1090,6 +1172,10 @@ prepare_numeric_json_values() {
   failed_systemd_units_json_count=$(number_or_null "$failed_systemd_units")
   journal_errors_json=$(number_or_null "$journal_errors")
   root_fs_readonly_json=$(number_or_null "$root_fs_readonly")
+  failed_ssh_logins_15m_json=$(number_or_null "$failed_ssh_logins_15m")
+  firewall_active_json=$(number_or_null "$firewall_active")
+  firewall_backend_json=$(json_escape "$firewall_backend")
+  firewall_rules_count_json=$(number_or_null "$firewall_rules_count")
   disk_read_bytes_json=$(number_or_null "$disk_read_bytes")
   disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
   process_total_json=$(number_or_null "$process_total")
@@ -1205,11 +1291,13 @@ fi
 read_systemd_failures
 read_journal_errors
 read_root_filesystem_status
+read_failed_ssh_logins
+read_firewall_status
 read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
@@ -1217,4 +1305,5 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"u
   "$software_raid_arrays_json" "$software_raid_degraded_json" "$software_raid_rebuild_active_json" "$software_raid_rebuild_progress_json" "$software_raid_rebuild_remaining_minutes_json" "$raid_arrays_json" \
   "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
-  "$journal_errors_json" "$root_fs_readonly_json" "$disk_read_bytes_json" "$disk_write_bytes_json"
+  "$journal_errors_json" "$root_fs_readonly_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
+  "$disk_read_bytes_json" "$disk_write_bytes_json"

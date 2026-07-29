@@ -120,7 +120,76 @@ def test_base_collector_reports_process_socket_and_raid_fields() -> None:
         "software_raid_degraded",
         "software_raid_rebuild_active",
         "raid_arrays",
+        "failed_ssh_logins_15m",
+        "firewall_active",
+        "firewall_backend",
+        "firewall_rules_count",
     }.issubset(data)
+    assert data["firewall_active"] == 0
+    assert data["firewall_backend"] == ""
+    assert data["firewall_rules_count"] is None
+
+
+def test_failed_ssh_login_collector_counts_recent_failures() -> None:
+    """Count sshd authentication failures reported by journalctl."""
+
+    journal_stub = r'''
+timeout() { shift; "$@"; }
+journalctl() {
+  cat <<'EOF'
+Jan 01 00:00:01 host sshd[123]: Failed password for invalid user admin from 10.0.0.1 port 4444 ssh2
+Jan 01 00:00:02 host sshd[124]: Invalid user test from 10.0.0.2 port 4445
+Jan 01 00:00:03 host sshd[125]: Accepted password for alice from 10.0.0.3 port 22 ssh2
+EOF
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=journal_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["failed_ssh_logins_15m"] == 2
+
+
+def test_firewall_status_collector_detects_active_ufw() -> None:
+    """Report the active backend and rule count from `ufw status`."""
+
+    ufw_stub = r'''
+timeout() { shift; "$@"; }
+ufw() {
+  cat <<'EOF'
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+[ 1] 22/tcp                     ALLOW IN    Anywhere
+[ 2] 80/tcp                     ALLOW IN    Anywhere
+EOF
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=ufw_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["firewall_active"] == 1
+    assert data["firewall_backend"] == "ufw"
+    assert data["firewall_rules_count"] == 2
 
 
 def test_process_state_parser_handles_spaces_and_parentheses() -> None:

@@ -284,6 +284,8 @@ WINDOWS_REMOTE_SCRIPT = (
     "security_updates=$null;last_boot=$boot.ToUniversalTime().ToString('o');"
     "kernel_version='Windows';primary_ip='';failed_systemd_units=$null;"
     "failed_systemd_units_list=@();journal_errors=$null;root_fs_readonly=$null;"
+    "failed_ssh_logins_15m=$null;firewall_active=$null;firewall_backend='';"
+    "firewall_rules_count=$null;"
     "disk_read_bytes=$null;disk_write_bytes=$null}; "
     "$obj | ConvertTo-Json -Compress\""
 )
@@ -927,6 +929,10 @@ async def async_sample(
         "failed_systemd_units_list": ", ".join(failed_units),
         "failed_systemd_units_details": failed_units,
         "journal_errors": _safe_int(data.get("journal_errors")),
+        "failed_ssh_logins_15m": _safe_int(data.get("failed_ssh_logins_15m")),
+        "firewall_active": bool(_safe_int(data.get("firewall_active"))),
+        "firewall_backend": data.get("firewall_backend") or None,
+        "firewall_rules_count": _safe_int(data.get("firewall_rules_count")),
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
         "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
         "collection_error": data.get("collection_error"),

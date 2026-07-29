@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added failed SSH login attempt tracking (last 15 minutes) and firewall status detection (active state, backend, and rule count for `ufw`, `firewalld`, `nftables`, and `iptables`) with a new `binary_sensor.<name>_firewall_active` sensor and health-score integration.
+- Added `scripts/generate_sudoers_template.py` to generate a least-privilege sudoers snippet for the monitoring user based on selected integration features.
 - Fixed package update, package list update, and package upgrade actions for Linux hosts so they no longer mask Linux command failures by falling through to `powershell.exe`; action buttons now reuse detected OS information when configured for auto-detect.
 - Fixed the custom command sensor add/edit form for current Voluptuous versions by passing `vol.Strip` as a validator instead of calling it without a value.
 - Added a per-server purge-history button that removes recorder history for the host and its integration-owned child-device entities.

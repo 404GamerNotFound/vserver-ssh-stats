@@ -31,6 +31,7 @@ BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
     ),
     ("conntrack_near_capacity", "Conntrack Near Capacity", "mdi:network-strength-1-alert"),
     ("smart_failure_detected", "SMART Failure Detected", "mdi:harddisk-alert"),
+    ("firewall_active", "Firewall Active", "mdi:security"),
 )
 
 
