@@ -6,3 +6,4 @@ coverage.xml
 .venv/
 __pycache__/
 *.py[cod]
+AGENTS.md

@@ -192,6 +192,45 @@ EOF
     assert data["firewall_rules_count"] == 2
 
 
+def test_firewall_status_collector_allows_default_only_iptables() -> None:
+    """Do not abort the collector when iptables has no custom rules."""
+
+    iptables_stub = r'''
+timeout() { shift; "$@"; }
+command() {
+  if [ "$1" = "-v" ]; then
+    case "$2" in
+      iptables) return 0 ;;
+      ufw|firewall-cmd|nft|sudo) return 1 ;;
+    esac
+  fi
+  builtin command "$@"
+}
+iptables() {
+  [ "$1" = "-S" ] || return 23
+  cat <<'EOF'
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+EOF
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=iptables_stub + _remote_script(),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    assert data["firewall_active"] == 0
+    assert data["firewall_backend"] == ""
+    assert data["firewall_rules_count"] is None
+
+
 def test_fail2ban_collector_aggregates_banned_ips_across_jails() -> None:
     """Sum "Currently banned" across every reported jail, capped at 5."""
 

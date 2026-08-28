@@ -19,6 +19,16 @@
           "monitored_ports": "Puertos TCP supervisados",
           "history_retention_days": "Retención del historial (días)"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reautenticar {name}",
+        "description": "La autenticación SSH para {name} ({host}) ha fallado repetidamente. Actualice las credenciales o la huella de la clave de host a continuación.",
+        "data": {
+          "username": "Usuario",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
+          "password": "Contraseña",
+          "key": "Archivo de clave"
+        }
       }
     },
     "error": {
@@ -32,6 +42,10 @@
       "cannot_authenticate": "Fallo de autenticación SSH. Compruebe el usuario, la contraseña o el archivo de clave.",
       "host_key_mismatch": "La clave SSH del host no coincide con la huella configurada.",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
+    },
+    "abort": {
+      "reauth_entry_not_found": "El servidor que necesita reautenticación ya no se encuentra en la configuración de esta entrada.",
+      "reauth_successful": "Reautenticado correctamente."
     }
   },
   "options": {
@@ -340,6 +354,66 @@
           "description": "Tiempo máximo de espera para el comando de reinicio."
         }
       }
+    },
+    "test_connection": {
+      "name": "Probar conexión",
+      "description": "Verifica la conectividad SSH de un servidor sin cambiar ningún estado en el host.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Nombre de host o IP del servidor."
+        },
+        "username": {
+          "name": "Usuario",
+          "description": "Usuario de SSH."
+        },
+        "password": {
+          "name": "Contraseña",
+          "description": "Contraseña para la autenticación."
+        },
+        "key": {
+          "name": "Archivo de clave",
+          "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
+        },
+        "port": {
+          "name": "Puerto SSH",
+          "description": "Puerto SSH."
+        },
+        "target_os": {
+          "name": "Sistema de destino",
+          "description": "Perfil de SO usado para seleccionar comandos."
+        },
+        "connect_timeout": {
+          "name": "Tiempo de espera de conexión SSH",
+          "description": "Tiempo máximo de espera al abrir la conexión SSH."
+        },
+        "command_timeout": {
+          "name": "Tiempo de espera del comando",
+          "description": "Tiempo máximo de espera para el comando de prueba."
+        }
+      }
+    }
+  },
+  "issues": {
+    "raid_degraded": {
+      "title": "RAID por software degradado en {server}",
+      "description": "El array RAID por software en **{server}** indica un estado degradado. Compruebe `mdadm --detail` en el host y reemplace o resincronice el disco afectado."
+    },
+    "root_fs_readonly": {
+      "title": "Sistema de archivos raíz de solo lectura en {server}",
+      "description": "Se detectó que el sistema de archivos raíz en **{server}** está montado en modo de solo lectura, lo que normalmente indica un error del sistema de archivos o un almacenamiento defectuoso. Revise el registro del kernel del host y vuelva a montar el sistema de archivos o ejecute `fsck`."
+    },
+    "fail2ban_elevated": {
+      "title": "Actividad elevada de fail2ban en {server}",
+      "description": "fail2ban tiene actualmente {count} IPs baneadas en **{server}**. Esto puede indicar un intento activo de fuerza bruta contra el host."
+    },
+    "smart_failure": {
+      "title": "Fallo SMART de un dispositivo de almacenamiento en {server}",
+      "description": "Una comprobación SMART o NVMe en **{server}** indicó un dispositivo de almacenamiento con fallos. Realice una copia de seguridad de los datos importantes y compruebe `smartctl -a` en el dispositivo afectado."
     }
   }
 }

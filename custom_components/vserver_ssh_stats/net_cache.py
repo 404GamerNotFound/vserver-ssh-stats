@@ -109,3 +109,48 @@ class RollingAverageCache:
         while samples and samples[0][0] < cutoff:
             samples.popleft()
         return sum(sample_value for _, sample_value in samples) / len(samples)
+
+
+class UptimeWindowCache:
+    """Track a time-weighted online/offline ratio over a trailing window per key."""
+
+    def __init__(
+        self,
+        window_seconds: float = 30 * 24 * 3600.0,
+        max_samples: int = 20000,
+    ) -> None:
+        self._window_seconds = window_seconds
+        self._max_samples = max_samples
+        self._events: Dict[str, Deque[Tuple[float, bool]]] = {}
+
+    def compute(self, key: str, online: bool, now: float) -> float:
+        """Record an online/offline sample for *key* and return uptime percent."""
+
+        events = self._events.setdefault(key, deque(maxlen=self._max_samples))
+        events.append((now, online))
+        cutoff = now - self._window_seconds
+        while len(events) > 1 and events[1][0] < cutoff:
+            events.popleft()
+
+        if len(events) < 2:
+            return 100.0 if online else 0.0
+
+        total = 0.0
+        online_total = 0.0
+        start = max(cutoff, events[0][0])
+        state = events[0][1]
+        for timestamp, sample_online in list(events)[1:]:
+            duration = max(0.0, timestamp - start)
+            total += duration
+            if state:
+                online_total += duration
+            start = timestamp
+            state = sample_online
+        duration = max(0.0, now - start)
+        total += duration
+        if state:
+            online_total += duration
+
+        if total <= 0:
+            return 100.0 if online else 0.0
+        return round(online_total / total * 100, 2)

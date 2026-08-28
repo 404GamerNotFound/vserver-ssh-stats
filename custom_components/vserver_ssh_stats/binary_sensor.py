@@ -33,6 +33,8 @@ BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
     ("smart_failure_detected", "SMART Failure Detected", "mdi:harddisk-alert"),
     ("firewall_active", "Firewall Active", "mdi:security"),
     ("fail2ban_active", "Fail2ban Active", "mdi:shield-lock"),
+    ("backup_job_failed", "Backup Job Failed", "mdi:backup-restore"),
+    ("unattended_upgrades_active", "Unattended Upgrades Active", "mdi:cog-refresh"),
 )
 
 
@@ -242,6 +244,8 @@ class VServerContainerMemoryLimitBinarySensor(
             "memory_usage_bytes": container.get("memory_usage_bytes"),
             "memory_limit_bytes": container.get("memory_limit_bytes"),
             "memory_limit_usage": container.get("memory_limit_usage"),
+            "compose_project": container.get("compose_project") or None,
+            "compose_service": container.get("compose_service") or None,
         }
 
 

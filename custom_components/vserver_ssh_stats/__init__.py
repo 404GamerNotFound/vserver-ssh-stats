@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, Supp
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 
 from .ssh_security import configure_pinned_host_keys, parse_host_key_fingerprints
 from .util import (
@@ -28,6 +29,7 @@ from .util import (
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
     DEFAULT_STORAGE_INTERVAL,
+    ISSUE_SUFFIXES,
     MAX_HISTORY_RETENTION_DAYS,
     is_command_allowed,
     parse_command_allowlist,
@@ -249,6 +251,17 @@ def _build_reboot_commands(target_os: str) -> list[str]:
 
     windows_cmd = "shutdown /r /t 0"
     linux_cmd = "sudo reboot &"
+    return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
+
+
+def _build_test_connection_commands(target_os: str) -> list[str]:
+    """Return a harmless, read-only command used only to verify SSH connectivity."""
+
+    windows_cmd = (
+        "powershell.exe -NoProfile -NonInteractive -Command "
+        "\"Write-Output 'vserver_ssh_stats_connection_test'\""
+    )
+    linux_cmd = "echo vserver_ssh_stats_connection_test"
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
@@ -856,6 +869,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         commands = _build_reboot_commands(target_os)
         return await _run_remote_action(call, "reboot_host", commands, "reboot")
 
+    async def handle_test_connection(call: ServiceCall) -> ServiceResponse:
+        """Verify SSH connectivity for a server without changing any state."""
+
+        target_os = _normalize_target_os(call.data.get("target_os"))
+        commands = _build_test_connection_commands(target_os)
+        return await _run_remote_action(call, "test_connection", commands, "test_connection")
+
     async def handle_restart_service(call: ServiceCall) -> ServiceResponse:
         """Restart one service on a server via SSH."""
 
@@ -1092,6 +1112,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     )
     hass.services.async_register(
         DOMAIN,
+        "test_connection",
+        handle_test_connection,
+        schema=vol.Schema(os_action_schema_fields),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
         "restart_service",
         handle_restart_service,
         schema=vol.Schema(restart_service_schema_fields),
@@ -1204,7 +1231,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a VServer SSH Stats config entry."""
     _LOGGER.debug("Unloading VServer SSH Stats entry")
+    entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
+    servers = entry_data.get("servers", [])
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        for server in servers:
+            host = server.get("host")
+            if not host:
+                continue
+            for suffix in ISSUE_SUFFIXES:
+                ir.async_delete_issue(hass, DOMAIN, f"{host}_{suffix}")
     return unload_ok

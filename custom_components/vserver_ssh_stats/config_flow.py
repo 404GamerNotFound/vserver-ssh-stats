@@ -279,6 +279,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_name: str | None = None
         self._servers: list[dict[str, Any]] = []
         self._interval: int = DEFAULT_INTERVAL
+        self._reauth_host: str | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial step."""
@@ -457,6 +458,109 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if any(server.get("host") == host for server in servers):
                 return True
         return False
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]):
+        """Handle reauthentication triggered by a persistent SSH auth failure."""
+
+        self._reauth_host = entry_data.get("host")
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None):
+        """Collect updated credentials for the server that failed to authenticate."""
+
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if entry is None:
+            return self.async_abort(reason="reauth_entry_not_found")
+
+        try:
+            servers = json.loads(entry.data.get("servers_json", "[]"))
+        except ValueError:
+            servers = []
+        index = next(
+            (i for i, server in enumerate(servers) if server.get("host") == self._reauth_host),
+            None,
+        )
+        if index is None:
+            return self.async_abort(reason="reauth_entry_not_found")
+        current = servers[index]
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            server = await self._server_from_reauth_input(current, user_input, errors)
+            if server is not None and not errors:
+                servers[index] = server
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, "servers_json": json.dumps(servers)}
+                )
+                await self.hass.config_entries.async_reload(entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "username", default=current.get("username", "")
+                    ): vol.All(str, vol.Length(min=1)),
+                    vol.Required(
+                        "host_key_fingerprints",
+                        default=_format_host_key_fingerprints(
+                            current.get("host_key_fingerprints", "")
+                        ),
+                    ): _textarea_selector(),
+                    vol.Optional("password"): _password_selector(),
+                    vol.Optional("key", default=""): str,
+                }
+            ),
+            description_placeholders={
+                "name": current.get("name") or self._reauth_host or "",
+                "host": self._reauth_host or "",
+            },
+            errors=errors,
+        )
+
+    async def _server_from_reauth_input(
+        self,
+        current: dict[str, Any],
+        user_input: dict[str, Any],
+        errors: dict[str, str],
+    ) -> dict[str, Any] | None:
+        """Validate reauth form input and return an updated server definition."""
+
+        server = dict(current)
+        server["username"] = str(user_input["username"]).strip()
+        try:
+            server["host_key_fingerprints"] = parse_host_key_fingerprints(
+                user_input.get("host_key_fingerprints")
+            )
+        except ValueError:
+            errors["host_key_fingerprints"] = "invalid_host_key_fingerprints"
+
+        password = user_input.get("password")
+        if password:
+            server["password"] = password
+
+        key_input = user_input.get("key")
+        key = key_input.strip() if isinstance(key_input, str) else key_input
+        if key:
+            resolved = resolve_private_key_path(self.hass, key)
+            if not Path(resolved).exists():
+                errors["key"] = "key_missing"
+            else:
+                server["key"] = resolved
+
+        if not server.get("password") and not server.get("key"):
+            errors["base"] = "auth"
+
+        if errors:
+            return None
+
+        connection_error = await _async_test_ssh_connection(server)
+        if connection_error:
+            errors["base"] = connection_error
+            return None
+
+        return server
 
     @staticmethod
     @callback

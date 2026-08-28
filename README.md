@@ -39,6 +39,9 @@ Current integration version: **1.4.59**.
 - Device registry MAC address reporting so monitored hosts can be associated with existing network devices, for example UniFi devices, when MAC addresses match.
 - Diagnostic entities for metadata and action status so operational sensors remain easier to scan.
 - Example Lovelace dashboards for single-host and multi-host setups under `examples/dashboards/`.
+- A reauthentication flow that prompts for updated credentials or host-key fingerprint when SSH authentication for a server keeps failing, instead of leaving it silently unavailable.
+- Home Assistant Repairs/Issues for degraded software RAID, a read-only root filesystem, elevated fail2ban activity, and SMART/NVMe storage failures, in addition to the corresponding sensors.
+- On-demand "Test connection" button and service per server, and `compose_project`/`compose_service` attributes on per-container sensors for Docker Compose stack filtering.
 
 ## Collected Metrics
 
@@ -229,7 +232,7 @@ Entity IDs depend on the Home Assistant entity registry and the configured serve
 - `sensor.<name>_container_<container>_cpu` - Per-container CPU usage in percent.
 - `sensor.<name>_container_<container>_mem` - Per-container memory usage in percent.
 
-Dynamic disk and container sensors are created when the integration sees new mounts or containers in collected data.
+Dynamic disk and container sensors are created when the integration sees new mounts or containers in collected data. Every per-container sensor and the container memory-limit binary sensor expose `compose_project` and `compose_service` attributes (empty when the container was not started with Docker Compose), so dashboards and automations can filter or group containers by their Compose stack.
 
 ### Binary Sensors
 
@@ -269,6 +272,7 @@ Each config entry gets one `update.vserver_ssh_stats_update` entity, independent
 For each server, the integration creates buttons for:
 
 - Refresh now.
+- Test connection.
 - Update package list.
 - Upgrade packages.
 - Update packages.
@@ -278,11 +282,24 @@ For each server, the integration creates buttons for:
 - Purge all history.
 - Purge old history using the configured retention days.
 
-Buttons use the stored server configuration and call the matching Home Assistant service.
+Buttons use the stored server configuration and call the matching Home Assistant service. "Test connection" runs a harmless read-only command over SSH to confirm reachability and authentication on demand, for example right after changing a firewall rule or DNS record, without waiting for the automatic [reauthentication flow](#reauthentication-and-repairs) to trigger after repeated failures.
 
 The retention-aware history button and service call Home Assistant's `recorder.purge_entities`
 with `keep_days` for all entities belonging to the selected server and its child devices. They do
 not replace Home Assistant's global recorder retention settings.
+
+## Reauthentication and Repairs
+
+If SSH authentication for a server fails three consecutive polls in a row *and* the failure is specifically an authentication problem (wrong password/key, or an SSH host-key mismatch) rather than a network issue, Home Assistant shows a reauthentication prompt on the integration in **Settings > Devices & services**. It opens a small form for that one server with its current username, host-key fingerprints, password, and key file, runs the same live connection test used when adding or editing a server, and reloads the entry once it succeeds. Other servers on the same config entry keep polling normally while one is waiting for reauthentication. If more than one server needs reauthentication at the same time, only one prompt is shown at a time; fixing it lets the next one surface on its following poll.
+
+The integration also raises Home Assistant Repairs (**Settings > Repairs**) for conditions that are easy to miss in a sensor list:
+
+- Degraded software RAID array.
+- Root filesystem mounted read-only.
+- Elevated fail2ban activity (20 or more currently banned IPs).
+- A failing SMART/NVMe storage device.
+
+Each repair clears itself automatically once the underlying condition is resolved and reappears if it recurs. These are informational only and do not offer an in-UI fix; follow the repair's description for the recommended remediation on the host.
 
 ## Services
 
@@ -326,6 +343,7 @@ Available remote services:
 - `vserver_ssh_stats.update_packages` - Update/upgrade packages with the target OS package manager.
 - `vserver_ssh_stats.upgrade_packages` - Update/upgrade packages with the target OS package manager.
 - `vserver_ssh_stats.reboot_host` - Reboot the host.
+- `vserver_ssh_stats.test_connection` - Verify SSH connectivity with a harmless read-only command, without changing any state on the host. Also available as a "Test connection" button per server.
 - `vserver_ssh_stats.restart_service` - Restart one service; requires `service`.
 - `vserver_ssh_stats.start_docker_container` - Start one Docker container; requires `container`.
 - `vserver_ssh_stats.stop_docker_container` - Stop one Docker container; requires `container`.
@@ -351,6 +369,7 @@ The integration fires service-specific events such as:
 - `vserver_ssh_stats_update_packages`
 - `vserver_ssh_stats_upgrade_packages`
 - `vserver_ssh_stats_reboot`
+- `vserver_ssh_stats_test_connection`
 - `vserver_ssh_stats_restart_service`
 - `vserver_ssh_stats_start_docker_container`
 - `vserver_ssh_stats_stop_docker_container`

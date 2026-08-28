@@ -201,6 +201,16 @@ def _build_health(data: dict[str, Any], online: bool) -> dict[str, Any]:
                 5,
             )
 
+    cert_expiry_days = _as_float(data.get("cert_soonest_expiry_days"))
+    if cert_expiry_days is not None:
+        if cert_expiry_days < 3:
+            add_reason(f"A TLS certificate expires in {cert_expiry_days:.0f} days", 25)
+        elif cert_expiry_days < 14:
+            add_reason(f"A TLS certificate expires in {cert_expiry_days:.0f} days", 10)
+
+    if data.get("backup_job_failed"):
+        add_reason("A detected backup job last failed", 15)
+
     unhealthy_containers: list[str] = []
     for container in data.get("container_stats", []):
         if not isinstance(container, dict):
@@ -767,6 +777,18 @@ SENSORS: tuple[VServerSensorDescription, ...] = (
     _diagnostic_sensor(key="firewall_backend", name="Firewall Backend"),
     _diagnostic_sensor(key="firewall_rules_count", name="Firewall Rules Count"),
     _diagnostic_sensor(key="fail2ban_banned_count", name="Fail2ban Banned IPs"),
+    _diagnostic_sensor(
+        key="cert_soonest_expiry_days",
+        name="Soonest Certificate Expiry",
+        native_unit_of_measurement=UnitOfTime.DAYS,
+    ),
+    _diagnostic_sensor(key="backup_jobs_detected", name="Backup Jobs Detected"),
+    _diagnostic_sensor(
+        key="uptime_percent_30d",
+        name="Uptime 30d",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     _diagnostic_sensor(key="network_primary_mac", name="Primary MAC"),
     _diagnostic_sensor(key="primary_ip", name="Primary IP"),
     _diagnostic_sensor(key="vnc", name="VNC Supported"),
@@ -779,6 +801,7 @@ ACTION_STATUS_SENSORS: tuple[tuple[str, str], ...] = (
     ("update_package_list", "Last Package List Update Status"),
     ("upgrade_packages", "Last Package Upgrade Status"),
     ("reboot_host", "Last Reboot Status"),
+    ("test_connection", "Last Connection Test Status"),
     ("refresh", "Last Manual Refresh Status"),
     ("prune_docker", "Last Docker Prune Status"),
     ("clear_package_cache", "Last Package Cache Cleanup Status"),
@@ -796,7 +819,7 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
     """Representation of a VServer SSH Stats sensor."""
 
     _unrecorded_attributes = frozenset(
-        {"processes", "containers", "units", "arrays", "mdadm_details", "jails"}
+        {"processes", "containers", "units", "arrays", "mdadm_details", "jails", "certs", "jobs"}
     )
     entity_description: VServerSensorDescription
 
@@ -892,6 +915,21 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return {
                 "jails": self.coordinator.data.get("fail2ban_jails", []),
             }
+        if self.entity_description.key == "cert_soonest_expiry_days":
+            return {
+                "certs": self.coordinator.data.get("cert_entries", []),
+            }
+        if self.entity_description.key == "backup_jobs_detected":
+            return {
+                "jobs": self.coordinator.data.get("backup_jobs", []),
+            }
+        if self._container_key:
+            container = find_container(self.coordinator.data, self._container_key)
+            if isinstance(container, dict):
+                return {
+                    "compose_project": container.get("compose_project") or None,
+                    "compose_service": container.get("compose_service") or None,
+                }
         if self._storage_key:
             lookup = self.coordinator.data.get("storage_device_lookup", {})
             device = lookup.get(self._storage_key) if isinstance(lookup, dict) else None

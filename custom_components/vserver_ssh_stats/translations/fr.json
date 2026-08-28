@@ -19,6 +19,16 @@
           "monitored_ports": "Ports TCP surveillés",
           "history_retention_days": "Conservation de l'historique (jours)"
         }
+      },
+      "reauth_confirm": {
+        "title": "Réauthentifier {name}",
+        "description": "L'authentification SSH pour {name} ({host}) échoue de manière répétée. Mettez à jour les identifiants ou l'empreinte de la clé d'hôte ci-dessous.",
+        "data": {
+          "username": "Nom d'utilisateur",
+          "host_key_fingerprints": "Empreintes SHA256 de la clé d'hôte SSH (une par ligne)",
+          "password": "Mot de passe",
+          "key": "Fichier de clé"
+        }
       }
     },
     "error": {
@@ -32,6 +42,10 @@
       "cannot_authenticate": "Échec de l'authentification SSH. Vérifiez le nom d'utilisateur, le mot de passe ou le fichier de clé.",
       "host_key_mismatch": "La clé SSH de l'hôte ne correspond pas à l'empreinte configurée.",
       "invalid_ports": "Saisissez des ports TCP valides entre 1 et 65535, séparés par des virgules, des espaces ou des retours à la ligne"
+    },
+    "abort": {
+      "reauth_entry_not_found": "Le serveur nécessitant une réauthentification n'a plus été trouvé dans la configuration de cette entrée.",
+      "reauth_successful": "Réauthentification réussie."
     }
   },
   "options": {
@@ -340,6 +354,66 @@
           "description": "Temps d'attente maximal pour la commande de redémarrage."
         }
       }
+    },
+    "test_connection": {
+      "name": "Tester la connexion",
+      "description": "Vérifie la connectivité SSH d'un serveur sans modifier l'état de l'hôte.",
+      "fields": {
+        "host": {
+          "name": "Hôte",
+          "description": "Nom d'hôte ou IP du serveur."
+        },
+        "username": {
+          "name": "Nom d'utilisateur",
+          "description": "Nom d'utilisateur SSH."
+        },
+        "password": {
+          "name": "Mot de passe",
+          "description": "Mot de passe pour l'authentification."
+        },
+        "key": {
+          "name": "Fichier de clé",
+          "description": "Chemin vers la clé privée SSH (par exemple /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Empreintes de clé d'hôte SSH",
+          "description": "Empreintes OpenSSH SHA256 épinglées. Obligatoires pour les hôtes non configurés."
+        },
+        "port": {
+          "name": "Port SSH",
+          "description": "Port SSH."
+        },
+        "target_os": {
+          "name": "Système cible",
+          "description": "Profil OS utilisé pour choisir les commandes."
+        },
+        "connect_timeout": {
+          "name": "Délai de connexion SSH",
+          "description": "Temps d'attente maximal lors de l'ouverture de la connexion SSH."
+        },
+        "command_timeout": {
+          "name": "Délai de commande",
+          "description": "Délai maximal d'attente pour la commande de test."
+        }
+      }
+    }
+  },
+  "issues": {
+    "raid_degraded": {
+      "title": "RAID logiciel dégradé sur {server}",
+      "description": "La grappe RAID logicielle sur **{server}** signale un état dégradé. Vérifiez `mdadm --detail` sur l'hôte et remplacez ou resynchronisez le disque concerné."
+    },
+    "root_fs_readonly": {
+      "title": "Système de fichiers racine en lecture seule sur {server}",
+      "description": "Le système de fichiers racine sur **{server}** a été détecté monté en lecture seule, ce qui indique généralement une erreur de système de fichiers ou un stockage défaillant. Vérifiez le journal du noyau de l'hôte et remontez le système de fichiers ou exécutez `fsck`."
+    },
+    "fail2ban_elevated": {
+      "title": "Activité fail2ban élevée sur {server}",
+      "description": "fail2ban a actuellement {count} IP bannies sur **{server}**. Cela peut indiquer une tentative active de force brute contre l'hôte."
+    },
+    "smart_failure": {
+      "title": "Échec SMART d'un périphérique de stockage sur {server}",
+      "description": "Une vérification SMART ou NVMe sur **{server}** a signalé un périphérique de stockage défaillant. Sauvegardez les données importantes et vérifiez `smartctl -a` sur le périphérique concerné."
     }
   }
 }

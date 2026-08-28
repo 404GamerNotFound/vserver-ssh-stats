@@ -899,9 +899,25 @@ read_temperature() {
 read_network_bytes() {
   rx=0
   tx=0
+  network_interfaces_json="[]"
   if [ -r /proc/net/dev ]; then
     rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev 2>/dev/null || echo 0)
     tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev 2>/dev/null || echo 0)
+
+    iface_entries=""
+    while IFS= read -r iface_line; do
+      [ -z "$iface_line" ] && continue
+      iface_name=${iface_line%%|*}
+      iface_rest=${iface_line#*|}
+      iface_rx=${iface_rest%%|*}
+      iface_tx=${iface_rest#*|}
+      case "$iface_name" in
+        lo|docker*|veth*|br-*|virbr*|"") continue ;;
+      esac
+      iface_name_json=$(json_escape "$iface_name")
+      iface_entries="$iface_entries{\"name\":\"$iface_name_json\",\"rx\":$iface_rx,\"tx\":$iface_tx},"
+    done < <(awk -F: '/:/{name=$1; gsub(/^[ \t]+|[ \t]+$/,"",name); split($2,n," "); print name"|"n[1]"|"n[9]}' /proc/net/dev 2>/dev/null | head -n 20)
+    [ -n "$iface_entries" ] && network_interfaces_json="[${iface_entries%,}]"
   fi
 }
 
@@ -1100,7 +1116,9 @@ read_firewall_status() {
     fi
     set -e
     if [ "$iptables_status" -eq 0 ]; then
-      iptables_count=$(printf '%s\n' "$iptables_rules" | grep -c '^-A')
+      # grep returns 1 when there are no matching rules. That is a normal
+      # default-policy-only iptables configuration, not a collector failure.
+      iptables_count=$(printf '%s\n' "$iptables_rules" | grep -c '^-A' || true)
       if [ "$iptables_count" -gt 0 ]; then
         firewall_active=1
         firewall_backend="iptables"
@@ -1152,6 +1170,103 @@ read_fail2ban_status() {
     jail_entries="$jail_entries{\"jail\":\"$jail_name_json\",\"banned\":$jail_banned},"
   done < <(printf '%s\n' "$jail_list")
   [ -n "$jail_entries" ] && fail2ban_jails_json="[${jail_entries%,}]"
+}
+
+read_certificate_expiry() {
+  cert_entries_json="[]"
+  cert_soonest_expiry_days=""
+
+  cert_paths=""
+  if [ -d /etc/letsencrypt/live ]; then
+    cert_paths=$(find /etc/letsencrypt/live -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | head -n 10)
+  fi
+  [ -n "$cert_paths" ] || return 0
+
+  now_epoch=$(date -u +%s 2>/dev/null || echo "")
+  [ -n "$now_epoch" ] || return 0
+
+  cert_entries=""
+  while IFS= read -r cert_dir; do
+    [ -z "$cert_dir" ] && continue
+    domain=$(basename "$cert_dir")
+    cert_file="$cert_dir/fullchain.pem"
+    [ -r "$cert_file" ] || cert_file="$cert_dir/cert.pem"
+    set +e
+    end_date=$(run_limited 3 openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
+    end_status=$?
+    if { [ "$end_status" -ne 0 ] || [ -z "$end_date" ]; } && command -v sudo >/dev/null 2>&1; then
+      end_date=$(run_limited 3 sudo -n openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
+      end_status=$?
+    fi
+    set -e
+    [ "$end_status" -eq 0 ] && [ -n "$end_date" ] || continue
+    end_epoch=$(date -u -d "$end_date" +%s 2>/dev/null || echo "")
+    [ -n "$end_epoch" ] || continue
+    days_left=$(( (end_epoch - now_epoch) / 86400 ))
+    if [ -z "$cert_soonest_expiry_days" ] || [ "$days_left" -lt "$cert_soonest_expiry_days" ]; then
+      cert_soonest_expiry_days=$days_left
+    fi
+    domain_json=$(json_escape "$domain")
+    cert_entries="$cert_entries{\"domain\":\"$domain_json\",\"expiry_days\":$days_left},"
+  done < <(printf '%s\n' "$cert_paths")
+  [ -n "$cert_entries" ] && cert_entries_json="[${cert_entries%,}]"
+}
+
+read_backup_status() {
+  backup_jobs_detected=0
+  backup_job_failed=0
+  backup_jobs_json="[]"
+
+  command -v systemctl >/dev/null 2>&1 || return 0
+
+  set +e
+  unit_list=$(run_limited 4 systemctl list-units --all --no-legend --type=service,timer --plain 2>/dev/null \
+    | awk '{print $1}' | grep -Ei 'backup|borgmatic|borg|restic' | sort -u | head -n 5)
+  set -e
+  [ -n "$unit_list" ] || return 0
+
+  backup_entries=""
+  while IFS= read -r unit; do
+    [ -z "$unit" ] && continue
+    backup_jobs_detected=$((backup_jobs_detected + 1))
+    set +e
+    active_state=$(run_limited 3 systemctl is-active "$unit" 2>/dev/null)
+    unit_result=$(run_limited 3 systemctl show "$unit" --property=Result --value 2>/dev/null)
+    set -e
+    case "$unit_result" in
+      success|"") ;;
+      *) backup_job_failed=1 ;;
+    esac
+    unit_json=$(json_escape "$unit")
+    active_state_json=$(json_escape "$active_state")
+    result_json=$(json_escape "$unit_result")
+    backup_entries="$backup_entries{\"unit\":\"$unit_json\",\"active_state\":\"$active_state_json\",\"result\":\"$result_json\"},"
+  done < <(printf '%s\n' "$unit_list")
+  [ -n "$backup_entries" ] && backup_jobs_json="[${backup_entries%,}]"
+}
+
+read_unattended_upgrades_status() {
+  unattended_upgrades_active=0
+
+  if [ -r /etc/apt/apt.conf.d/20auto-upgrades ]; then
+    if grep -Eq 'APT::Periodic::Unattended-Upgrade[[:space:]]*"1"' /etc/apt/apt.conf.d/20auto-upgrades 2>/dev/null; then
+      if command -v systemctl >/dev/null 2>&1; then
+        set +e
+        run_limited 3 systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null
+        timer_status=$?
+        set -e
+        [ "$timer_status" -eq 0 ] && unattended_upgrades_active=1
+      else
+        unattended_upgrades_active=1
+      fi
+    fi
+  elif command -v systemctl >/dev/null 2>&1; then
+    set +e
+    run_limited 3 systemctl is-active --quiet dnf-automatic.timer 2>/dev/null
+    dnf_status=$?
+    set -e
+    [ "$dnf_status" -eq 0 ] && unattended_upgrades_active=1
+  fi
 }
 
 read_disk_io_bytes() {
@@ -1222,6 +1337,10 @@ prepare_numeric_json_values() {
   firewall_rules_count_json=$(number_or_null "$firewall_rules_count")
   fail2ban_active_json=$(number_or_null "$fail2ban_active")
   fail2ban_banned_count_json=$(number_or_null "$fail2ban_banned_count")
+  cert_soonest_expiry_days_json=$(number_or_null "$cert_soonest_expiry_days")
+  backup_jobs_detected_json=$(number_or_null "$backup_jobs_detected")
+  backup_job_failed_json=$(number_or_null "$backup_job_failed")
+  unattended_upgrades_active_json=$(number_or_null "$unattended_upgrades_active")
   disk_read_bytes_json=$(number_or_null "$disk_read_bytes")
   disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
   process_total_json=$(number_or_null "$process_total")
@@ -1340,11 +1459,14 @@ read_root_filesystem_status
 read_failed_ssh_logins
 read_firewall_status
 read_fail2ban_status
+read_certificate_expiry
+read_backup_status
+read_unattended_upgrades_status
 read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"cert_soonest_expiry_days":%s,"cert_entries":%s,"backup_jobs_detected":%s,"backup_job_failed":%s,"backup_jobs":%s,"unattended_upgrades_active":%s,"network_interfaces":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
@@ -1354,4 +1476,6 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"u
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
   "$journal_errors_json" "$root_fs_readonly_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
   "$fail2ban_active_json" "$fail2ban_banned_count_json" "$fail2ban_jails_json" \
+  "$cert_soonest_expiry_days_json" "$cert_entries_json" "$backup_jobs_detected_json" "$backup_job_failed_json" "$backup_jobs_json" \
+  "$unattended_upgrades_active_json" "$network_interfaces_json" \
   "$disk_read_bytes_json" "$disk_write_bytes_json"

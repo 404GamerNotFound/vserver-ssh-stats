@@ -33,6 +33,7 @@ _LOGGER = logging.getLogger(__name__)
 
 ACTION_BUTTONS: tuple[tuple[str, str], ...] = (
     ("refresh", "Refresh now"),
+    ("test_connection", "Test connection"),
     ("update_package_list", "Update package list"),
     ("upgrade_packages", "Upgrade packages"),
     ("update_packages", "Update packages"),

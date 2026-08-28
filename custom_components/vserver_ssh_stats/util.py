@@ -30,6 +30,15 @@ MIN_CUSTOM_SENSOR_INTERVAL = 5
 DEFAULT_BACKOFF_FAILURE_THRESHOLD = 3
 DEFAULT_BACKOFF_MAX_INTERVAL = 300
 
+ISSUE_SUFFIXES = (
+    "raid_degraded",
+    "root_fs_readonly",
+    "fail2ban_elevated",
+    "smart_failure",
+)
+FAIL2BAN_ELEVATED_THRESHOLD = 20
+AUTH_FAILURE_REAUTH_THRESHOLD = 3
+
 MAC_PATTERN = re.compile(r"^[0-9a-f]{2}(:[0-9a-f]{2}){5}$")
 PORT_SPLIT_PATTERN = re.compile(r"[\s,;]+")
 

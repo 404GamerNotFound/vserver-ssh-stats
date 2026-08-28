@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Added an on-demand `vserver_ssh_stats.test_connection` service and matching "Test connection" button per server, and exposed `compose_project`/`compose_service` as attributes on per-container sensors and the container memory-limit binary sensor.
+- Added a reauthentication flow triggered after repeated SSH-authentication-specific failures (wrong credentials or host-key mismatch), and Home Assistant Repairs for degraded software RAID, a read-only root filesystem, elevated fail2ban activity, and SMART/NVMe storage failures.
 - Added a live SSH connection test when adding or editing a server in the config/options flow: a lightweight command is run over the submitted credentials and pinned host key before the form can be saved, surfacing authentication, host-key mismatch, timeout, and unreachable-host errors immediately instead of only after the entry is created.
 - Added optional fail2ban status detection (`binary_sensor.<name>_fail2ban_active`, `sensor.<name>_fail2ban_banned_ips` with a per-jail `jails` attribute) and a matching `--fail2ban` option in `scripts/generate_sudoers_template.py`.
 - Added 5-minute rolling average CPU/memory sensors, an optional per-server label (exposed as an attribute on the online binary sensor), an `update.vserver_ssh_stats_update` entity that checks GitHub releases once a day, and example single-host/multi-host Lovelace dashboards under `examples/dashboards/`.

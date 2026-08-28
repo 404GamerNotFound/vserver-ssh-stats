@@ -9,12 +9,15 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import DOMAIN
+from .net_cache import UptimeWindowCache
 from .ssh_collector import (
     async_run_custom_command,
     async_sample,
@@ -23,6 +26,7 @@ from .ssh_collector import (
     async_sample_storage,
 )
 from .util import (
+    AUTH_FAILURE_REAUTH_THRESHOLD,
     DEFAULT_BACKOFF_FAILURE_THRESHOLD,
     DEFAULT_BACKOFF_MAX_INTERVAL,
     DEFAULT_COMMAND_TIMEOUT,
@@ -32,6 +36,7 @@ from .util import (
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
     DEFAULT_STORAGE_INTERVAL,
+    FAIL2BAN_ELEVATED_THRESHOLD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +45,8 @@ COORDINATOR_LOCK_KEY = "coordinators_lock"
 CUSTOM_COORDINATORS_KEY = "custom_sensor_coordinators"
 CUSTOM_COORDINATOR_LOCK_KEY = "custom_sensor_coordinators_lock"
 
+uptime_window_cache = UptimeWindowCache()
+
 
 class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator that polls a server via SSH."""
@@ -47,6 +54,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(
         self,
         hass: HomeAssistant,
+        entry: ConfigEntry,
         server: dict[str, Any],
         interval: int,
         connect_timeout: int,
@@ -63,6 +71,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name=server["name"],
             update_interval=timedelta(seconds=interval),
         )
+        self.config_entry_ref = entry
         self.server = server
         self.base_interval = interval
         self.connect_timeout = connect_timeout
@@ -72,6 +81,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.storage_interval = storage_interval
         self.slow_command_timeout = slow_command_timeout
         self.consecutive_failures = 0
+        self.consecutive_auth_failures = 0
         self.current_interval = interval
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
@@ -111,6 +121,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"Unable to update host {self.server['host']}: {message}") from err
         if data.get("collection_error"):
             self._record_failure()
+            self._track_auth_failure(bool(data.get("collection_error_is_auth")))
             if isinstance(self.data, dict) and self.data:
                 preserved = dict(self.data)
                 for key, value in data.items():
@@ -126,7 +137,98 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if data.get("mac_addresses"):
             self.server["mac_addresses"] = data["mac_addresses"]
         self._record_success()
+        self.consecutive_auth_failures = 0
+        self._sync_base_issues(data)
         return data
+
+    def _track_auth_failure(self, is_auth_failure: bool) -> None:
+        """Track consecutive authentication-specific failures and trigger reauth."""
+
+        if not is_auth_failure:
+            self.consecutive_auth_failures = 0
+            return
+        self.consecutive_auth_failures += 1
+        if self.consecutive_auth_failures < AUTH_FAILURE_REAUTH_THRESHOLD:
+            return
+        self._start_reauth()
+
+    def _start_reauth(self) -> None:
+        """Start a reauth flow for this server's config entry.
+
+        Home Assistant only allows one active reauth flow per entry; if one is
+        already in progress (for this or another server on the same entry),
+        this is a no-op and the next poll retries once that flow completes.
+        """
+
+        entry = self.config_entry_ref
+        host = self.server["host"]
+        start_reauth = getattr(entry, "async_start_reauth", None)
+        if callable(start_reauth):
+            start_reauth(self.hass, data={"host": host})
+            return
+        self.hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_REAUTH,
+                "entry_id": entry.entry_id,
+                "unique_id": entry.unique_id,
+            },
+            data={**entry.data, "host": host},
+        )
+
+    def _sync_issue(
+        self,
+        suffix: str,
+        active: bool,
+        *,
+        severity: ir.IssueSeverity,
+        translation_placeholders: dict[str, str] | None = None,
+    ) -> None:
+        """Create or clear a Home Assistant repair issue for this server."""
+
+        issue_id = f"{self.server['host']}_{suffix}"
+        if active:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=severity,
+                translation_key=suffix,
+                translation_placeholders=translation_placeholders,
+            )
+        else:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+    def _sync_base_issues(self, data: dict[str, Any]) -> None:
+        """Sync repair issues derived from fields collected on every poll."""
+
+        server_name = self.server.get("name") or self.server["host"]
+        self._sync_issue(
+            "raid_degraded",
+            bool(data.get("software_raid_degraded")),
+            severity=ir.IssueSeverity.ERROR,
+            translation_placeholders={"server": server_name},
+        )
+        self._sync_issue(
+            "root_fs_readonly",
+            bool(data.get("root_fs_readonly")),
+            severity=ir.IssueSeverity.ERROR,
+            translation_placeholders={"server": server_name},
+        )
+        fail2ban_banned = data.get("fail2ban_banned_count")
+        fail2ban_elevated = (
+            isinstance(fail2ban_banned, int) and fail2ban_banned >= FAIL2BAN_ELEVATED_THRESHOLD
+        )
+        self._sync_issue(
+            "fail2ban_elevated",
+            fail2ban_elevated,
+            severity=ir.IssueSeverity.WARNING,
+            translation_placeholders={
+                "server": server_name,
+                "count": str(fail2ban_banned or 0),
+            },
+        )
 
     def _merge_base_data(self, base_data: dict[str, Any]) -> dict[str, Any]:
         """Merge fast collector data over the previous full snapshot."""
@@ -352,6 +454,15 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._clear_storage_data(merged)
                 merged.update(result)
                 self.async_set_updated_data(merged)
+                if collector == "storage" and "storage_devices" in result:
+                    self._sync_issue(
+                        "smart_failure",
+                        bool(result.get("smart_failure_detected")),
+                        severity=ir.IssueSeverity.ERROR,
+                        translation_placeholders={
+                            "server": self.server.get("name") or self.server["host"]
+                        },
+                    )
         finally:
             self._slow_refresh_task = None
 
@@ -485,6 +596,7 @@ async def async_get_or_create_coordinators(
             coordinators.append(
                 VServerCoordinator(
                     hass,
+                    entry,
                     server,
                     interval,
                     connect_timeout,

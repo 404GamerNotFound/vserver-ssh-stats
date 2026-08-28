@@ -19,6 +19,16 @@
           "monitored_ports": "Überwachte TCP-Ports",
           "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
+      },
+      "reauth_confirm": {
+        "title": "{name} erneut authentifizieren",
+        "description": "Die SSH-Authentifizierung für {name} ({host}) schlägt wiederholt fehl. Zugangsdaten oder Host-Key-Fingerprint unten aktualisieren.",
+        "data": {
+          "username": "Benutzername",
+          "host_key_fingerprints": "SHA256-Fingerprints des SSH-Host-Keys (einer pro Zeile)",
+          "password": "Passwort",
+          "key": "Schlüsseldatei"
+        }
       }
     },
     "error": {
@@ -32,6 +42,10 @@
       "cannot_authenticate": "SSH-Authentifizierung fehlgeschlagen. Benutzername, Passwort oder Schlüsseldatei prüfen.",
       "host_key_mismatch": "Der SSH-Host-Key des Hosts stimmt nicht mit dem konfigurierten Fingerprint überein.",
       "invalid_ports": "Gültige TCP-Ports zwischen 1 und 65535 eingeben, getrennt durch Kommas, Leerzeichen oder Zeilenumbrüche"
+    },
+    "abort": {
+      "reauth_entry_not_found": "Der Server, der neu authentifiziert werden muss, wurde in der Konfiguration dieses Eintrags nicht mehr gefunden.",
+      "reauth_successful": "Erfolgreich neu authentifiziert."
     }
   },
   "options": {
@@ -340,6 +354,66 @@
           "description": "Maximale Wartezeit für den Neustart-Befehl."
         }
       }
+    },
+    "test_connection": {
+      "name": "Verbindung testen",
+      "description": "Prüft die SSH-Erreichbarkeit eines Servers, ohne den Zustand des Hosts zu ändern.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH-Host-Key-Fingerprints",
+          "description": "Fest hinterlegte OpenSSH-SHA256-Fingerprints. Für nicht konfigurierte Hosts erforderlich."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        },
+        "target_os": {
+          "name": "Zielsystem",
+          "description": "Für die Befehlsauswahl verwendetes OS-Profil."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den Test-Befehl."
+        }
+      }
+    }
+  },
+  "issues": {
+    "raid_degraded": {
+      "title": "Software-RAID auf {server} beeinträchtigt",
+      "description": "Das Software-RAID-Array auf **{server}** meldet einen beeinträchtigten Zustand. `mdadm --detail` auf dem Host prüfen und die betroffene Festplatte ersetzen oder neu synchronisieren."
+    },
+    "root_fs_readonly": {
+      "title": "Root-Dateisystem auf {server} schreibgeschützt",
+      "description": "Das Root-Dateisystem auf **{server}** wurde schreibgeschützt eingehängt erkannt, was meist auf einen Dateisystemfehler oder ausfallenden Speicher hindeutet. Kernel-Log des Hosts prüfen und das Dateisystem neu einhängen oder mit `fsck` prüfen."
+    },
+    "fail2ban_elevated": {
+      "title": "Erhöhte Fail2ban-Aktivität auf {server}",
+      "description": "Fail2ban hat aktuell {count} gebannte IPs auf **{server}**. Das kann auf einen aktiven Brute-Force-Versuch gegen den Host hindeuten."
+    },
+    "smart_failure": {
+      "title": "SMART-Fehler eines Speichergeräts auf {server}",
+      "description": "Eine SMART- oder NVMe-Prüfung auf **{server}** meldet ein ausfallendes Speichergerät. Wichtige Daten sichern und `smartctl -a` für das betroffene Gerät prüfen."
     }
   }
 }

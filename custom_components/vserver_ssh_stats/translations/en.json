@@ -19,6 +19,16 @@
           "monitored_ports": "Monitored TCP ports",
           "history_retention_days": "History retention days"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate {name}",
+        "description": "SSH authentication for {name} ({host}) has been failing repeatedly. Update the credentials or host-key fingerprint below.",
+        "data": {
+          "username": "Username",
+          "host_key_fingerprints": "SSH host-key SHA256 fingerprints (one per line)",
+          "password": "Password",
+          "key": "Key file"
+        }
       }
     },
     "error": {
@@ -32,6 +42,10 @@
       "cannot_authenticate": "SSH authentication failed. Check the username, password, or key file.",
       "host_key_mismatch": "The host's SSH key does not match the configured fingerprint.",
       "invalid_ports": "Enter valid TCP ports between 1 and 65535, separated by commas, spaces, or line breaks"
+    },
+    "abort": {
+      "reauth_entry_not_found": "The server that needs reauthentication could no longer be found in this entry's configuration.",
+      "reauth_successful": "Successfully reauthenticated."
     }
   },
   "options": {
@@ -340,6 +354,66 @@
           "description": "Maximum time to wait for the reboot command."
         }
       }
+    },
+    "test_connection": {
+      "name": "Test connection",
+      "description": "Verify SSH connectivity for a server without changing any state on the host.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "SSH host-key fingerprints",
+          "description": "Pinned OpenSSH SHA256 fingerprints. Required when the host is not configured in the integration."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        },
+        "target_os": {
+          "name": "Target system",
+          "description": "OS profile used for command selection."
+        },
+        "connect_timeout": {
+          "name": "SSH connect timeout",
+          "description": "Maximum time to wait while opening the SSH connection."
+        },
+        "command_timeout": {
+          "name": "Command timeout",
+          "description": "Maximum time to wait for the test command."
+        }
+      }
+    }
+  },
+  "issues": {
+    "raid_degraded": {
+      "title": "Software RAID degraded on {server}",
+      "description": "The software RAID array on **{server}** is reporting a degraded state. Check `mdadm --detail` on the host and replace or resync the affected disk."
+    },
+    "root_fs_readonly": {
+      "title": "Root filesystem is read-only on {server}",
+      "description": "The root filesystem on **{server}** was detected mounted read-only, which usually indicates a filesystem error or failing storage. Check the host's kernel log and remount or `fsck` the filesystem."
+    },
+    "fail2ban_elevated": {
+      "title": "Elevated fail2ban activity on {server}",
+      "description": "fail2ban currently has {count} IPs banned on **{server}**. This may indicate an active brute-force attempt against the host."
+    },
+    "smart_failure": {
+      "title": "Storage device SMART failure on {server}",
+      "description": "A SMART or NVMe health check on **{server}** reported a failing storage device. Back up important data and check `smartctl -a` on the affected device."
     }
   }
 }
