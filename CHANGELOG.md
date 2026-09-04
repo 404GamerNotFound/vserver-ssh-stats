@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+- Fixed Linux collector aborts caused by normal empty or inactive optional
+  probes: iptables hosts with no custom rules, unavailable
+  `apt-daily-upgrade`/`dnf-automatic` timers, and empty optional network,
+  Fail2ban, certificate, backup, or disk-I/O results now leave the collector
+  running and emitting JSON.
 - Added an on-demand `vserver_ssh_stats.test_connection` service and matching "Test connection" button per server, and exposed `compose_project`/`compose_service` as attributes on per-container sensors and the container memory-limit binary sensor.
 - Added a reauthentication flow triggered after repeated SSH-authentication-specific failures (wrong credentials or host-key mismatch), and Home Assistant Repairs for degraded software RAID, a read-only root filesystem, elevated fail2ban activity, and SMART/NVMe storage failures.
 - Added a live SSH connection test when adding or editing a server in the config/options flow: a lightweight command is run over the submitted credentials and pinned host key before the form can be saved, surfacing authentication, host-key mismatch, timeout, and unreachable-host errors immediately instead of only after the entry is created.

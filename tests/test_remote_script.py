@@ -231,6 +231,97 @@ EOF
     assert data["firewall_rules_count"] is None
 
 
+def test_unattended_upgrades_collector_allows_missing_dnf_timer() -> None:
+    """An unavailable dnf timer must not abort the collector under set -e."""
+
+    dnf_timer_stub = r'''
+set -e
+run_limited() { shift; "$@"; }
+[() {
+  if builtin test "$1" = "-r" && builtin test "${2:-}" = "/etc/apt/apt.conf.d/20auto-upgrades"; then
+    return 1
+  fi
+  builtin test "$@"
+}
+systemctl() { return 3; }
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=(
+            dnf_timer_stub
+            + _bash_function("read_unattended_upgrades_status")
+            + "\nread_unattended_upgrades_status\nprintf '%s' \"$unattended_upgrades_active\"\n"
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "0"
+
+
+def test_unattended_upgrades_collector_allows_inactive_apt_timer() -> None:
+    """An inactive apt timer must not abort the collector under set -e."""
+
+    apt_timer_stub = r'''
+set -e
+run_limited() { shift; "$@"; }
+[() {
+  if builtin test "$1" = "-r" && builtin test "${2:-}" = "/etc/apt/apt.conf.d/20auto-upgrades"; then
+    return 0
+  fi
+  builtin test "$@"
+}
+grep() { return 0; }
+systemctl() { return 3; }
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=(
+            apt_timer_stub
+            + _bash_function("read_unattended_upgrades_status")
+            + "\nread_unattended_upgrades_status\nprintf '%s' \"$unattended_upgrades_active\"\n"
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "0"
+
+
+def test_network_collector_allows_no_eligible_interfaces() -> None:
+    """An empty filtered interface list must not abort the collector."""
+
+    network_stub = r'''
+set -e
+awk_calls=0
+awk() {
+  awk_calls=$((awk_calls + 1))
+  case "$awk_calls" in
+    1|2) printf '0\n' ;;
+    3) printf 'lo|0|0\n' ;;
+  esac
+}
+'''
+    result = subprocess.run(
+        ["bash"],
+        input=(
+            network_stub
+            + _bash_function("read_network_bytes")
+            + "\nread_network_bytes\nprintf '%s|%s|%s' \"$rx\" \"$tx\" \"$network_interfaces_json\"\n"
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "0|0|[]"
+
+
 def test_fail2ban_collector_aggregates_banned_ips_across_jails() -> None:
     """Sum "Currently banned" across every reported jail, capped at 5."""
 

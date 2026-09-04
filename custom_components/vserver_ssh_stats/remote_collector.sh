@@ -917,8 +917,11 @@ read_network_bytes() {
       iface_name_json=$(json_escape "$iface_name")
       iface_entries="$iface_entries{\"name\":\"$iface_name_json\",\"rx\":$iface_rx,\"tx\":$iface_tx},"
     done < <(awk -F: '/:/{name=$1; gsub(/^[ \t]+|[ \t]+$/,"",name); split($2,n," "); print name"|"n[1]"|"n[9]}' /proc/net/dev 2>/dev/null | head -n 20)
-    [ -n "$iface_entries" ] && network_interfaces_json="[${iface_entries%,}]"
+    if [ -n "$iface_entries" ]; then
+      network_interfaces_json="[${iface_entries%,}]"
+    fi
   fi
+  return 0
 }
 
 read_boot_and_kernel_status() {
@@ -1169,7 +1172,10 @@ read_fail2ban_status() {
     jail_name_json=$(json_escape "$jail")
     jail_entries="$jail_entries{\"jail\":\"$jail_name_json\",\"banned\":$jail_banned},"
   done < <(printf '%s\n' "$jail_list")
-  [ -n "$jail_entries" ] && fail2ban_jails_json="[${jail_entries%,}]"
+  if [ -n "$jail_entries" ]; then
+    fail2ban_jails_json="[${jail_entries%,}]"
+  fi
+  return 0
 }
 
 read_certificate_expiry() {
@@ -1209,7 +1215,10 @@ read_certificate_expiry() {
     domain_json=$(json_escape "$domain")
     cert_entries="$cert_entries{\"domain\":\"$domain_json\",\"expiry_days\":$days_left},"
   done < <(printf '%s\n' "$cert_paths")
-  [ -n "$cert_entries" ] && cert_entries_json="[${cert_entries%,}]"
+  if [ -n "$cert_entries" ]; then
+    cert_entries_json="[${cert_entries%,}]"
+  fi
+  return 0
 }
 
 read_backup_status() {
@@ -1242,7 +1251,10 @@ read_backup_status() {
     result_json=$(json_escape "$unit_result")
     backup_entries="$backup_entries{\"unit\":\"$unit_json\",\"active_state\":\"$active_state_json\",\"result\":\"$result_json\"},"
   done < <(printf '%s\n' "$unit_list")
-  [ -n "$backup_entries" ] && backup_jobs_json="[${backup_entries%,}]"
+  if [ -n "$backup_entries" ]; then
+    backup_jobs_json="[${backup_entries%,}]"
+  fi
+  return 0
 }
 
 read_unattended_upgrades_status() {
@@ -1255,7 +1267,9 @@ read_unattended_upgrades_status() {
         run_limited 3 systemctl is-active --quiet apt-daily-upgrade.timer 2>/dev/null
         timer_status=$?
         set -e
-        [ "$timer_status" -eq 0 ] && unattended_upgrades_active=1
+        if [ "$timer_status" -eq 0 ]; then
+          unattended_upgrades_active=1
+        fi
       else
         unattended_upgrades_active=1
       fi
@@ -1265,8 +1279,11 @@ read_unattended_upgrades_status() {
     run_limited 3 systemctl is-active --quiet dnf-automatic.timer 2>/dev/null
     dnf_status=$?
     set -e
-    [ "$dnf_status" -eq 0 ] && unattended_upgrades_active=1
+    if [ "$dnf_status" -eq 0 ]; then
+      unattended_upgrades_active=1
+    fi
   fi
+  return 0
 }
 
 read_disk_io_bytes() {
@@ -1284,6 +1301,7 @@ read_disk_io_bytes() {
     disk_read_bytes=$((disk_read_bytes + sectors_read * 512))
     disk_write_bytes=$((disk_write_bytes + sectors_written * 512))
   done
+  return 0
 }
 
 compute_power() {
