@@ -571,3 +571,45 @@ docker() {
     data = json.loads(result.stdout)
     assert data["container_stats"][0]["cpu"] == 3.25
     assert data["container_stats"][0]["mem"] == 7.5
+
+
+def test_disabled_sudo_skips_collector_fallbacks(tmp_path: Path) -> None:
+    """A present, successful no-op sudo must never run when disabled."""
+    sudo_log = tmp_path / "sudo-calls"
+    stubs = r'''
+timeout() { shift; "$@"; }
+sudo() {
+  echo "$*" >> "$SUDO_LOG"
+  [ "$2" = "docker" ] || return 1
+  echo 'sudo is not needed'
+}
+docker() { return 1; }
+ufw() { return 1; }
+firewall-cmd() { return 1; }
+nft() { return 1; }
+iptables() { return 1; }
+fail2ban-client() { return 1; }
+'''
+    for mode in ("base", "docker"):
+        for use_sudo in ("0", "1"):
+            result = subprocess.run(
+                ["bash"], input=stubs + _remote_script(), text=True, capture_output=True,
+                env=os.environ | {
+                    "VSERVER_SSH_STATS_MODE": mode,
+                    "VSERVER_SSH_STATS_USE_SUDO": use_sudo,
+                    "SUDO_LOG": str(sudo_log),
+                },
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr
+            assert isinstance(json.loads(result.stdout), dict)
+            if use_sudo == "0":
+                assert not sudo_log.exists()
+            else:
+                calls = sudo_log.read_text()
+                expected = ("docker",) if mode == "docker" else (
+                    "ufw", "nft", "iptables", "fail2ban-client"
+                )
+                for command in expected:
+                    assert command in calls
+                sudo_log.unlink()

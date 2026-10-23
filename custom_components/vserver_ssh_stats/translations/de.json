@@ -16,6 +16,7 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
+          "use_sudo": "sudo verwenden (für reine Root-Systeme wie LibreELEC deaktivieren)",
           "monitored_ports": "Überwachte TCP-Ports",
           "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
@@ -90,6 +91,7 @@
           "key": "Schlüsseldatei",
           "clear_key": "Gespeicherte Schlüsseldatei entfernen",
           "target_os": "Zielsystem",
+          "use_sudo": "sudo verwenden (für reine Root-Systeme wie LibreELEC deaktivieren)",
           "monitored_ports": "Überwachte TCP-Ports",
           "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
@@ -108,6 +110,7 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
+          "use_sudo": "sudo verwenden (für reine Root-Systeme wie LibreELEC deaktivieren)",
           "monitored_ports": "Überwachte TCP-Ports",
           "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }
@@ -168,6 +171,7 @@
           "key": "Schlüsseldatei",
           "add_another": "Weiteren Server danach hinzufügen",
           "target_os": "Zielsystem",
+          "use_sudo": "sudo verwenden (für reine Root-Systeme wie LibreELEC deaktivieren)",
           "monitored_ports": "Überwachte TCP-Ports",
           "history_retention_days": "Historien-Aufbewahrung (Tage)"
         }

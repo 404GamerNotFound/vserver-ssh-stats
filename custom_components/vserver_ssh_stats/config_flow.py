@@ -221,6 +221,7 @@ def _build_server_schema(
             ),
         )
     ] = _number_box(max_value=MAX_HISTORY_RETENTION_DAYS)
+    schema[vol.Optional("use_sudo", default=defaults.get("use_sudo", True))] = bool
     schema[vol.Optional("password")] = _password_selector()
     if editing_existing:
         schema[vol.Optional("clear_password", default=defaults.get("clear_password", False))] = bool
@@ -307,6 +308,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "username": user_input["username"],
                         "port": user_input["port"],
                         "target_os": user_input.get("target_os", "auto"),
+                        "use_sudo": user_input.get("use_sudo", True),
                         "history_retention_days": min(
                             _coerce_positive_int(
                                 user_input.get("history_retention_days"),
@@ -1177,6 +1179,7 @@ class OptionsFlowHandler(OptionsFlow):
                 "username": str(user_input["username"]).strip(),
                 "port": user_input["port"],
                 "target_os": user_input.get("target_os", "auto"),
+                "use_sudo": user_input.get("use_sudo", server.get("use_sudo", True)),
                 "history_retention_days": min(
                     _coerce_positive_int(
                         user_input.get("history_retention_days"),

@@ -357,7 +357,7 @@ read_docker_stats() {
     set +e
     run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
     docker_info_status=$?
-    if [ "$docker_info_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$docker_info_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       docker_command=(sudo -n docker)
       run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
       docker_info_status=$?
@@ -739,7 +739,7 @@ read_storage_health() {
       smart_output=$(run_limited "$storage_timeout" smartctl -a "$device_path" 2>&1)
       smart_command_status=$?
       if ! printf '%s\n' "$smart_output" | grep -Eq 'SMART support is|SMART overall-health|SMART Health Status|SMART Attributes Data Structure|NVMe|Critical Warning|Temperature:|Device Model:|Model Number:'; then
-        if command -v sudo >/dev/null 2>&1; then
+        if [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
           smart_output=$(run_limited "$storage_timeout" sudo -n smartctl -a "$device_path" 2>&1)
           smart_command_status=$?
         fi
@@ -751,7 +751,7 @@ read_storage_health() {
       set +e
       smart_output=$(run_limited "$storage_timeout" nvme smart-log "$device_path" 2>&1)
       smart_command_status=$?
-      if [ "$smart_command_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      if [ "$smart_command_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
         smart_output=$(run_limited "$storage_timeout" sudo -n nvme smart-log "$device_path" 2>&1)
         smart_command_status=$?
       fi
@@ -841,7 +841,7 @@ read_storage_health() {
       [ -e "$md_path" ] || continue
       set +e
       md_detail=$(run_limited "$storage_timeout" mdadm --detail --export "$md_path" 2>/dev/null)
-      if [ -z "$md_detail" ] && command -v sudo >/dev/null 2>&1; then
+      if [ -z "$md_detail" ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
         md_detail=$(run_limited "$storage_timeout" sudo -n mdadm --detail --export "$md_path" 2>/dev/null)
       fi
       set -e
@@ -1067,7 +1067,7 @@ read_firewall_status() {
     set +e
     ufw_status=$(run_limited 4 ufw status verbose 2>/dev/null)
     ufw_status_code=$?
-    if [ "$ufw_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$ufw_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       ufw_status=$(run_limited 4 sudo -n ufw status verbose 2>/dev/null)
     fi
     set -e
@@ -1097,7 +1097,7 @@ read_firewall_status() {
     set +e
     nft_rules=$(run_limited 4 nft -a list ruleset 2>/dev/null)
     nft_status=$?
-    if [ "$nft_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$nft_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       nft_rules=$(run_limited 4 sudo -n nft -a list ruleset 2>/dev/null)
       nft_status=$?
     fi
@@ -1113,7 +1113,7 @@ read_firewall_status() {
     set +e
     iptables_rules=$(run_limited 4 iptables -S 2>/dev/null)
     iptables_status=$?
-    if [ "$iptables_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$iptables_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       iptables_rules=$(run_limited 4 sudo -n iptables -S 2>/dev/null)
       iptables_status=$?
     fi
@@ -1141,7 +1141,7 @@ read_fail2ban_status() {
   set +e
   f2b_status=$(run_limited 4 fail2ban-client status 2>/dev/null)
   f2b_status_code=$?
-  if [ "$f2b_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+  if [ "$f2b_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
     f2b_status=$(run_limited 4 sudo -n fail2ban-client status 2>/dev/null)
     f2b_status_code=$?
   fi
@@ -1158,7 +1158,7 @@ read_fail2ban_status() {
     set +e
     jail_status=$(run_limited 3 fail2ban-client status "$jail" 2>/dev/null)
     jail_status_code=$?
-    if [ "$jail_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$jail_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       jail_status=$(run_limited 3 sudo -n fail2ban-client status "$jail" 2>/dev/null)
       jail_status_code=$?
     fi
@@ -1200,7 +1200,7 @@ read_certificate_expiry() {
     set +e
     end_date=$(run_limited 3 openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
     end_status=$?
-    if { [ "$end_status" -ne 0 ] || [ -z "$end_date" ]; } && command -v sudo >/dev/null 2>&1; then
+    if { [ "$end_status" -ne 0 ] || [ -z "$end_date" ]; } && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       end_date=$(run_limited 3 sudo -n openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
       end_status=$?
     fi

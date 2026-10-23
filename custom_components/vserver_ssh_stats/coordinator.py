@@ -103,6 +103,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.command_timeout,
                 self.server.get("monitored_ports"),
                 self.server.get("host_key_fingerprints"),
+                use_sudo=self.server.get("use_sudo", True),
             )
             data = self._merge_base_data(base_data)
             if not data.get("collection_error"):
@@ -397,6 +398,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.connect_timeout,
                             self.slow_command_timeout,
                             self.server.get("host_key_fingerprints"),
+                            use_sudo=self.server.get("use_sudo", True),
                         )
                     elif collector == "docker":
                         result = await async_sample_docker(
@@ -409,6 +411,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.connect_timeout,
                             self.slow_command_timeout,
                             self.server.get("host_key_fingerprints"),
+                            use_sudo=self.server.get("use_sudo", True),
                         )
                     elif collector == "storage":
                         result = await async_sample_storage(
@@ -421,6 +424,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.connect_timeout,
                             self.slow_command_timeout,
                             self.server.get("host_key_fingerprints"),
+                            use_sudo=self.server.get("use_sudo", True),
                         )
                     else:
                         continue

@@ -105,6 +105,7 @@ During setup you provide:
 - SSH username.
 - Password or SSH private-key path.
 - Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`.
+- **Use sudo** (default: enabled). Disable for root-only systems such as LibreELEC. Built-in Linux actions then run directly as the SSH user, and all collectors skip sudo fallbacks. To change an existing server, select **Edit an existing server** in the integration options. Services and buttons use the saved setting for the target host; user-written commands (`run_command` and custom command sensors) are executed unchanged.
 - Optional monitored TCP ports, separated by commas, spaces, semicolons, or line breaks.
 - History retention days for the integration's recorder purge helper. Default: `10`.
 - Whether to add another server in the same integration entry.

@@ -163,6 +163,13 @@ def _server_context_for_host(
     return None
 
 
+def _use_sudo_for_host(hass: HomeAssistant, host: str) -> bool:
+    """Use the configured privilege policy, preserving legacy defaults."""
+
+    context = _server_context_for_host(hass, host)
+    return bool(context[1].get("use_sudo", True)) if context else True
+
+
 def _history_retention_days(value: object) -> int:
     """Return a bounded recorder retention window in days."""
 
@@ -198,16 +205,17 @@ def _log_line_count(value: object) -> int:
     return vol.All(vol.Coerce(int), vol.Range(min=1, max=1000))(value)
 
 
-def _build_update_commands(target_os: str) -> list[str]:
+def _build_update_commands(target_os: str, use_sudo: bool = True) -> list[str]:
     """Return update commands ordered by target OS preference."""
 
+    sudo = "sudo " if use_sudo else ""
     linux_cmd = (
         "if command -v apt-get >/dev/null 2>&1; then "
-        "sudo apt-get update && sudo apt-get -y upgrade; "
+        f"{sudo}apt-get update && {sudo}apt-get -y upgrade; "
         "elif command -v dnf >/dev/null 2>&1; then "
-        "sudo dnf -y upgrade; "
+        f"{sudo}dnf -y upgrade; "
         "elif command -v yum >/dev/null 2>&1; then "
-        "sudo yum -y update; "
+        f"{sudo}yum -y update; "
         "else echo 'No supported package manager found'; fi"
     )
     windows_cmd = (
@@ -219,22 +227,23 @@ def _build_update_commands(target_os: str) -> list[str]:
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
-def _build_package_list_update_commands(target_os: str) -> list[str]:
+def _build_package_list_update_commands(target_os: str, use_sudo: bool = True) -> list[str]:
     """Return commands that refresh package metadata without upgrading packages."""
 
+    sudo = "sudo " if use_sudo else ""
     linux_cmd = (
         "if command -v apt-get >/dev/null 2>&1; then "
-        "sudo apt-get update; "
+        f"{sudo}apt-get update; "
         "elif command -v dnf >/dev/null 2>&1; then "
-        "sudo dnf -y makecache; "
+        f"{sudo}dnf -y makecache; "
         "elif command -v yum >/dev/null 2>&1; then "
-        "sudo yum -y makecache; "
+        f"{sudo}yum -y makecache; "
         "elif command -v pacman >/dev/null 2>&1; then "
-        "sudo pacman -Sy --noconfirm; "
+        f"{sudo}pacman -Sy --noconfirm; "
         "elif command -v zypper >/dev/null 2>&1; then "
-        "sudo zypper --non-interactive refresh; "
+        f"{sudo}zypper --non-interactive refresh; "
         "elif command -v apk >/dev/null 2>&1; then "
-        "sudo apk update; "
+        f"{sudo}apk update; "
         "else echo 'No supported package manager found'; exit 1; fi"
     )
     windows_cmd = (
@@ -246,11 +255,12 @@ def _build_package_list_update_commands(target_os: str) -> list[str]:
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
-def _build_reboot_commands(target_os: str) -> list[str]:
+def _build_reboot_commands(target_os: str, use_sudo: bool = True) -> list[str]:
     """Return reboot commands ordered by target OS preference."""
 
     windows_cmd = "shutdown /r /t 0"
-    linux_cmd = "sudo reboot &"
+    sudo = "sudo " if use_sudo else ""
+    linux_cmd = f"{sudo}reboot &"
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
@@ -265,22 +275,23 @@ def _build_test_connection_commands(target_os: str) -> list[str]:
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
-def _build_clear_package_cache_commands(target_os: str) -> list[str]:
+def _build_clear_package_cache_commands(target_os: str, use_sudo: bool = True) -> list[str]:
     """Return commands that clear package manager caches."""
 
+    sudo = "sudo " if use_sudo else ""
     linux_cmd = (
         "if command -v apt-get >/dev/null 2>&1; then "
-        "sudo apt-get clean; "
+        f"{sudo}apt-get clean; "
         "elif command -v dnf >/dev/null 2>&1; then "
-        "sudo dnf clean all; "
+        f"{sudo}dnf clean all; "
         "elif command -v yum >/dev/null 2>&1; then "
-        "sudo yum clean all; "
+        f"{sudo}yum clean all; "
         "elif command -v pacman >/dev/null 2>&1; then "
-        "sudo pacman -Sc --noconfirm; "
+        f"{sudo}pacman -Sc --noconfirm; "
         "elif command -v zypper >/dev/null 2>&1; then "
-        "sudo zypper clean --all; "
+        f"{sudo}zypper clean --all; "
         "elif command -v apk >/dev/null 2>&1; then "
-        "sudo apk cache clean; "
+        f"{sudo}apk cache clean; "
         "else echo 'No supported package manager found'; exit 1; fi"
     )
     windows_cmd = (
@@ -290,11 +301,14 @@ def _build_clear_package_cache_commands(target_os: str) -> list[str]:
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
-def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
+def _build_restart_service_commands(
+    target_os: str, service: str, use_sudo: bool = True,
+) -> list[str]:
     """Return commands that restart a service."""
 
+    sudo = "sudo " if use_sudo else ""
     linux_cmd = (
-        f"if command -v systemctl >/dev/null 2>&1; then sudo systemctl restart {service}; "
+        f"if command -v systemctl >/dev/null 2>&1; then {sudo}systemctl restart {service}; "
         "else echo 'systemctl not available'; exit 1; fi"
     )
     windows_cmd = (
@@ -308,6 +322,7 @@ def _build_docker_container_commands(
     action: str,
     container: str,
     restore_restart_policy: str | None = None,
+    use_sudo: bool = True,
 ) -> list[str]:
     """Return Docker actions that verify the resulting running state."""
 
@@ -382,16 +397,19 @@ def _build_docker_container_commands(
             f"[ \"$state\" = \"{expected_state}\" ]{restore_policy_command}"
         )
 
-    return [_command("docker"), _command("sudo docker")]
+    commands = [_command("docker")]
+    if use_sudo:
+        commands.append(_command("sudo docker"))
+    return commands
 
 
-def _build_docker_prune_commands() -> list[str]:
+def _build_docker_prune_commands(use_sudo: bool = True) -> list[str]:
     """Return commands that prune unused Docker resources."""
 
-    return [
-        "docker system prune -f",
-        "sudo docker system prune -f",
-    ]
+    commands = ["docker system prune -f"]
+    if use_sudo:
+        commands.append("sudo docker system prune -f")
+    return commands
 
 
 def _build_diagnostics_commands() -> list[str]:
@@ -414,27 +432,25 @@ def _build_diagnostics_commands() -> list[str]:
     return [linux_cmd, windows_cmd]
 
 
-def _build_tail_logs_commands(target_os: str, service: str | None, lines: int) -> list[str]:
+def _build_tail_logs_commands(
+    target_os: str, service: str | None, lines: int, use_sudo: bool = True,
+) -> list[str]:
     """Return commands that fetch recent logs."""
 
     if service:
-        linux_cmd = (
-            f"journalctl -u {service} -n {lines} --no-pager 2>/dev/null || "
-            f"sudo journalctl -u {service} -n {lines} --no-pager"
-        )
+        linux_cmd = f"journalctl -u {service} -n {lines} --no-pager"
         windows_cmd = (
             "powershell.exe -NoProfile -NonInteractive -Command "
             f"\"Get-EventLog -LogName System -Newest {lines} | Format-Table -AutoSize\""
         )
     else:
-        linux_cmd = (
-            f"journalctl -n {lines} --no-pager 2>/dev/null || "
-            f"sudo journalctl -n {lines} --no-pager"
-        )
+        linux_cmd = f"journalctl -n {lines} --no-pager"
         windows_cmd = (
             "powershell.exe -NoProfile -NonInteractive -Command "
             f"\"Get-EventLog -LogName System -Newest {lines} | Format-Table -AutoSize\""
         )
+    if use_sudo:
+        linux_cmd = f"{linux_cmd} 2>/dev/null || sudo {linux_cmd}"
     return _build_os_command_sequence(target_os, linux_cmd, windows_cmd)
 
 
@@ -845,28 +861,36 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         """Refresh package metadata on a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_package_list_update_commands(target_os)
+        commands = _build_package_list_update_commands(
+            target_os, use_sudo=_use_sudo_for_host(hass, call.data["host"])
+        )
         return await _run_remote_action(call, "update_package_list", commands, "update_package_list")
 
     async def handle_update_packages(call: ServiceCall) -> ServiceResponse:
         """Update packages on a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_update_commands(target_os)
+        commands = _build_update_commands(
+            target_os, use_sudo=_use_sudo_for_host(hass, call.data["host"])
+        )
         return await _run_remote_action(call, "update_packages", commands, "update_packages")
 
     async def handle_upgrade_packages(call: ServiceCall) -> ServiceResponse:
         """Upgrade packages on a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_update_commands(target_os)
+        commands = _build_update_commands(
+            target_os, use_sudo=_use_sudo_for_host(hass, call.data["host"])
+        )
         return await _run_remote_action(call, "upgrade_packages", commands, "upgrade_packages")
 
     async def handle_reboot_host(call: ServiceCall) -> ServiceResponse:
         """Reboot a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_reboot_commands(target_os)
+        commands = _build_reboot_commands(
+            target_os, use_sudo=_use_sudo_for_host(hass, call.data["host"])
+        )
         return await _run_remote_action(call, "reboot_host", commands, "reboot")
 
     async def handle_test_connection(call: ServiceCall) -> ServiceResponse:
@@ -880,7 +904,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         """Restart one service on a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_restart_service_commands(target_os, call.data["service"])
+        commands = _build_restart_service_commands(
+            target_os, call.data["service"],
+            use_sudo=_use_sudo_for_host(hass, call.data["host"]),
+        )
         return await _run_remote_action(call, "restart_service", commands, "restart_service")
 
     async def handle_docker_container_action(call: ServiceCall, action: str) -> ServiceResponse:
@@ -900,6 +927,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             action,
             container_name,
             restore_restart_policy,
+            use_sudo=_use_sudo_for_host(hass, host),
         )
         response = await _run_remote_action(
             call,
@@ -951,7 +979,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         return await _run_remote_action(
             call,
             "prune_docker",
-            _build_docker_prune_commands(),
+            _build_docker_prune_commands(use_sudo=_use_sudo_for_host(hass, call.data["host"])),
             "prune_docker",
         )
 
@@ -959,7 +987,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         """Clear package manager caches on a server via SSH."""
 
         target_os = _normalize_target_os(call.data.get("target_os"))
-        commands = _build_clear_package_cache_commands(target_os)
+        commands = _build_clear_package_cache_commands(
+            target_os, use_sudo=_use_sudo_for_host(hass, call.data["host"])
+        )
         return await _run_remote_action(
             call,
             "clear_package_cache",
@@ -985,6 +1015,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             target_os,
             call.data.get("service"),
             call.data["lines"],
+            use_sudo=_use_sudo_for_host(hass, call.data["host"]),
         )
         return await _run_remote_action(call, "tail_logs", commands, "tail_logs")
 

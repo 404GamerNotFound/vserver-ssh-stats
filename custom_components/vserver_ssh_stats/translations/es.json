@@ -16,6 +16,7 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
+          "use_sudo": "Usar sudo (desactivar en sistemas solo root como LibreELEC)",
           "monitored_ports": "Puertos TCP supervisados",
           "history_retention_days": "Retención del historial (días)"
         }
@@ -90,6 +91,7 @@
           "key": "Archivo de clave",
           "clear_key": "Eliminar archivo de clave almacenado",
           "target_os": "Sistema de destino",
+          "use_sudo": "Usar sudo (desactivar en sistemas solo root como LibreELEC)",
           "monitored_ports": "Puertos TCP supervisados",
           "history_retention_days": "Retención del historial (días)"
         }
@@ -108,6 +110,7 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
+          "use_sudo": "Usar sudo (desactivar en sistemas solo root como LibreELEC)",
           "monitored_ports": "Puertos TCP supervisados",
           "history_retention_days": "Retención del historial (días)"
         }
@@ -168,6 +171,7 @@
           "key": "Archivo de clave",
           "add_another": "Agregar otro servidor después de este",
           "target_os": "Sistema de destino",
+          "use_sudo": "Usar sudo (desactivar en sistemas solo root como LibreELEC)",
           "monitored_ports": "Puertos TCP supervisados",
           "history_retention_days": "Retención del historial (días)"
         }

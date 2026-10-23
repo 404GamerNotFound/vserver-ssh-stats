@@ -16,6 +16,7 @@
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
           "target_os": "Système cible",
+          "use_sudo": "Utiliser sudo (désactiver pour les systèmes root comme LibreELEC)",
           "monitored_ports": "Ports TCP surveillés",
           "history_retention_days": "Conservation de l'historique (jours)"
         }
@@ -90,6 +91,7 @@
           "key": "Fichier de clé",
           "clear_key": "Supprimer le fichier de clé enregistré",
           "target_os": "Système cible",
+          "use_sudo": "Utiliser sudo (désactiver pour les systèmes root comme LibreELEC)",
           "monitored_ports": "Ports TCP surveillés",
           "history_retention_days": "Conservation de l'historique (jours)"
         }
@@ -108,6 +110,7 @@
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
           "target_os": "Système cible",
+          "use_sudo": "Utiliser sudo (désactiver pour les systèmes root comme LibreELEC)",
           "monitored_ports": "Ports TCP surveillés",
           "history_retention_days": "Conservation de l'historique (jours)"
         }
@@ -168,6 +171,7 @@
           "key": "Fichier de clé",
           "add_another": "Ajouter un autre serveur après celui-ci",
           "target_os": "Système cible",
+          "use_sudo": "Utiliser sudo (désactiver pour les systèmes root comme LibreELEC)",
           "monitored_ports": "Ports TCP surveillés",
           "history_retention_days": "Conservation de l'historique (jours)"
         }

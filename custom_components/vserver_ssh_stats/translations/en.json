@@ -16,6 +16,7 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
+          "use_sudo": "Use sudo (disable for root-only systems such as LibreELEC)",
           "monitored_ports": "Monitored TCP ports",
           "history_retention_days": "History retention days"
         }
@@ -90,6 +91,7 @@
           "key": "Key file",
           "clear_key": "Remove stored key file",
           "target_os": "Target system",
+          "use_sudo": "Use sudo (disable for root-only systems such as LibreELEC)",
           "monitored_ports": "Monitored TCP ports",
           "history_retention_days": "History retention days"
         }
@@ -108,6 +110,7 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
+          "use_sudo": "Use sudo (disable for root-only systems such as LibreELEC)",
           "monitored_ports": "Monitored TCP ports",
           "history_retention_days": "History retention days"
         }
@@ -168,6 +171,7 @@
           "key": "Key file",
           "add_another": "Add another server after this",
           "target_os": "Target system",
+          "use_sudo": "Use sudo (disable for root-only systems such as LibreELEC)",
           "monitored_ports": "Monitored TCP ports",
           "history_retention_days": "History retention days"
         }
