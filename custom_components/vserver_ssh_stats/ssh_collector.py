@@ -392,7 +392,7 @@ def _build_collection_commands(
     storage_timeout: int | None = None,
     use_sudo: bool = True,
 ) -> list[CollectionCommand]:
-    """Return collection commands ordered by target OS preference."""
+    """Honor explicit OS profiles; only auto mode tries both operating systems."""
 
     normalized = (target_os or "auto").strip().lower()
     env_parts = [
@@ -414,7 +414,9 @@ def _build_collection_commands(
     if collector_mode != "base":
         return [] if normalized == "windows" else linux_commands
     if normalized == "windows":
-        return [windows_command, *linux_commands]
+        return [windows_command]
+    if normalized in {"debian", "raspbian"}:
+        return linux_commands
     return [*linux_commands, windows_command]
 
 
@@ -472,6 +474,7 @@ async def _async_collect_raw(
     data: Dict[str, Any] | None = None
     timing: Dict[str, float] = {}
     last_error: Exception | None = None
+    attempt_errors: list[str] = []
     for cmd, stdin_data in _build_collection_commands(
         target_os,
         collector_mode,
@@ -495,15 +498,24 @@ async def _async_collect_raw(
                 host_key_fingerprints,
             )
             data = _parse_json_output(out)
-            break
+            return data, timing, None
         except Exception as err:
             last_error = err
+            platform = "Linux" if stdin_data is not None else "Windows"
+            attempt_errors.append(f"{platform}: {str(err) or err.__class__.__name__}")
             _LOGGER.debug(
-                "%s collector command failed for %s: %s",
+                "%s %s collector command failed for %s: %s",
+                platform,
                 collector_mode,
                 host,
                 err,
             )
+            # Retrying another shell cannot fix credentials or a pinned host key.
+            # Keep the exception type so async_sample can trigger reauthentication.
+            if isinstance(err, (paramiko.AuthenticationException, SSHHostKeyError)):
+                return None, timing, err
+    if len(attempt_errors) > 1:
+        last_error = RuntimeError("All collector attempts failed: " + "; ".join(attempt_errors))
     return data, timing, last_error
 
 

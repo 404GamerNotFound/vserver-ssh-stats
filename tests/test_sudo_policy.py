@@ -127,7 +127,7 @@ def test_collector_environment_and_windows_commands(mode, use_sudo):
     assert len(linux) == 2
     assert all(f"VSERVER_SSH_STATS_USE_SUDO={int(use_sudo)}" in cmd for cmd, _ in linux)
     assert builder("windows", mode, use_sudo=use_sudo) == (
-        [("powershell", None), *linux] if mode == "base" else []
+        [("powershell", None)] if mode == "base" else []
     )
 
 

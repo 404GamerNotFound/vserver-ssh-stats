@@ -104,7 +104,7 @@ During setup you provide:
 - One or more verified OpenSSH `SHA256:` host-key fingerprints.
 - SSH username.
 - Password or SSH private-key path.
-- Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`.
+- Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`. Explicit Linux profiles only run the Bash collector; Windows only runs PowerShell. Only `auto` tries both. When all attempts fail, the collection error retains each attempt's failure instead of hiding the Linux error behind a PowerShell fallback error.
 - **Use sudo** (default: enabled). Disable for root-only systems such as LibreELEC. Built-in Linux actions then run directly as the SSH user, and all collectors skip sudo fallbacks. To change an existing server, select **Edit an existing server** in the integration options. Services and buttons use the saved setting for the target host; user-written commands (`run_command` and custom command sensors) are executed unchanged.
 - Optional monitored TCP ports, separated by commas, spaces, semicolons, or line breaks.
 - History retention days for the integration's recorder purge helper. Default: `10`.
