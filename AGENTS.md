@@ -6,7 +6,7 @@ ohne das ganze Repo neu zu scannen. Bei größeren Architekturänderungen bitte 
 ## Was ist das Projekt
 
 Home Assistant Custom Integration (`custom_components/vserver_ssh_stats/`), agentless Monitoring
-von Linux-Servern/VPS über SSH. Kein Agent auf dem Zielhost nötig — ein Bash-Collector-Skript wird
+von Linux-Servern/VPS über SSH. Kein Agent auf dem Zielhost nötig — ein portables Shell-Collector-Skript wird
 per SSH ausgeführt, JSON zurückgegeben, geparst, als HA-Entities exponiert. HACS-Integration,
 Domain `vserver_ssh_stats`, aktueller Owner/Repo: `404GamerNotFound/vserver-ssh-stats`.
 
@@ -16,7 +16,7 @@ wird bei Feature-Arbeit routinemäßig gepflegt, die übersetzten READMEs typisc
 
 ## Architektur — wer macht was
 
-- **`remote_collector.sh`** — Bash-Skript, läuft auf dem Zielhost, gibt ein großes JSON-Objekt aus.
+- **`remote_collector.sh`** — portables Shell-Skript (Bash, dash, BusyBox ash; SSH-Aufruf via `sh -s`), läuft auf dem Zielhost, gibt ein großes JSON-Objekt aus.
   Wird als String in Python eingebettet (`remote_script.py` liefert `REMOTE_SCRIPT`).
   Modi via `VSERVER_SSH_STATS_MODE`: `full` (Standard-Poll inkl. Docker/Pakete),
   `base`/unset-ish (schneller Poll ohne Docker/Pakete), `packages`, `docker`, `storage`
@@ -87,9 +87,10 @@ wird bei Feature-Arbeit routinemäßig gepflegt, die übersetzten READMEs typisc
 - `paramiko` ist in dieser Test-Umgebung **nicht installiert** (auch nicht in
   `requirements_test.txt`) — Code, der paramiko direkt braucht, kann hier nicht ausgeführt/getestet
   werden, nur `py_compile` + Linting + manuelle Review.
-- `remote_collector.sh`-Tests: `tests/test_remote_script.py`, laufen das Skript direkt mit `bash`
+- `remote_collector.sh`-Tests: `tests/test_remote_script.py`, laufen das Skript direkt mit `bash`, `dash` und optional `busybox ash`
   und Shell-Function-Stubs (z. B. `fail2ban-client() { ... }`, `command -v` findet Shell-Functions
-  automatisch). Muster: `VSERVER_SSH_STATS_MODE=base bash ...` zum schnellen Testen ohne Docker/Pakete.
+  automatisch; für Namen mit Bindestrichen unter dash ausführbare Datei-Stubs nutzen).
+  CI installiert BusyBox und prüft alle Modi zusätzlich mit ausschließlich BusyBox-Applets im PATH. Muster: `VSERVER_SSH_STATS_MODE=base bash ...` zum schnellen Testen ohne Docker/Pakete.
 - Standard-Testlauf:
   ```bash
   python3 -m pytest tests/ -q
@@ -155,7 +156,7 @@ extern schon gefixt, sonst aufgreifen.
 
 - Kleine, additive Python-Skripte zum Editieren von `strings.json`/`translations/*.json` statt
   manueller Edits — verhindert Reihenfolge-/Encoding-Fehler über 5 Dateien hinweg.
-- Neue Bash-Collector-Felder: immer 4 Stellen anfassen — Funktion definieren, in den
+- Neue Shell-Collector-Felder: immer 4 Stellen anfassen — Funktion definieren, in den
   unconditional-Call-Block einhängen, in `prepare_numeric_json_values` einreihen, im finalen
   `printf`-Format-String UND der Argumentliste ergänzen. Danach `bash -n` + Stub-Test.
 - Vor jedem Abschluss: `py_compile` + `ruff check` (ohne `.sh`) + `pytest -q` + Pycache-Cleanup.

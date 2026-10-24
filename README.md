@@ -92,6 +92,11 @@ For each configured server, the integration can collect:
 
 ## Configuration
 
+The Linux collector supports Bash, dash, and BusyBox ash and runs via `sh`.
+LibreELEC does not require a separate Bash installation; disable **Use sudo** when
+connecting as its root user. Optional tools that are not installed may leave their
+corresponding metrics unavailable.
+
 The integration is configured through the Home Assistant UI. Adding or editing a server performs a real SSH connectivity check (a lightweight `echo` command over the configured credentials and pinned host key) before the form can be submitted, so authentication, host-key, and network problems surface immediately instead of only after the entry is created.
 
 During setup you provide:
@@ -104,7 +109,7 @@ During setup you provide:
 - One or more verified OpenSSH `SHA256:` host-key fingerprints.
 - SSH username.
 - Password or SSH private-key path.
-- Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`. Explicit Linux profiles only run the Bash collector; Windows only runs PowerShell. Only `auto` tries both. When all attempts fail, the collection error retains each attempt's failure instead of hiding the Linux error behind a PowerShell fallback error.
+- Target system profile: `auto`, `debian`, `raspbian`, or experimental `windows`. Explicit Linux profiles only run the portable shell collector; Windows only runs PowerShell. Only `auto` tries both. When all attempts fail, the collection error retains each attempt's failure instead of hiding the Linux error behind a PowerShell fallback error.
 - **Use sudo** (default: enabled). Disable for root-only systems such as LibreELEC. Built-in Linux actions then run directly as the SSH user, and all collectors skip sudo fallbacks. To change an existing server, select **Edit an existing server** in the integration options. Services and buttons use the saved setting for the target host; user-written commands (`run_command` and custom command sensors) are executed unchanged.
 - Optional monitored TCP ports, separated by commas, spaces, semicolons, or line breaks.
 - History retention days for the integration's recorder purge helper. Default: `10`.
@@ -453,7 +458,7 @@ Always reference the private key file, not the `.pub` public key. For Home Assis
 - Prefer SSH private-key authentication over password authentication.
 - Verify and pin each server's SSH host-key fingerprints through a trusted channel.
 - Use a dedicated monitoring account where possible.
-- The Linux collector expects `bash` or a compatible shell for the full metric set.
+- The Linux collector runs through `sh` and supports Bash, dash, and BusyBox ash (including LibreELEC).
 - The collector reads standard system files and runs read-only inspection commands where possible.
 - The collector never changes `/proc`, `/sys`, device, or powercap permissions. Metrics that are not readable remain unavailable.
 - SMART/NVMe/mdadm fallbacks use only non-interactive `sudo -n` with fixed read-only command forms and a maximum of 20 seconds per tool invocation.
@@ -499,7 +504,7 @@ Review the generated paths with `which <tool>` on the target host, validate with
 - HACS for the recommended installation path.
 - SSH access from Home Assistant to each monitored host.
 - Python dependency from the manifest: `paramiko>=3.4.0`.
-- Linux target with common tools such as `bash`, `/proc`, `df`, `awk`, `sed`, and optionally `systemctl`, `journalctl`, Docker, and package-manager tools.
+- Linux target with a POSIX-compatible `sh`, `/proc`, `df`, `awk`, `sed`, `tr`, and optionally `systemctl`, `journalctl`, Docker, and package-manager tools.
 - Optional package-manager support: `apt-get`, `dnf`, `yum`, `pacman`, `zypper`, or `apk`.
 - Optional storage health support: `smartmontools` (`smartctl`), `nvme-cli`, and `mdadm`. The collector first runs these tools as the SSH user and only then tries passwordless `sudo -n`. Missing tools, inaccessible devices, and partial reads are exposed separately instead of being reported as healthy.
 

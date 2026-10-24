@@ -407,8 +407,8 @@ def _build_collection_commands(
         env_parts.append(f"VSERVER_SSH_STATS_STORAGE_TIMEOUT={int(storage_timeout)}")
     env = " ".join(env_parts)
     linux_commands: list[CollectionCommand] = [
-        (f"{env} bash -s", REMOTE_SCRIPT),
-        (f"{env} /bin/bash -s", REMOTE_SCRIPT),
+        (f"{env} sh -s", REMOTE_SCRIPT),
+        (f"{env} /bin/sh -s", REMOTE_SCRIPT),
     ]
     windows_command: CollectionCommand = (WINDOWS_REMOTE_SCRIPT, None)
     if collector_mode != "base":

@@ -58,6 +58,8 @@ def test_explicit_linux_profiles_only_build_linux_commands(target_os, mode):
     assert len(commands) == 2
     assert all(payload == "linux collector payload" for _, payload in commands)
     assert all("powershell" not in command for command, _ in commands)
+    assert commands[0][0].endswith(" sh -s")
+    assert commands[1][0].endswith(" /bin/sh -s")
 
 
 @pytest.mark.parametrize("mode", ["base", "packages", "docker", "storage"])
@@ -68,28 +70,28 @@ def test_explicit_windows_never_builds_linux_fallbacks(mode):
 
 def test_linux_failure_reports_both_linux_errors_without_trying_windows():
     runner = Mock(side_effect=[
-        RuntimeError("bash: not found"),
+        RuntimeError("sh: not found"),
         RuntimeError("grep: unrecognized option -- P"),
         RuntimeError("powershell.exe: not found"),
     ])
     data, _, error = _collect(_namespace(runner), "debian")
     assert data is None
     assert runner.call_count == 2
-    assert "bash: not found" in str(error)
+    assert "sh: not found" in str(error)
     assert "grep: unrecognized option -- P" in str(error)
     assert "powershell" not in str(error)
 
 
 def test_auto_failure_keeps_linux_errors_alongside_windows_error():
     runner = Mock(side_effect=[
-        RuntimeError("bash: not found"),
+        RuntimeError("sh: not found"),
         RuntimeError("collector: unsupported tool option"),
         RuntimeError("powershell.exe: not found"),
     ])
     data, _, error = _collect(_namespace(runner))
     assert data is None
     assert runner.call_count == 3
-    assert "bash: not found" in str(error)
+    assert "sh: not found" in str(error)
     assert "collector: unsupported tool option" in str(error)
     assert "powershell.exe: not found" in str(error)
     assert "Linux" in str(error)
@@ -97,9 +99,9 @@ def test_auto_failure_keeps_linux_errors_alongside_windows_error():
 
 
 @pytest.mark.parametrize(("target_os", "results", "attempts"), [
-    ("auto", [RuntimeError("bash missing"), RuntimeError("bash missing"),
+    ("auto", [RuntimeError("sh missing"), RuntimeError("sh missing"),
               ('{"os":"Windows"}', {"collection_time_ms": 5})], 3),
-    ("debian", [RuntimeError("bash missing from PATH"),
+    ("debian", [RuntimeError("sh missing from PATH"),
                 ('{"os":"LibreELEC"}', {"collection_time_ms": 5})], 2),
     ("debian", [('{"os":"LibreELEC"}', {"collection_time_ms": 5})], 1),
 ])

@@ -3,18 +3,31 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
 REMOTE_SCRIPT_PATH = ROOT / "custom_components" / "vserver_ssh_stats" / "remote_collector.sh"
+
+
+@pytest.fixture(params=["bash", "dash", "busybox-ash"])
+def shell_command(request):
+    """Run portable regressions on real shell interpreters when installed."""
+    binary = "busybox" if request.param == "busybox-ash" else request.param
+    path = shutil.which(binary)
+    if path is None:
+        pytest.skip(f"{binary} is not installed")
+    return [path, "ash"] if binary == "busybox" else [path]
 
 
 def _remote_script() -> str:
     return REMOTE_SCRIPT_PATH.read_text()
 
 
-def _bash_function(name: str) -> str:
+def _shell_function(name: str) -> str:
     """Extract one top-level shell function from the embedded payload."""
 
     script = _remote_script()
@@ -23,11 +36,11 @@ def _bash_function(name: str) -> str:
     return script[start:end]
 
 
-def test_remote_script_has_valid_bash_syntax() -> None:
+def test_remote_script_has_valid_shell_syntax(shell_command) -> None:
     """Check the shell payload independently from the Python wrapper."""
 
     result = subprocess.run(
-        ["bash", "-n"],
+        [*shell_command, "-n"],
         input=_remote_script(),
         text=True,
         capture_output=True,
@@ -37,7 +50,7 @@ def test_remote_script_has_valid_bash_syntax() -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_docker_collector_includes_running_and_stopped_containers() -> None:
+def test_docker_collector_includes_running_and_stopped_containers(shell_command) -> None:
     """Verify one bulk Docker inventory supports stopped containers."""
 
     docker_stub = r'''
@@ -51,8 +64,13 @@ docker() {
         'abc123|running-app|repo/app:1|Up 2 hours|8080/tcp' \
         'def456|stopped-app|repo/app:2|Exited (0) 3 hours ago|'
       ;;
-    stats) printf '%s\n' 'abc123|running-app|1.25%|4.50%|128MiB / 512MiB|17' ;;
-    inspect) printf '%s\n' \
+    stats)
+      [ "$#" = 5 ] && [ "$5" = "abc123" ] || return 25
+      printf '%s\n' 'abc123|running-app|1.25%|4.50%|128MiB / 512MiB|17'
+      ;;
+    inspect)
+      [ "$#" = 5 ] && [ "$4" = "abc123" ] && [ "$5" = "def456" ] || return 26
+      printf '%s\n' \
       'abc123full|2|true|healthy|unless-stopped|monitoring|grafana||0|536870912' \
       'def456full|0|false|exited|no|monitoring|stopped-app||0|0' ;;
     system) printf '%s\n' 'Images|1.5GiB|500MiB (32%%)' 'Containers|64MiB|0B (0%%)' 'Local Volumes|2GiB|1GiB (50%%)' 'Build Cache|256MiB|128MiB (50%%)' ;;
@@ -61,7 +79,7 @@ docker() {
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=docker_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -94,11 +112,11 @@ docker() {
     assert data["docker_volumes_size_bytes"] == 2147483648
 
 
-def test_base_collector_reports_process_socket_and_raid_fields() -> None:
+def test_base_collector_reports_process_socket_and_raid_fields(shell_command) -> None:
     """The fast collector always returns the new diagnostic metric keys."""
 
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=_remote_script(),
         text=True,
         capture_output=True,
@@ -130,7 +148,7 @@ def test_base_collector_reports_process_socket_and_raid_fields() -> None:
     assert data["firewall_rules_count"] is None
 
 
-def test_failed_ssh_login_collector_counts_recent_failures() -> None:
+def test_failed_ssh_login_collector_counts_recent_failures(shell_command) -> None:
     """Count sshd authentication failures reported by journalctl."""
 
     journal_stub = r'''
@@ -144,7 +162,7 @@ EOF
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=journal_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -157,7 +175,7 @@ EOF
     assert data["failed_ssh_logins_15m"] == 2
 
 
-def test_firewall_status_collector_detects_active_ufw() -> None:
+def test_firewall_status_collector_detects_active_ufw(shell_command) -> None:
     """Report the active backend and rule count from `ufw status`."""
 
     ufw_stub = r'''
@@ -177,7 +195,7 @@ EOF
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=ufw_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -249,7 +267,7 @@ systemctl() { return 3; }
         ["bash"],
         input=(
             dnf_timer_stub
-            + _bash_function("read_unattended_upgrades_status")
+            + _shell_function("read_unattended_upgrades_status")
             + "\nread_unattended_upgrades_status\nprintf '%s' \"$unattended_upgrades_active\"\n"
         ),
         text=True,
@@ -280,7 +298,7 @@ systemctl() { return 3; }
         ["bash"],
         input=(
             apt_timer_stub
-            + _bash_function("read_unattended_upgrades_status")
+            + _shell_function("read_unattended_upgrades_status")
             + "\nread_unattended_upgrades_status\nprintf '%s' \"$unattended_upgrades_active\"\n"
         ),
         text=True,
@@ -292,7 +310,7 @@ systemctl() { return 3; }
     assert result.stdout == "0"
 
 
-def test_network_collector_allows_no_eligible_interfaces() -> None:
+def test_network_collector_allows_no_eligible_interfaces(shell_command) -> None:
     """An empty filtered interface list must not abort the collector."""
 
     network_stub = r'''
@@ -307,10 +325,10 @@ awk() {
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=(
             network_stub
-            + _bash_function("read_network_bytes")
+            + _shell_function("read_network_bytes")
             + "\nread_network_bytes\nprintf '%s|%s|%s' \"$rx\" \"$tx\" \"$network_interfaces_json\"\n"
         ),
         text=True,
@@ -322,12 +340,10 @@ awk() {
     assert result.stdout == "0|0|[]"
 
 
-def test_fail2ban_collector_aggregates_banned_ips_across_jails() -> None:
+def test_fail2ban_collector_aggregates_banned_ips_across_jails(tmp_path: Path, shell_command) -> None:
     """Sum "Currently banned" across every reported jail, capped at 5."""
 
-    fail2ban_stub = r'''
-timeout() { shift; "$@"; }
-fail2ban-client() {
+    fail2ban_stub = r'''#!/bin/sh
   if [ "$1" = "status" ] && [ -z "$2" ]; then
     cat <<'EOF'
 Status
@@ -349,15 +365,17 @@ Status for the jail: recidive
    `- Banned IP list:   1.2.3.4
 EOF
   fi
-}
 '''
+    stub_path = tmp_path / "fail2ban-client"
+    stub_path.write_text(fail2ban_stub)
+    stub_path.chmod(0o755)
     result = subprocess.run(
-        ["bash"],
-        input=fail2ban_stub + _remote_script(),
+        shell_command,
+        input=_remote_script(),
         text=True,
         capture_output=True,
         check=False,
-        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base"},
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base", "PATH": f"{tmp_path}:{os.environ['PATH']}"},
     )
 
     assert result.returncode == 0, result.stderr
@@ -370,11 +388,11 @@ EOF
     ]
 
 
-def test_fail2ban_collector_defaults_when_not_installed() -> None:
+def test_fail2ban_collector_defaults_when_not_installed(shell_command) -> None:
     """Report inactive fail2ban without failing the whole collector."""
 
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=_remote_script(),
         text=True,
         capture_output=True,
@@ -389,13 +407,13 @@ def test_fail2ban_collector_defaults_when_not_installed() -> None:
     assert data["fail2ban_jails"] == []
 
 
-def test_process_state_parser_handles_spaces_and_parentheses() -> None:
+def test_process_state_parser_handles_spaces_and_parentheses(shell_command) -> None:
     """Parse the state after the final command-name parenthesis in proc stat."""
 
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=(
-            _bash_function("parse_process_state")
+            _shell_function("parse_process_state")
             + "\nparse_process_state '123 (worker ) with spaces) Z 1 2 3'\n"
             + "printf '%s' \"$parsed_process_state\"\n"
         ),
@@ -408,11 +426,11 @@ def test_process_state_parser_handles_spaces_and_parentheses() -> None:
     assert result.stdout == "Z"
 
 
-def test_storage_collector_returns_a_stable_payload() -> None:
+def test_storage_collector_returns_a_stable_payload(shell_command) -> None:
     """The optional slow collector remains valid without storage tools."""
 
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=_remote_script(),
         text=True,
         capture_output=True,
@@ -441,7 +459,7 @@ def test_storage_collector_returns_a_stable_payload() -> None:
     assert isinstance(data["raid_details"], list)
 
 
-def test_docker_collector_does_not_turn_parse_errors_into_zero() -> None:
+def test_docker_collector_does_not_turn_parse_errors_into_zero(shell_command) -> None:
     """Map stats by container ID and preserve invalid percentages as null."""
 
     docker_stub = r'''
@@ -467,7 +485,7 @@ docker() {
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=docker_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -487,7 +505,7 @@ docker() {
     assert data["container_stats"][1]["mem"] is None
 
 
-def test_docker_collector_retries_an_all_zero_stats_sample(tmp_path: Path) -> None:
+def test_docker_collector_retries_an_all_zero_stats_sample(tmp_path: Path, shell_command) -> None:
     """Retry once when Docker reports zero CPU and memory for every container."""
 
     docker_stub = r'''
@@ -513,7 +531,7 @@ docker() {
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=docker_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -532,7 +550,7 @@ docker() {
     assert data["container_stats"][0]["mem"] == 8.75
 
 
-def test_docker_collector_falls_back_to_passwordless_sudo() -> None:
+def test_docker_collector_falls_back_to_passwordless_sudo(shell_command) -> None:
     """Use sudo for Docker metrics when the SSH user lacks socket access."""
 
     docker_stub = r'''
@@ -555,7 +573,7 @@ docker() {
 }
 '''
     result = subprocess.run(
-        ["bash"],
+        shell_command,
         input=docker_stub + _remote_script(),
         text=True,
         capture_output=True,
@@ -573,7 +591,7 @@ docker() {
     assert data["container_stats"][0]["mem"] == 7.5
 
 
-def test_disabled_sudo_skips_collector_fallbacks(tmp_path: Path) -> None:
+def test_disabled_sudo_skips_collector_fallbacks(tmp_path: Path, shell_command) -> None:
     """A present, successful no-op sudo must never run when disabled."""
     sudo_log = tmp_path / "sudo-calls"
     stubs = r'''
@@ -585,19 +603,22 @@ sudo() {
 }
 docker() { return 1; }
 ufw() { return 1; }
-firewall-cmd() { return 1; }
 nft() { return 1; }
 iptables() { return 1; }
-fail2ban-client() { return 1; }
 '''
+    for command in ("firewall-cmd", "fail2ban-client"):
+        stub_path = tmp_path / command
+        stub_path.write_text("#!/bin/sh\nexit 1\n")
+        stub_path.chmod(0o755)
     for mode in ("base", "docker"):
         for use_sudo in ("0", "1"):
             result = subprocess.run(
-                ["bash"], input=stubs + _remote_script(), text=True, capture_output=True,
+                shell_command, input=stubs + _remote_script(), text=True, capture_output=True,
                 env=os.environ | {
                     "VSERVER_SSH_STATS_MODE": mode,
                     "VSERVER_SSH_STATS_USE_SUDO": use_sudo,
                     "SUDO_LOG": str(sudo_log),
+                    "PATH": f"{tmp_path}:{os.environ['PATH']}",
                 },
                 check=False,
             )
@@ -613,3 +634,91 @@ fail2ban-client() { return 1; }
                 for command in expected:
                     assert command in calls
                 sudo_log.unlink()
+
+
+def test_human_bytes_uses_portable_numeric_parsing(shell_command) -> None:
+    """Unit conversion must work without Bash regexes or BASH_REMATCH."""
+    values = ["128MiB", "1.5 GiB", "10kB", "42B", "512", "2TB", "0B", "bad", ""]
+    result = subprocess.run(
+        [*shell_command, "-s", "--", *values],
+        input=_shell_function("human_bytes") + '\nfor value do human_bytes "$value"; printf "\\n"; done\n',
+        text=True, capture_output=True, check=True,
+    )
+    assert result.stdout.splitlines() == [
+        "134217728", "1610612736", "10000", "42", "512", "2000000000000", "0", "", "",
+    ]
+
+
+def test_memory_and_swap_parsing_on_portable_shell(tmp_path: Path, shell_command) -> None:
+    """Read proc values without Bash substitutions; MemAvailable wins over MemFree."""
+    meminfo = tmp_path / "meminfo"
+    meminfo.write_text(
+        "MemTotal: 1024 kB\nMemAvailable: 768 kB\nMemFree: 128 kB\n"
+        "SwapTotal: 2048 kB\nSwapFree: 1536 kB\n"
+    )
+    # Only redirect the fixed proc path in this isolated test function.
+    function = _shell_function("read_mem_stats").replace("/proc/meminfo", str(meminfo))
+    result = subprocess.run(
+        shell_command,
+        input="set -e\n" + function + '\nread_mem_stats\nprintf "%s|%s|%s|%s" "$mem" "$ram" "$swap_usage_json" "$swap_total_json"\n',
+        text=True, capture_output=True, check=True,
+    )
+    assert result.stdout == "25|1|25|2097152"
+
+
+def test_disk_fallback_preserves_loop_values_and_mount_spaces(shell_command) -> None:
+    """BusyBox-style df output must populate totals outside the read loop."""
+    stub = r'''
+set -e
+df() {
+  [ "$1" = "-Pk" ] || return 1
+  printf '%s\n' 'Filesystem 1024-blocks Used Available Capacity Mounted on' \
+    '/dev/root 1024 768 256 75% /' \
+    '/dev/sda1 2048 1024 1024 50% /storage/my\040media'
+}
+'''
+    result = subprocess.run(
+        shell_command,
+        input=(stub + _shell_function("json_escape") + _shell_function("read_disk_stats")
+               + '\nread_disk_stats\nprintf "%s\\n%s\\n%s\\n" "$disk" "$disk_total_bytes" "$disk_stats_json"\n'),
+        text=True, capture_output=True, check=True,
+    )
+    percent, total, devices = result.stdout.splitlines()
+    assert percent == "75"
+    assert total == "3145728"
+    assert json.loads(devices) == [
+        {"name": "/dev/root", "mount": "/", "total": 1048576, "free": 262144},
+        {"name": "/dev/sda1", "mount": "/storage/my media", "total": 2097152, "free": 1048576},
+    ]
+
+
+@pytest.mark.parametrize("mode", ["base", "full", "packages", "docker", "storage"])
+def test_collector_with_only_busybox_utilities(tmp_path: Path, mode) -> None:
+    """Exercise Linux proc/sys reads and BusyBox applets without GNU tools (CI)."""
+    busybox = shutil.which("busybox")
+    if busybox is None:
+        pytest.skip("busybox is not installed")
+    applets = tmp_path / "bin"
+    applets.mkdir()
+    subprocess.run([busybox, "--install", "-s", str(applets)], check=True)
+    result = subprocess.run(
+        [busybox, "ash", "-s"], input=_remote_script(), text=True, capture_output=True,
+        timeout=60,
+        env=os.environ | {
+            "PATH": str(applets), "VSERVER_SSH_STATS_MODE": mode,
+            "VSERVER_SSH_STATS_USE_SUDO": "0",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    data = json.loads(result.stdout)
+    if mode in {"base", "full"}:
+        assert data["ram"] > 0
+        assert 0 <= data["mem"] <= 100
+        assert data["uptime"] > 0
+        assert isinstance(data["network_interfaces"], list)
+    elif mode == "packages":
+        assert data["pkg_updates_complete"] == 1
+    elif mode == "docker":
+        assert data["docker_stats_complete"] == 1
+    else:
+        assert data["storage_stats_complete"] == 1

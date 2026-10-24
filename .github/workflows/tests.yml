@@ -47,11 +47,12 @@ jobs:
       - name: Check embedded remote shell script
         run: |
           {
-            echo "#!/usr/bin/env bash"
+            echo "#!/bin/sh"
             cat custom_components/vserver_ssh_stats/remote_collector.sh
           } > /tmp/vserver-ssh-stats-remote.sh
           bash -n /tmp/vserver-ssh-stats-remote.sh
-          shellcheck --severity=error /tmp/vserver-ssh-stats-remote.sh
+          dash -n /tmp/vserver-ssh-stats-remote.sh
+          shellcheck --severity=warning /tmp/vserver-ssh-stats-remote.sh
 
       - name: Audit workflow security
         run: zizmor .github/workflows
@@ -81,6 +82,11 @@ jobs:
 
       - name: Install test dependencies
         run: python -m pip install --disable-pip-version-check -r requirements_test.txt
+
+      - name: Install BusyBox for LibreELEC compatibility tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y busybox
 
       - name: Run tests
         run: pytest

@@ -58,6 +58,11 @@ jobs:
           python -m pip install --disable-pip-version-check -r requirements_test.txt
           python -m pip install --disable-pip-version-check homeassistant "paramiko>=3.4.0"
 
+      - name: Install BusyBox for LibreELEC compatibility tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y busybox
+
       - name: Run code and unit checks
         run: |
           PYTHONPYCACHEPREFIX=/tmp/vserver-ssh-stats-pycache \
