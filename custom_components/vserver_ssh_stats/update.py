@@ -95,7 +95,7 @@ class VServerIntegrationUpdateEntity(
         self,
         coordinator: VServerReleaseCoordinator,
         entry: ConfigEntry,
-        installed_version: str,
+        installed_version: str | None,
     ) -> None:
         """Initialize the integration update entity."""
 
@@ -140,8 +140,12 @@ async def async_setup_entry(
     """Set up the VServer SSH Stats release-update entity for a config entry."""
 
     integration = await async_get_integration(hass, DOMAIN)
+    # Newer HA loaders return AwesomeVersion, but UpdateEntity requires str | None.
+    # Passing the object to HA's cached-attribute setter can raise during comparison.
+    version = integration.version
+    installed_version = str(version) if version is not None else None
     coordinator = VServerReleaseCoordinator(hass)
     await coordinator.async_refresh()
     async_add_entities(
-        [VServerIntegrationUpdateEntity(coordinator, entry, integration.version)]
+        [VServerIntegrationUpdateEntity(coordinator, entry, installed_version)]
     )
