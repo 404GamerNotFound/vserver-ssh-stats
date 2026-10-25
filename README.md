@@ -301,7 +301,7 @@ If SSH authentication for a server fails three consecutive polls in a row *and* 
 The integration also raises Home Assistant Repairs (**Settings > Repairs**) for conditions that are easy to miss in a sensor list:
 
 - Degraded software RAID array.
-- Root filesystem mounted read-only.
+- Root filesystem mounted read-only. LibreELEC's intentionally read-only SquashFS root is exempt from this repair; its **Root Filesystem Read-only** sensor still reports the actual mount state. Other distributions and filesystem types retain the warning, including read-only ext4 filesystems on loop devices.
 - Elevated fail2ban activity (20 or more currently banned IPs).
 - A failing SMART/NVMe storage device.
 

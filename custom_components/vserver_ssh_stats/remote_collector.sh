@@ -1076,11 +1076,24 @@ read_journal_errors() {
 
 read_root_filesystem_status() {
   root_fs_readonly=0
+  root_fs_readonly_expected=0
   if [ -r /proc/mounts ]; then
     root_mount_options=$(awk '$2 == "/" {print $4; exit}' /proc/mounts 2>/dev/null || echo "")
     case ",$root_mount_options," in
       *,ro,*) root_fs_readonly=1 ;;
     esac
+    if [ "$root_fs_readonly" = "1" ]; then
+      root_mount_type=$(awk '$2 == "/" {print $3; exit}' /proc/mounts 2>/dev/null || echo "")
+      if [ "$root_mount_type" = "squashfs" ]; then
+        # LibreELEC boots an intentionally read-only SquashFS system image.
+        # Read the ID as data; never execute os-release. A loop device alone
+        # is not evidence that a read-only root filesystem is intentional.
+        root_os_id=$(sed -n 's/^ID=//p' /etc/os-release 2>/dev/null | tr -d "\"'" || true)
+        if [ "$root_os_id" = "libreelec" ]; then
+          root_fs_readonly_expected=1
+        fi
+      fi
+    fi
   fi
 }
 
@@ -1392,6 +1405,7 @@ prepare_numeric_json_values() {
   failed_systemd_units_json_count=$(number_or_null "$failed_systemd_units")
   journal_errors_json=$(number_or_null "$journal_errors")
   root_fs_readonly_json=$(number_or_null "$root_fs_readonly")
+  root_fs_readonly_expected_json=$(number_or_null "$root_fs_readonly_expected")
   failed_ssh_logins_15m_json=$(number_or_null "$failed_ssh_logins_15m")
   firewall_active_json=$(number_or_null "$firewall_active")
   firewall_backend_json=$(json_escape "$firewall_backend")
@@ -1527,7 +1541,7 @@ read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"cert_soonest_expiry_days":%s,"cert_entries":%s,"backup_jobs_detected":%s,"backup_job_failed":%s,"backup_jobs":%s,"unattended_upgrades_active":%s,"network_interfaces":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"root_fs_readonly_expected":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"cert_soonest_expiry_days":%s,"cert_entries":%s,"backup_jobs_detected":%s,"backup_job_failed":%s,"backup_jobs":%s,"unattended_upgrades_active":%s,"network_interfaces":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
@@ -1535,7 +1549,7 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"u
   "$software_raid_arrays_json" "$software_raid_degraded_json" "$software_raid_rebuild_active_json" "$software_raid_rebuild_progress_json" "$software_raid_rebuild_remaining_minutes_json" "$raid_arrays_json" \
   "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
-  "$journal_errors_json" "$root_fs_readonly_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
+  "$journal_errors_json" "$root_fs_readonly_json" "$root_fs_readonly_expected_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
   "$fail2ban_active_json" "$fail2ban_banned_count_json" "$fail2ban_jails_json" \
   "$cert_soonest_expiry_days_json" "$cert_entries_json" "$backup_jobs_detected_json" "$backup_job_failed_json" "$backup_jobs_json" \
   "$unattended_upgrades_active_json" "$network_interfaces_json" \

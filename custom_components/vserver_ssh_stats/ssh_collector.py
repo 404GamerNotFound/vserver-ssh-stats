@@ -292,6 +292,7 @@ WINDOWS_REMOTE_SCRIPT = (
     "security_updates=$null;last_boot=$boot.ToUniversalTime().ToString('o');"
     "kernel_version='Windows';primary_ip='';failed_systemd_units=$null;"
     "failed_systemd_units_list=@();journal_errors=$null;root_fs_readonly=$null;"
+    "root_fs_readonly_expected=0;"
     "failed_ssh_logins_15m=$null;firewall_active=$null;firewall_backend='';"
     "firewall_rules_count=$null;fail2ban_active=$null;fail2ban_banned_count=$null;"
     "fail2ban_jails=@();cert_soonest_expiry_days=$null;cert_entries=@();"
@@ -988,6 +989,9 @@ async def async_sample(
         "swap_total": swap_total_gib,
         "reboot_required": bool(_safe_int(data.get("reboot_required"))),
         "root_fs_readonly": bool(_safe_int(data.get("root_fs_readonly"))),
+        "root_fs_readonly_expected": bool(
+            _safe_int(data.get("root_fs_readonly_expected"))
+        ),
         "failed_systemd_units": _safe_int(data.get("failed_systemd_units")),
         "failed_systemd_units_list": ", ".join(failed_units),
         "failed_systemd_units_details": failed_units,

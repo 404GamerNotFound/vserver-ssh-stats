@@ -722,3 +722,61 @@ def test_collector_with_only_busybox_utilities(tmp_path: Path, mode) -> None:
         assert data["docker_stats_complete"] == 1
     else:
         assert data["storage_stats_complete"] == 1
+
+
+@pytest.mark.parametrize(("release", "mount", "expected"), [
+    ('ID=libreelec\n', '/dev/loop0 / squashfs ro,relatime 0 0', '1|1'),
+    ('ID="libreelec"\n', '/dev/loop1 / squashfs ro,relatime 0 0', '1|1'),
+    ("ID='libreelec'\n", '/dev/root / squashfs ro 0 0', '1|1'),
+    ('ID=libreelec\n', '/dev/loop0 / ext4 ro,relatime 0 0', '1|0'),
+    ('ID=debian\n', '/dev/sda1 / ext4 ro,errors=remount-ro 0 0', '1|0'),
+    ('ID=ubuntu\n', '/dev/loop0 / ext4 ro 0 0', '1|0'),
+    ('ID=raspbian\n', '/dev/mmcblk0p2 / ext4 rw,errors=remount-ro 0 0', '0|0'),
+    ('ID=debian\n', '/dev/loop0 / squashfs ro 0 0', '1|0'),
+    ('NAME=LibreELEC\nID=other\n', '/dev/loop0 / squashfs ro 0 0', '1|0'),
+    (None, '/dev/loop0 / squashfs ro 0 0', '1|0'),
+    ('ID=libreelec\n', '/dev/root / squashfs rw 0 0', '0|0'),
+    ('ID=libreelec\n', '/dev/loop0 /storage squashfs ro 0 0', '0|0'),
+    ('ID=libreelec\n', None, '0|0'),
+])
+def test_readonly_root_exception_is_limited_to_libreelec_squashfs(
+    tmp_path, shell_command, release, mount, expected,
+):
+    """Keep real mount state and retain warnings for other distros/filesystems."""
+    mounts = tmp_path / "mounts"
+    os_release = tmp_path / "os-release"
+    if mount is not None:
+        mounts.write_text(mount + '\n')
+    if release is not None:
+        os_release.write_text(release)
+    function = (_shell_function("read_root_filesystem_status")
+                .replace('/proc/mounts', str(mounts))
+                .replace('/etc/os-release', str(os_release)))
+    result = subprocess.run(
+        shell_command, text=True, capture_output=True, check=True,
+        input=('set -e\n' + function + '\nread_root_filesystem_status\n'
+               'printf "%s|%s" "$root_fs_readonly" "$root_fs_readonly_expected"\n'),
+    )
+    assert result.stdout == expected
+
+
+def test_libreelec_readonly_flags_survive_json_serialization(tmp_path, shell_command):
+    """Exercise the complete base payload, including printf argument alignment."""
+    mounts = tmp_path / "mounts"
+    mounts.write_text('/dev/loop0 / squashfs ro,relatime 0 0\n')
+    os_release = tmp_path / "os-release"
+    os_release.write_text('ID=libreelec\n')
+    function = _shell_function("read_root_filesystem_status")
+    script = _remote_script().replace(
+        function, function.replace('/proc/mounts', str(mounts))
+        .replace('/etc/os-release', str(os_release)),
+    )
+    result = subprocess.run(
+        shell_command, input=script, text=True, capture_output=True, check=True,
+        timeout=60,
+        env=os.environ | {"VSERVER_SSH_STATS_MODE": "base", "VSERVER_SSH_STATS_USE_SUDO": "0"},
+    )
+    data = json.loads(result.stdout)
+    assert data['root_fs_readonly'] == 1
+    assert data['root_fs_readonly_expected'] == 1
+    assert isinstance(data['failed_ssh_logins_15m'], int)

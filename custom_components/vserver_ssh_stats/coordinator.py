@@ -213,7 +213,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._sync_issue(
             "root_fs_readonly",
-            bool(data.get("root_fs_readonly")),
+            bool(data.get("root_fs_readonly"))
+            and not data.get("root_fs_readonly_expected", False),
             severity=ir.IssueSeverity.ERROR,
             translation_placeholders={"server": server_name},
         )
