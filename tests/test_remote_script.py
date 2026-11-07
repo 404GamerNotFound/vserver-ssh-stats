@@ -143,9 +143,14 @@ def test_base_collector_reports_process_socket_and_raid_fields(shell_command) ->
         "firewall_backend",
         "firewall_rules_count",
     }.issubset(data)
-    assert data["firewall_active"] == 0
-    assert data["firewall_backend"] == ""
-    assert data["firewall_rules_count"] is None
+    # This test runs against the real host, so the firewall state depends on
+    # the machine (GitHub runners have active iptables rules from Docker).
+    # Backend-specific behaviour is covered by the stubbed firewall tests.
+    assert data["firewall_active"] in (0, 1)
+    assert isinstance(data["firewall_backend"], str)
+    assert data["firewall_rules_count"] is None or isinstance(data["firewall_rules_count"], int)
+    if data["firewall_active"] == 0:
+        assert data["firewall_backend"] == ""
 
 
 def test_failed_ssh_login_collector_counts_recent_failures(shell_command) -> None:
