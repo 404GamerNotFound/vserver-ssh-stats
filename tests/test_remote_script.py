@@ -315,12 +315,10 @@ def test_network_collector_allows_no_eligible_interfaces(shell_command) -> None:
 
     network_stub = r'''
 set -e
-awk_calls=0
 awk() {
-  awk_calls=$((awk_calls + 1))
-  case "$awk_calls" in
-    1|2) printf '0\n' ;;
-    3) printf 'lo|0|0\n' ;;
+  case "$*" in
+    *split*) printf 'lo|0|0\n' ;;
+    *) printf '0\n' ;;
   esac
 }
 '''
