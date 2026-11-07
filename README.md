@@ -20,7 +20,7 @@ The integration connects to each configured server via SSH, runs a compact colle
 
 It is intended for vServers, VPS instances, Raspberry Pis, dedicated Linux hosts, and similar machines that can be reached from Home Assistant via SSH. A Windows target profile exists as an experimental fallback with a smaller metric set.
 
-Current integration version: **1.4.81**.
+Current integration version: **1.5.13**.
 
 ## Highlights
 
@@ -510,7 +510,7 @@ Review the generated paths with `which <tool>` on the target host, validate with
 
 ## Release Management
 
-- Current manifest version: **1.4.81**.
+- Current manifest version: **1.5.13**.
 - The `Auto Version Bump` workflow increments the patch version on every push to `main` via `scripts/bump_version.py`. It never falls behind the newest stable release tag, so after `v1.5.12` the next bump is `1.5.13`. Use `python scripts/bump_version.py --set X.Y.Z` to set a version manually.
 - The release tag is the single source of truth: when a `vX.Y.Z` tag is pushed (or a release is created in the GitHub UI), the `Build and publish release` workflow writes that version into `manifest.json` and attaches `vserver_ssh_stats.zip`, which HACS installs (`zip_release` in `hacs.json`). A manual version edit before tagging is not needed.
 - To repair an existing release asset, run the `Build and publish release` workflow manually with the tag as input.
@@ -518,7 +518,7 @@ Review the generated paths with `which <tool>` on the target host, validate with
 - Use [`.github/release_template.md`](.github/release_template.md) for manually drafted GitHub releases so every release keeps the same structure and includes the donation link.
 - If you use GitHub's generated release notes, [`.github/release.yml`](.github/release.yml) provides the category format. Keep the support section from the release template in the final release body.
 - The `Validate Release Notes` workflow checks published or edited releases and fails when the PayPal donation link is missing.
-- Create a Git tag and GitHub release, for example `v1.4.81`, so HACS can track updates reliably.
+- Create a Git tag and GitHub release, for example `v1.5.13`, so HACS can track updates reliably.
 
 ## Support the Project
 
