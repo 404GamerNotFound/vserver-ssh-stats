@@ -1,5 +1,7 @@
 {
   "content_in_root": false,
   "name": "VServer SSH Stats",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "vserver_ssh_stats.zip"
 }

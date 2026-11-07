@@ -4,9 +4,19 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)build, e.g. v1.5.12"
+        required: true
+        type: string
 
 permissions:
   contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   validate-release:
@@ -14,39 +24,54 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
+      tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
       asset: ${{ steps.version.outputs.asset }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
           persist-credentials: false
 
-      - name: Verify tag and manifest version
+      - name: Stamp release version into manifest
         id: version
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           python - <<'PY'
           import json
           import os
+          import re
           from pathlib import Path
 
+          # The release tag is the single source of truth for the shipped
+          # version. manifest.json on main is bumped independently by the
+          # auto-version-bump workflow, so it is overwritten here instead of
+          # being required to match (issue #210).
           tag = os.environ["RELEASE_TAG"]
-          if not tag.startswith("v"):
-              raise SystemExit(f"Release tag must start with v: {tag}")
+          if not re.fullmatch(r"v\d+\.\d+\.\d+(?:[-.]?[0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*)?", tag):
+              raise SystemExit(f"Release tag must look like vX.Y.Z[-suffix]: {tag}")
           version = tag[1:]
-          manifest = json.loads(
-              Path("custom_components/vserver_ssh_stats/manifest.json").read_text()
-          )
+          path = Path("custom_components/vserver_ssh_stats/manifest.json")
+          manifest = json.loads(path.read_text())
           if manifest.get("version") != version:
-              raise SystemExit(
-                  f"Tag {tag} does not match manifest version {manifest.get('version')}"
-              )
+              print(f"::notice::manifest.json {manifest.get('version')} -> {version}")
+          manifest["version"] = version
+          path.write_text(json.dumps(manifest, indent=2) + "\n")
           with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+              output.write(f"tag={tag}\n")
               output.write(f"version={version}\n")
-              output.write(f"asset=vserver_ssh_stats-{version}.zip\n")
+              output.write("asset=vserver_ssh_stats.zip\n")
           PY
+
+      - name: Upload stamped manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: stamped-manifest
+          path: custom_components/vserver_ssh_stats/manifest.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
@@ -109,15 +134,32 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: refs/tags/${{ needs.validate-release.outputs.tag }}
           persist-credentials: false
+
+      - name: Download stamped manifest
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: stamped-manifest
+          path: custom_components/vserver_ssh_stats
 
       - name: Build HACS release archive
         env:
           ASSET_NAME: ${{ needs.validate-release.outputs.asset }}
+          VERSION: ${{ needs.validate-release.outputs.version }}
         run: |
-          zip -r "$ASSET_NAME" custom_components/vserver_ssh_stats \
-            -x "*/__pycache__/*" "*.pyc" ".DS_Store"
+          # HACS (zip_release) extracts this archive directly into
+          # custom_components/vserver_ssh_stats/, so the files sit at the root.
+          (cd custom_components/vserver_ssh_stats && \
+            zip -r "$GITHUB_WORKSPACE/$ASSET_NAME" . \
+              -x "*/__pycache__/*" "__pycache__/*" "*.pyc" ".DS_Store")
           unzip -l "$ASSET_NAME"
+          shipped="$(unzip -p "$ASSET_NAME" manifest.json \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
+          if [ "$shipped" != "$VERSION" ]; then
+            echo "::error::Archive manifest version $shipped does not match release $VERSION"
+            exit 1
+          fi
 
       - name: Upload release archive
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
@@ -145,6 +187,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: refs/tags/${{ needs.validate-release.outputs.tag }}
           persist-credentials: false
 
       - name: Download release archive
@@ -160,15 +203,20 @@ jobs:
       - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.validate-release.outputs.tag }}
           VERSION: ${{ needs.validate-release.outputs.version }}
           ASSET_NAME: ${{ needs.validate-release.outputs.asset }}
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ASSET_NAME" --clobber
           else
+            prerelease_flag=""
+            case "$VERSION" in
+              *[!0-9.]*) prerelease_flag="--prerelease" ;;
+            esac
             gh release create "$TAG" "$ASSET_NAME" \
               --title "VServer SSH Stats $VERSION" \
               --notes-file release-notes.md \
-              --verify-tag
+              --verify-tag $prerelease_flag
           fi
