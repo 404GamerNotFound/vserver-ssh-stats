@@ -42,6 +42,6 @@ Pull requests additionally run HACS, Hassfest, CodeQL, dependency review, workfl
 6. Respond to review feedback promptly. We squash-merge most contributions.
 
 ## Release Coordination
-Maintainers use `scripts/bump_version.py` to prepare releases and update `CHANGELOG.md`. Contributors do not need to run release scripts unless explicitly requested.
+Versions are bumped automatically on `main` by `scripts/bump_version.py`; the release workflow stamps the release tag into `manifest.json` of the published `vserver_ssh_stats.zip`. Maintainers only tag the release and update `CHANGELOG.md`. Contributors do not need to run release scripts unless explicitly requested.
 
 Thank you for helping improve VServer SSH Stats!

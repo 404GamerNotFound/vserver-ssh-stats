@@ -23,7 +23,20 @@ def test_manifest_has_required_custom_integration_metadata() -> None:
     assert manifest["documentation"].startswith("https://")
     assert manifest["issue_tracker"].startswith("https://")
     assert manifest["iot_class"] == "local_polling"
-    assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"])
+    # Release builds stamp the tag version, which may carry a pre-release
+    # suffix such as 1.5.11-beta3.
+    assert re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?", manifest["version"])
+
+
+def test_hacs_uses_release_archive_built_by_release_workflow() -> None:
+    """HACS must install the archive whose manifest is stamped from the tag."""
+
+    hacs = json.loads((ROOT / "hacs.json").read_text())
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+
+    assert hacs.get("zip_release") is True
+    assert hacs.get("filename") == "vserver_ssh_stats.zip"
+    assert f"asset={hacs['filename']}" in workflow
 
 
 def test_json_files_are_valid() -> None:

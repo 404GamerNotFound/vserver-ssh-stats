@@ -1,6 +1,12 @@
 # Changelog
 
 ## Unreleased
+- Fixed releases shipping a stale `manifest.json` version (e.g. tag `v1.5.12`
+  containing `1.4.81`), which made Home Assistant and HACS show an update that
+  could never be installed (#210). The release workflow now stamps the version
+  from the release tag into the manifest and publishes it as the
+  `vserver_ssh_stats.zip` asset that HACS installs (`zip_release`), and the
+  automatic version bump on `main` never falls behind the newest release tag.
 - Fixed Linux collector aborts caused by normal empty or inactive optional
   probes: iptables hosts with no custom rules, unavailable
   `apt-daily-upgrade`/`dnf-automatic` timers, and empty optional network,
