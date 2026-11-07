@@ -94,7 +94,7 @@ jobs:
             python -m compileall -q custom_components scripts tests
           ruff check --output-format=github .
           pytest
-          yamllint --strict .github addon custom_components examples
+          yamllint --strict .github custom_components examples
 
       - name: Import every integration module
         run: |

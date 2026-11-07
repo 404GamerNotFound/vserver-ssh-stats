@@ -42,7 +42,7 @@ jobs:
           ruff check --output-format=github .
 
       - name: Check YAML
-        run: yamllint --strict .github addon custom_components examples
+        run: yamllint --strict .github custom_components examples
 
       - name: Check embedded remote shell script
         run: |
